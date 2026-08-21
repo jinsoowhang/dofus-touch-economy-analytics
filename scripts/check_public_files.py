@@ -23,13 +23,15 @@ def is_forbidden_tracked_path(path: str) -> bool:
         return False
 
     path_name = PurePosixPath(normalized_path).name
-    if path_name in FORBIDDEN_NAMES:
+    policy_path = normalized_path.lower()
+    policy_name = path_name.lower()
+    if policy_name in FORBIDDEN_NAMES:
         return True
-    if path_name == ".env" or path_name.startswith(".env."):
+    if policy_name == ".env" or policy_name.startswith(".env."):
         return True
-    if normalized_path.startswith(FORBIDDEN_PREFIXES):
+    if policy_path.startswith(FORBIDDEN_PREFIXES):
         return True
-    return normalized_path.endswith(FORBIDDEN_SUFFIXES)
+    return policy_path.endswith(FORBIDDEN_SUFFIXES)
 
 
 def find_forbidden_tracked_paths(paths: Iterable[str]) -> list[str]:
