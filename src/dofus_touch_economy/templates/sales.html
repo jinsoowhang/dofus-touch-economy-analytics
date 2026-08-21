@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Sales · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Sales</h1>
+  {% if notification %}
+    <p class="notification" role="status">{{ notification }}</p>
+  {% endif %}
+  {% if errors %}
+    <div role="alert">
+      <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <section>
+    <h2>Add an item to sell</h2>
+    <form method="post" action="/sales" class="sales-form">
+      <label for="sale-item">Item</label>
+      <select id="sale-item" name="item_uuid" required>
+        <option value="">Choose an item</option>
+        {% for item in item_choices %}
+          <option
+            value="{{ item.uuid }}"
+            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
+          >{{ item.display_name }} — {{ item.category or "Uncategorized" }}</option>
+        {% endfor %}
+      </select>
+      <label for="sale-lot-quantity">Lot quantity</label>
+      <input
+        id="sale-lot-quantity"
+        name="lot_quantity"
+        inputmode="numeric"
+        value="{{ form_values.get('lot_quantity', '1') }}"
+        required
+      >
+      <button type="submit">Add listing</button>
+    </form>
+  </section>
+
+  <section>
+    <div class="item-list-heading">
+      <h2>Currently selling</h2>
+      <span>{{ active_sales | length }} active</span>
+    </div>
+    {% if active_sales %}
+      <div class="sales-table-wrap">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Category</th>
+              <th class="numeric">Price</th>
+              <th class="numeric">Lot quantity</th>
+              <th>Selling since</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sale in active_sales %}
+              <tr>
+                <td><a href="/items/{{ sale.item_uuid }}">{{ sale.display_name }}</a></td>
+                <td>{{ sale.category or "Uncategorized" }}</td>
+                <td class="numeric">{% if sale.total_price %}{{ sale.total_price }} kamas{% else %}—{% endif %}</td>
+                <td class="numeric">{{ sale.lot_quantity }}</td>
+                <td>
+                  <time datetime="{{ sale.selling_started_at.isoformat() }}">
+                    {{ sale.selling_started_at.strftime("%Y-%m-%d %H:%M UTC") }}
+                  </time>
+                </td>
+                <td>
+                  <form method="post" action="/sales/{{ sale.uuid }}/sold" class="inline-form">
+                    <button type="submit">Mark sold</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No items are currently being sold.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <div class="item-list-heading">
+      <h2>Sold history</h2>
+      <span>{{ sold_sales | length }} sold</span>
+    </div>
+    {% if sold_sales %}
+      <div class="sales-table-wrap">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="numeric">Price</th>
+              <th class="numeric">Lot quantity</th>
+              <th>Selling started</th>
+              <th>Date sold</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sale in sold_sales %}
+              <tr>
+                <td><a href="/items/{{ sale.item_uuid }}">{{ sale.display_name }}</a></td>
+                <td class="numeric">{% if sale.total_price %}{{ sale.total_price }} kamas{% else %}—{% endif %}</td>
+                <td class="numeric">{{ sale.lot_quantity }}</td>
+                <td>
+                  <time datetime="{{ sale.selling_started_at.isoformat() }}">
+                    {{ sale.selling_started_at.strftime("%Y-%m-%d %H:%M UTC") }}
+                  </time>
+                </td>
+                <td>
+                  <time datetime="{{ sale.date_sold.isoformat() }}">
+                    {{ sale.date_sold.strftime("%Y-%m-%d %H:%M UTC") }}
+                  </time>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No completed sales yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

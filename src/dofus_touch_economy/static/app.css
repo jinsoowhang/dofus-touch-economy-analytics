@@ -112,6 +112,7 @@ form .htmx-indicator {
 
 input,
 textarea,
+select,
 button {
   border: 1px solid var(--border);
   border-radius: 0.35rem;
@@ -157,6 +158,7 @@ button {
 }
 
 .item-table-wrap,
+.sales-table-wrap,
 .recipe-table-wrap {
   overflow-x: auto;
 }
@@ -176,25 +178,34 @@ button {
   color: var(--muted);
 }
 
-.item-table {
+.item-table,
+.sales-table {
   border-collapse: collapse;
   min-width: 50rem;
   width: 100%;
 }
 
-.item-table th {
+.item-table th,
+.sales-table th {
   border-bottom: 2px solid var(--border);
   padding: 0.75rem;
   text-align: left;
 }
 
-.item-table th.numeric {
+.item-table th.numeric,
+.sales-table th.numeric {
   text-align: right;
 }
 
-.item-table td {
+.item-table td,
+.sales-table td {
   border-bottom: 1px solid var(--border);
   padding: 0;
+}
+
+.sales-table td,
+.sales-table th {
+  padding: 0.75rem;
 }
 
 .item-table tbody tr:hover,
@@ -214,6 +225,14 @@ button {
 .item-action .item-cell-link {
   color: var(--accent);
   font-weight: 700;
+}
+
+.inline-form {
+  display: block;
+}
+
+.inline-form button {
+  min-height: 2.2rem;
 }
 
 .recipe-table {

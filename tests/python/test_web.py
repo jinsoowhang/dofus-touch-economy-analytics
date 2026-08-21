@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from dofus_touch_economy.importers.service import ImportService
-from dofus_touch_economy.models import Item
+from dofus_touch_economy.models import Item, SaleListing
 from dofus_touch_economy.schemas import PriceObservationCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
@@ -39,6 +39,91 @@ def test_item_search_has_active_top_navigation_tab(client) -> None:
     assert 'class="site-tab is-active"' in response.text
     assert 'aria-current="page"' in response.text
     assert ">Item Search</a>" in response.text
+    assert 'href="/sales"' in response.text
+
+
+def test_sales_page_has_active_tab_and_alphabetical_item_choices(
+    client, session_factory, catalog_item
+) -> None:
+    with session_factory() as session:
+        session.add(
+            Item(
+                display_name="Alpha Item",
+                normalized_name="alpha item",
+                identity_category="",
+            )
+        )
+        session.commit()
+
+    response = client.get("/sales")
+
+    assert response.status_code == 200
+    assert ">Sales</a>" in response.text
+    assert 'class="site-tab is-active"' in response.text
+    assert 'aria-current="page"' in response.text
+    assert "Currently selling" in response.text
+    assert "Sold history" in response.text
+    assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
+
+
+def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:
+    created = client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "lot_quantity": "10"},
+        follow_redirects=False,
+    )
+
+    assert created.status_code == 303
+    assert created.headers["location"] == "/sales?notice=listing-added"
+    active_page = client.get(created.headers["location"])
+    assert "Sale listing has been added." in active_page.text
+    assert catalog_item.display_name in active_page.text
+    assert "10" in active_page.text
+    assert "Mark sold" in active_page.text
+
+    with session_factory() as session:
+        listing_uuid = session.scalar(select(SaleListing.uuid))
+    completed = client.post(
+        f"/sales/{listing_uuid}/sold",
+        follow_redirects=False,
+    )
+
+    assert completed.status_code == 303
+    assert completed.headers["location"] == "/sales?notice=listing-sold"
+    sold_page = client.get(completed.headers["location"])
+    assert "Item has been marked as sold." in sold_page.text
+    assert "0 active" in sold_page.text
+    assert "1 sold" in sold_page.text
+    assert "Date sold" in sold_page.text
+
+
+def test_sales_page_validates_lot_quantity_inline(client, catalog_item) -> None:
+    response = client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "lot_quantity": "0"},
+    )
+
+    assert response.status_code == 422
+    assert "Input should be greater than 0" in response.text
+    assert 'value="0"' in response.text
+
+
+def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> None:
+    response = client.post(
+        f"/items/{catalog_item.uuid}/price-observations",
+        data={
+            "total_price": "125000",
+            "observed_at": "2026-08-21T12:00:00Z",
+            "note": "",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    sales = client.get("/sales")
+    assert catalog_item.display_name in sales.text
+    assert "125000 kamas" in sales.text
+    assert "1 active" in sales.text
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:

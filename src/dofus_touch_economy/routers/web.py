@@ -11,13 +11,24 @@ from sqlalchemy.orm import Session
 
 from dofus_touch_economy.app import get_session, get_settings
 from dofus_touch_economy.config import Settings
-from dofus_touch_economy.schemas import InvalidationCreate, ItemCreate, PriceObservationCreate
+from dofus_touch_economy.schemas import (
+    InvalidationCreate,
+    ItemCreate,
+    PriceObservationCreate,
+    SaleListingCreate,
+)
 from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     ObservationConflict,
     ObservationNotFound,
     PriceService,
+)
+from dofus_touch_economy.services.sales import (
+    SaleItemNotFound,
+    SaleListingConflict,
+    SaleListingNotFound,
+    SalesService,
 )
 
 router = APIRouter()
@@ -82,6 +93,24 @@ def _error_response(request: Request, message: str, status_code: int) -> HTMLRes
     )
 
 
+def _sales_context(
+    service: SalesService,
+    *,
+    notification: str | None = None,
+    errors: list[str] | None = None,
+    form_values: dict[str, str] | None = None,
+) -> dict[str, object]:
+    return {
+        "active_tab": "sales",
+        "item_choices": service.item_choices(),
+        "active_sales": service.active(),
+        "sold_sales": service.sold(),
+        "notification": notification,
+        "errors": errors or [],
+        "form_values": form_values or {},
+    }
+
+
 def _form_values(form, fields: tuple[str, ...]) -> dict[str, str]:
     return {
         field: value if isinstance((value := form.get(field, "")), str) else "" for field in fields
@@ -119,6 +148,90 @@ def _mutation_response(
 @router.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
     return RedirectResponse(url="/items", status_code=307)
+
+
+@router.get("/sales", response_class=HTMLResponse)
+def sales_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    notice: str | None = Query(default=None),
+) -> HTMLResponse:
+    notifications = {
+        "listing-added": "Sale listing has been added.",
+        "listing-sold": "Item has been marked as sold.",
+    }
+    context = _sales_context(
+        SalesService(session),
+        notification=notifications.get(notice),
+    )
+    return templates.TemplateResponse(request, "sales.html", context=context)
+
+
+@router.post("/sales", response_class=HTMLResponse, response_model=None)
+async def start_sale(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("item_uuid", "lot_quantity"))
+    service = SalesService(session)
+    try:
+        command = SaleListingCreate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                errors=_validation_messages(error),
+                form_values=values,
+            ),
+            status_code=422,
+        )
+    try:
+        service.start(command)
+    except SaleItemNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                errors=["Item not found."],
+                form_values=values,
+            ),
+            status_code=404,
+        )
+    return RedirectResponse(url="/sales?notice=listing-added", status_code=303)
+
+
+@router.post(
+    "/sales/{listing_uuid}/sold",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def mark_sale_sold(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse | RedirectResponse:
+    service = SalesService(session)
+    try:
+        service.mark_sold(listing_uuid)
+    except SaleListingNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=["Sale listing not found."]),
+            status_code=404,
+        )
+    except SaleListingConflict:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=["Item has already been marked as sold."]),
+            status_code=409,
+        )
+    return RedirectResponse(url="/sales?notice=listing-sold", status_code=303)
 
 
 @router.get("/items", response_class=HTMLResponse)
