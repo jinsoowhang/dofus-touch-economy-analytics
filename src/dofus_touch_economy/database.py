@@ -1,23 +1,32 @@
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import URL, create_engine, event
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 class Base(DeclarativeBase):
     pass
 
 
-def create_engine_for_url(database_url: str) -> Engine:
-    database_path = make_url(database_url).database
+def create_engine_for_url(database_url: str | URL) -> Engine:
+    url = make_url(database_url)
+    database_path = url.database
     is_file_backed = database_path not in (None, "", ":memory:")
     if is_file_backed:
         Path(database_path).parent.mkdir(parents=True, exist_ok=True)
 
+    engine_options: dict[str, Any] = {
+        "connect_args": {"check_same_thread": False},
+    }
+    if database_path == ":memory:":
+        engine_options["poolclass"] = StaticPool
+
     engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
+        url,
+        **engine_options,
     )
 
     @event.listens_for(engine, "connect")

@@ -1,7 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import URL, create_engine, text
 
 from dofus_touch_economy.config import Settings
 from dofus_touch_economy.database import create_engine_for_url, create_session_factory
@@ -19,7 +20,9 @@ def test_settings_defaults_are_deterministic(
 
     assert settings.project_root == tmp_path.resolve()
     assert settings.database_path == (tmp_path / "data/app/dofus_touch.sqlite3").resolve()
-    assert settings.database_url == f"sqlite+pysqlite:///{settings.database_path}"
+    assert settings.database_url == URL.create(
+        "sqlite+pysqlite", database=str(settings.database_path)
+    )
     assert settings.market_context == "unspecified"
     assert settings.allowed_hosts == ("127.0.0.1", "localhost")
 
@@ -42,6 +45,20 @@ def test_database_paths_resolve_relative_to_project_root(
 
     assert absolute_settings.database_path == absolute_path.resolve()
     assert absolute_settings.database_path.is_absolute()
+
+
+def test_database_url_preserves_reserved_path_characters(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "prices?archived.sqlite3"
+    monkeypatch.setenv("DOFUS_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOFUS_APP_DATABASE_PATH", str(database_path))
+
+    settings = Settings.from_env()
+    engine = create_engine(settings.database_url)
+
+    assert engine.url.database == str(database_path.resolve())
+    engine.dispose()
 
 
 def test_empty_market_context_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,5 +109,21 @@ def test_session_factory_disables_autoflush_and_expiration() -> None:
     with session_factory() as session:
         assert session.autoflush is False
         assert session.expire_on_commit is False
+
+    engine.dispose()
+
+
+def test_in_memory_database_is_shared_across_threads() -> None:
+    engine = create_engine_for_url("sqlite+pysqlite:///:memory:")
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE marker (value INTEGER NOT NULL)"))
+        connection.execute(text("INSERT INTO marker VALUES (7)"))
+
+    def read_marker() -> int:
+        with engine.connect() as connection:
+            return connection.execute(text("SELECT value FROM marker")).scalar_one()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        assert executor.submit(read_marker).result() == 7
 
     engine.dispose()

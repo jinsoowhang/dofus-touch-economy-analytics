@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlalchemy import URL
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -13,8 +15,8 @@ class Settings:
     allowed_hosts: tuple[str, ...]
 
     @property
-    def database_url(self) -> str:
-        return f"sqlite+pysqlite:///{self.database_path}"
+    def database_url(self) -> URL:
+        return URL.create("sqlite+pysqlite", database=str(self.database_path))
 
     @classmethod
     def from_env(cls) -> Settings:
