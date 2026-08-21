@@ -2,7 +2,7 @@
   <h2>Price observations</h2>
   <p>Market: {{ detail.market_context }}</p>
   {% if detail.current_price %}
-    <p>Current unit price: {{ detail.current_price.unit_price }} kama</p>
+    <p class="numeric">Current unit price: {{ detail.current_price.unit_price }} kama</p>
   {% else %}
     <p>No current price has been recorded.</p>
   {% endif %}
@@ -36,7 +36,7 @@
   {% if detail.price_history %}
     <ul>
       {% for observation in detail.price_history %}
-        <li>
+        <li class="numeric">
           {{ observation.observed_at }} · {{ observation.total_price }} kama for {{ observation.lot_quantity }}
           {% if observation.invalidated_at %}
             — invalidated: {{ observation.invalidation_reason }}

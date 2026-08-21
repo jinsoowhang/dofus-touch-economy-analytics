@@ -2,9 +2,9 @@
   <h2>Crafting metrics</h2>
   {% if detail.recipe %}
     {% if detail.metrics.is_complete %}
-      <p>Recipe cost: {{ detail.metrics.recipe_cost }} kama</p>
-      {% if detail.metrics.profit is not none %}<p>Profit: {{ detail.metrics.profit }} kama</p>{% endif %}
-      {% if detail.metrics.roi is not none %}<p>ROI: {{ detail.metrics.roi }}</p>{% endif %}
+      <p class="numeric">Recipe cost: {{ detail.metrics.recipe_cost }} kama</p>
+      {% if detail.metrics.profit is not none %}<p class="numeric">Profit: {{ detail.metrics.profit }} kama</p>{% endif %}
+      {% if detail.metrics.roi is not none %}<p class="numeric">ROI: {{ detail.metrics.roi }}</p>{% endif %}
     {% else %}
       <p>Recipe cost is incomplete.</p>
     {% endif %}

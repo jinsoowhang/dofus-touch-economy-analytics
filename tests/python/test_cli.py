@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
-from dofus_touch_economy.cli import import_main
+import pytest
+import uvicorn
+
+from dofus_touch_economy.cli import import_main, web_main
 from dofus_touch_economy.database import Base, create_engine_for_url
 
 
@@ -60,3 +63,20 @@ def test_import_cli_returns_one_for_rejected_rows(
 
     assert result == 1
     assert "rejected=1" in capsys.readouterr().out
+
+
+def test_web_main_binds_loopback(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    assert web_main([]) == 0
+    assert calls[0][1]["host"] == "127.0.0.1"
+    assert calls[0][1]["factory"] is True
+
+
+def test_web_main_rejects_public_binding(capsys) -> None:
+    with pytest.raises(SystemExit) as error:
+        web_main(["--host", "0.0.0.0"])
+
+    assert error.value.code == 2
+    assert "public binding requires a separate security design" in capsys.readouterr().err

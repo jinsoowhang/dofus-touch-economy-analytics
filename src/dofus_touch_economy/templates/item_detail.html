@@ -12,15 +12,27 @@
     {% if detail.recipe %}
       <section>
         <h2>Recipe · {{ detail.recipe.profession }}</h2>
-        <ul>
+        <div class="recipe-table-wrap">
+        <table class="recipe-table">
+          <thead>
+            <tr><th>Ingredient</th><th class="numeric">Quantity</th><th>Status</th></tr>
+          </thead>
+          <tbody>
           {% for ingredient in detail.recipe.ingredients %}
-            <li>
-              {{ ingredient.quantity }} × {{ ingredient.display_name }}
-              {% if not ingredient.is_resolved %}— unresolved item{% elif not ingredient.current_price %}— price missing{% endif %}
-              {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">View item</a>{% endif %}
-            </li>
+            <tr>
+              <td>
+                {{ ingredient.display_name }}
+                {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">View item</a>{% endif %}
+              </td>
+              <td class="numeric">{{ ingredient.quantity }}</td>
+              <td class="status">
+                {% if not ingredient.is_resolved %}Unresolved item{% elif not ingredient.current_price %}Price missing{% else %}Priced{% endif %}
+              </td>
+            </tr>
           {% endfor %}
-        </ul>
+          </tbody>
+        </table>
+        </div>
       </section>
     {% endif %}
     {% include "fragments/recipe_metrics.html" %}

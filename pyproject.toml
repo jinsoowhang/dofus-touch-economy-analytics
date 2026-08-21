@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 dofus-import = "dofus_touch_economy.cli:import_main"
+dofus-web = "dofus_touch_economy.cli:web_main"
 
 [dependency-groups]
 dev = [

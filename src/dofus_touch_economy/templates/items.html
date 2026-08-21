@@ -3,10 +3,20 @@
 {% block content %}
   <h1>Item search</h1>
   <p>Market: {{ market_context }}</p>
-  <form method="get" action="/items">
+  <form method="get" action="/items" class="search-form">
     <label for="item-query">Item name</label>
-    <input id="item-query" name="q" value="{{ query }}" autocomplete="off">
+    <input
+      id="item-query"
+      name="q"
+      value="{{ query }}"
+      autocomplete="off"
+      hx-get="/items"
+      hx-trigger="input changed delay:250ms, search"
+      hx-target="#item-results"
+      hx-indicator="#search-indicator"
+    >
     <button type="submit">Search</button>
+    <span id="search-indicator" class="htmx-indicator" role="status">Searching…</span>
   </form>
   <section id="item-results">
     {% include "fragments/item_results.html" %}

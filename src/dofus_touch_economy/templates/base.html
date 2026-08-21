@@ -4,12 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Dofus Touch Economy{% endblock %}</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/htmx.min.js" defer></script>
   </head>
   <body>
-    <header>
+    <header class="site-header">
       <a href="/items">Dofus Touch Economy</a>
     </header>
-    <main>
+    <main class="page-shell">
       {% block content %}{% endblock %}
     </main>
   </body>

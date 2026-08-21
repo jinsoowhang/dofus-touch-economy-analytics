@@ -38,6 +38,14 @@ def test_htmx_search_returns_only_results_fragment(client, catalog_item) -> None
     assert "<html" not in response.text
 
 
+def test_search_input_uses_delayed_htmx_updates(client) -> None:
+    response = client.get("/items")
+
+    assert 'hx-get="/items"' in response.text
+    assert 'hx-trigger="input changed delay:250ms, search"' in response.text
+    assert 'hx-target="#item-results"' in response.text
+
+
 def test_unknown_html_item_returns_404(client) -> None:
     response = client.get(f"/items/{uuid4()}")
 

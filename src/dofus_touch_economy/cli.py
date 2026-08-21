@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 from collections.abc import Sequence
 from pathlib import Path
+
+import uvicorn
 
 from dofus_touch_economy.config import Settings
 from dofus_touch_economy.database import create_engine_for_url, create_session_factory
@@ -36,6 +39,37 @@ def import_main(argv: Sequence[str] | None = None) -> int:
         f"report={arguments.report_file}"
     )
     return 1 if summary.rejected_count else 0
+
+
+def web_main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run the local Dofus Touch economy website")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--reload", action="store_true")
+    arguments = parser.parse_args(argv)
+
+    if not _is_loopback(arguments.host):
+        parser.error("public binding requires a separate security design")
+    if not 1 <= arguments.port <= 65535:
+        parser.error("port must be between 1 and 65535")
+
+    uvicorn.run(
+        "dofus_touch_economy.app:create_app",
+        factory=True,
+        host=arguments.host,
+        port=arguments.port,
+        reload=arguments.reload,
+    )
+    return 0
+
+
+def _is_loopback(host: str) -> bool:
+    if host.casefold() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":
