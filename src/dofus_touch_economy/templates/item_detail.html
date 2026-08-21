@@ -6,7 +6,10 @@
     <p><a href="/items">Return to item search</a></p>
   {% else %}
     <h1>{{ detail.display_name }}</h1>
-    <p>{{ detail.category or "Uncategorized" }} · Market: {{ detail.market_context }}</p>
+    <p>
+      {{ detail.category or "Uncategorized" }} · Market: {{ detail.market_context }} ·
+      Catalog source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
+    </p>
     {% include "fragments/price_panel.html" %}
 
     {% if detail.recipe %}

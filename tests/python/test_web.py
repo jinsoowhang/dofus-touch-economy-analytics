@@ -46,6 +46,54 @@ def test_search_input_uses_delayed_htmx_updates(client) -> None:
     assert 'hx-target="#item-results"' in response.text
 
 
+def test_no_results_offers_typo_suggestion_and_manual_add_form(client, catalog_item) -> None:
+    response = client.get("/items", params={"q": "syntheic ore"})
+
+    assert response.status_code == 200
+    assert "No items found" in response.text
+    assert "Similar items" in response.text
+    assert catalog_item.display_name in response.text
+    assert 'action="/items"' in response.text
+    assert 'value="syntheic ore"' in response.text
+
+
+def test_html_creates_manual_item_and_redirects_to_detail(client) -> None:
+    response = client.post(
+        "/items",
+        data={"display_name": "New Blade", "category": "Sword"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/items/")
+    detail = client.get(response.headers["location"])
+    assert detail.status_code == 200
+    assert "New Blade" in detail.text
+    assert "Catalog source: Manual" in detail.text
+
+
+def test_html_duplicate_manual_item_redirects_to_existing_item(client, catalog_item) -> None:
+    response = client.post(
+        "/items",
+        data={"display_name": "Synthetic Ore", "category": "Ore"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/items/{catalog_item.uuid}"
+
+
+def test_html_manual_item_validation_is_inline(client) -> None:
+    response = client.post(
+        "/items",
+        data={"display_name": "   ", "category": "Keep Category"},
+    )
+
+    assert response.status_code == 422
+    assert "item name must not be blank" in response.text
+    assert 'value="Keep Category"' in response.text
+
+
 def test_unknown_html_item_returns_404(client) -> None:
     response = client.get(f"/items/{uuid4()}")
 

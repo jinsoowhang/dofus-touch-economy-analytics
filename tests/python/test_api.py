@@ -22,6 +22,36 @@ def test_api_search_matches_html_catalog(client, catalog_item) -> None:
     assert [item["uuid"] for item in response.json()] == [str(catalog_item.uuid)]
 
 
+def test_api_creates_manual_item_and_makes_it_searchable(client) -> None:
+    created = client.post(
+        "/api/v1/items",
+        json={"display_name": "  New   Blade  ", "category": " Sword "},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["display_name"] == "New Blade"
+    assert created.json()["category"] == "Sword"
+    assert created.json()["created_source"] == "manual"
+    search = client.get("/api/v1/items", params={"q": "new blade"})
+    assert [item["uuid"] for item in search.json()] == [created.json()["uuid"]]
+
+
+def test_api_rejects_duplicate_manual_item_with_existing_candidate(client, catalog_item) -> None:
+    response = client.post(
+        "/api/v1/items",
+        json={"display_name": "synthetic ore", "category": "ORE"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["candidates"][0]["uuid"] == str(catalog_item.uuid)
+
+
+def test_api_rejects_blank_manual_item_name(client) -> None:
+    response = client.post("/api/v1/items", json={"display_name": "   "})
+
+    assert response.status_code == 422
+
+
 def test_unknown_api_item_returns_404(client) -> None:
     response = client.get(f"/api/v1/items/{uuid4()}")
 

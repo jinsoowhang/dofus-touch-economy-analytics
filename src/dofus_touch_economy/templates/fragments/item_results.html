@@ -1,3 +1,10 @@
+{% if errors %}
+  <div role="alert">
+    <ul>
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
 {% if items %}
   <ul>
     {% for item in items %}
@@ -9,6 +16,38 @@
   </ul>
 {% elif query %}
   <p>No items found.</p>
+  {% if suggestions %}
+    <h2>Similar items</h2>
+    <p>Check these before adding a new catalog item:</p>
+    <ul>
+      {% for item in suggestions %}
+        <li>
+          <a href="/items/{{ item.uuid }}">{{ item.display_name }}</a>
+          <span>{{ item.category or "Uncategorized" }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <h2>Add a new item</h2>
+  <p>Use the exact in-game name. Category is optional and can be filled by a later import.</p>
+  <form method="post" action="/items" class="add-item-form">
+    <label for="new-item-name">Item name</label>
+    <input
+      id="new-item-name"
+      name="display_name"
+      value="{{ form_values.get('display_name', query) }}"
+      maxlength="200"
+      required
+    >
+    <label for="new-item-category">Category (optional)</label>
+    <input
+      id="new-item-category"
+      name="category"
+      value="{{ form_values.get('category', '') }}"
+      maxlength="200"
+    >
+    <button type="submit">Add item</button>
+  </form>
 {% else %}
   <p>Enter an item name to search.</p>
 {% endif %}

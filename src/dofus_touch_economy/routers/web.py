@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from dofus_touch_economy.app import get_session, get_settings
 from dofus_touch_economy.config import Settings
-from dofus_touch_economy.schemas import InvalidationCreate, PriceObservationCreate
-from dofus_touch_economy.services.catalog import CatalogService
+from dofus_touch_economy.schemas import InvalidationCreate, ItemCreate, PriceObservationCreate
+from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     ObservationConflict,
@@ -42,6 +42,26 @@ def _detail_context(
         "form_values": form_values or {},
         "default_observed_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "include_metrics_oob": include_metrics_oob,
+    }
+
+
+def _search_context(
+    catalog: CatalogService,
+    query: str,
+    market_context: str,
+    *,
+    errors: list[str] | None = None,
+    form_values: dict[str, str] | None = None,
+) -> dict[str, object]:
+    items = catalog.search(query, limit=50)
+    suggestions = catalog.suggest(query, limit=5) if query.strip() and not items else []
+    return {
+        "query": query,
+        "items": items,
+        "suggestions": suggestions,
+        "market_context": market_context,
+        "errors": errors or [],
+        "form_values": form_values or {},
     }
 
 
@@ -100,11 +120,58 @@ def search_items(
     settings: Annotated[Settings, Depends(get_settings)],
     q: str = Query(default=""),
 ) -> HTMLResponse:
-    results = CatalogService(session, settings.market_context).search(q, limit=50)
-    context = {"query": q, "items": results, "market_context": settings.market_context}
+    catalog = CatalogService(session, settings.market_context)
+    context = _search_context(catalog, q, settings.market_context)
     if _is_htmx(request):
         return templates.TemplateResponse(request, "fragments/item_results.html", context=context)
     return templates.TemplateResponse(request, "items.html", context=context)
+
+
+@router.post("/items", response_class=HTMLResponse, response_model=None)
+async def create_item(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("display_name", "category"))
+    catalog = CatalogService(session, settings.market_context)
+    try:
+        command = ItemCreate.model_validate(values)
+    except ValidationError as error:
+        context = _search_context(
+            catalog,
+            values["display_name"],
+            settings.market_context,
+            errors=_validation_messages(error),
+            form_values=values,
+        )
+        return templates.TemplateResponse(
+            request,
+            "items.html",
+            context=context,
+            status_code=422,
+        )
+
+    try:
+        detail = catalog.create_manual(command)
+    except CatalogItemConflict as error:
+        if len(error.candidates) == 1:
+            return RedirectResponse(url=f"/items/{error.candidates[0].uuid}", status_code=303)
+        context = _search_context(
+            catalog,
+            command.display_name,
+            settings.market_context,
+            errors=["That name matches multiple existing items. Choose the correct category."],
+            form_values=values,
+        )
+        return templates.TemplateResponse(
+            request,
+            "items.html",
+            context=context,
+            status_code=409,
+        )
+    return RedirectResponse(url=f"/items/{detail.uuid}", status_code=303)
 
 
 @router.get("/items/{item_uuid}", response_class=HTMLResponse)

@@ -8,11 +8,12 @@ from dofus_touch_economy.app import get_session, get_settings
 from dofus_touch_economy.config import Settings
 from dofus_touch_economy.schemas import (
     InvalidationCreate,
+    ItemCreate,
     ItemDetailResponse,
     ItemSummaryResponse,
     PriceObservationCreate,
 )
-from dofus_touch_economy.services.catalog import CatalogService
+from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     ObservationConflict,
@@ -30,6 +31,28 @@ def search_items(
     q: str = Query(default=""),
 ) -> list[ItemSummaryResponse]:
     return CatalogService(session, settings.market_context).search(q, limit=50)
+
+
+@router.post(
+    "/items",
+    response_model=ItemDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_item(
+    command: ItemCreate,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ItemDetailResponse:
+    try:
+        return CatalogService(session, settings.market_context).create_manual(command)
+    except CatalogItemConflict as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "catalog item identity already exists",
+                "candidates": [candidate.model_dump(mode="json") for candidate in error.candidates],
+            },
+        ) from error
 
 
 @router.get("/items/{item_uuid}", response_model=ItemDetailResponse)
