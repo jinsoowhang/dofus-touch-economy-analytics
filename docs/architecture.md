@@ -26,4 +26,4 @@ Keep transformation SQL portable where practical. Isolate DuckDB-specific behavi
 
 ## Current boundary
 
-The repository does not implement ingestion or domain models yet. Those remain blocked until exact dates, row grains, and duplicate cost semantics are confirmed.
+The repository does not implement ingestion or domain models yet. Ingestion remains blocked until deterministic ISO dates or approved source parsing rules are available. Domain models are additionally blocked until final row-grain and duplicate-cost semantics are confirmed.
