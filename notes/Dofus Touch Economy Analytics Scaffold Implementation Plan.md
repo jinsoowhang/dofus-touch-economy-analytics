@@ -70,10 +70,10 @@
 Run:
 
 ```bash
-mkdir -p data/raw/legacy data/samples data/warehouse
+mkdir -p data/raw data/samples data/warehouse
 ```
 
-Expected: the four directories exist and the command produces no output.
+Expected: the three directories exist and the command produces no output.
 
 - [ ] **Step 2: Create `.gitignore`**
 
@@ -109,6 +109,7 @@ data/warehouse/**
 
 # Private workflow bookkeeping
 skill-observations/
+.worktrees/
 
 # Editors and operating systems
 .vscode/
@@ -192,7 +193,7 @@ Place the private source exports here using these canonical names:
 - `item_recipes.csv`
 - `item_cost.csv`
 
-The `legacy/` directory holds superseded local source material. Everything in this directory except this README is ignored by Git.
+Everything in this directory except this README is ignored by Git.
 ```
 
 `data/samples/README.md`:
@@ -219,9 +220,9 @@ Run:
 git check-ignore --no-index -v data/raw/item_sales.csv
 git check-ignore --no-index -v data/raw/item_recipes.csv
 git check-ignore --no-index -v data/raw/item_cost.csv
-git check-ignore --no-index -v data/raw/legacy/Items.xlsx
 git check-ignore --no-index -v data/warehouse/dofus_touch.duckdb
 git check-ignore --no-index -v skill-observations/log.md
+git check-ignore --no-index -v .worktrees/analytics-scaffold
 ```
 
 Expected: every command prints the matching `.gitignore` rule and exits successfully.
@@ -246,8 +247,6 @@ Expected: both checks produce no output and the commit records only the listed p
 - Create locally and ignore: `data/raw/item_sales.csv`
 - Create locally and ignore: `data/raw/item_recipes.csv`
 - Create locally and ignore: `data/raw/item_cost.csv`
-- Move locally and ignore: `data/raw/legacy/Items.xlsx`
-- Remove locally: root `Items.xlsx` after its verified move
 
 - [ ] **Step 1: Resolve exactly one matching source for each CSV**
 
@@ -303,28 +302,16 @@ f9cfba6fb25c31f4e0db792dc57b35b05df97aa584065fc63f4ab65569a597b0  data/raw/item_
 1914c1ed77398b261e8b0145b9680a5859a199c3b5b6b055770ba3026d910601  data/raw/item_cost.csv
 ```
 
-- [ ] **Step 4: Verify and move the legacy workbook**
+- [ ] **Step 4: Verify all local data is ignored**
 
 Run:
 
 ```bash
-sha256sum -- Items.xlsx
-mv -- Items.xlsx data/raw/legacy/Items.xlsx
-sha256sum -- data/raw/legacy/Items.xlsx
-```
-
-Expected: both hash commands report `a4ffd92a722db452c5cc1e2b425aa02ce8adf668be2fae466efa532527c976eb`.
-
-- [ ] **Step 5: Verify all local data is ignored**
-
-Run:
-
-```bash
-git check-ignore -v data/raw/item_sales.csv data/raw/item_recipes.csv data/raw/item_cost.csv data/raw/legacy/Items.xlsx
+git check-ignore -v data/raw/item_sales.csv data/raw/item_recipes.csv data/raw/item_cost.csv
 git status --short
 ```
 
-Expected: all four files match `data/raw/**`; Git status does not list the raw files, workbook, or `skill-observations/`. This task creates no commit because all outputs are intentionally local-only.
+Expected: all three files match `data/raw/**`; Git status does not list the raw files or `skill-observations/`. This task creates no commit because all outputs are intentionally local-only.
 
 ## Task 3: Create the locked Python analytics toolchain
 
@@ -651,7 +638,7 @@ def test_rejects_private_or_generated_files() -> None:
         ".env",
         ".env.local",
         "data/raw/item_sales.csv",
-        "data/raw/legacy/Items.xlsx",
+        "private/local_source.xlsx",
         "data/warehouse/dofus_touch.duckdb",
         "dbt_packages/package/dbt_project.yml",
         "logs/dbt.log",
@@ -1166,7 +1153,7 @@ This repository builds a public, reproducible analytics engineering project for 
 ## Data safety
 
 - Never commit files under `data/raw/` except `data/raw/README.md`.
-- Never commit DuckDB files, spreadsheets, credentials, `.env` files, or task-observer logs.
+- Never commit DuckDB files, spreadsheets, credentials, `.env` files, task-observer logs, or worktree contents.
 - Commit only synthetic data under `data/samples/` unless redistribution rights are documented.
 - Preserve raw values; do not silently repair source data.
 - Do not automate interaction with the game client or scrape a source without explicit authorization.
@@ -1303,7 +1290,7 @@ Expected: the commit contains only the GitHub Actions workflow.
 - Public project identity: analytics engineering for player-observed Dofus Touch item prices, crafting economics, and sales behavior.
 - Local stack: Python 3.12, uv, dbt Core, dbt-duckdb, and DuckDB.
 - dbt layers: staging, intermediate, and marts.
-- Raw CSVs, the legacy workbook, DuckDB files, secrets, and task-observer files remain local and ignored.
+- Raw CSVs, DuckDB files, secrets, task-observer files, and worktree contents remain local and ignored.
 - Canonical local sources: `item_sales.csv`, `item_recipes.csv`, and `item_cost.csv` under `data/raw/`.
 - Only synthetic samples may be committed until source-data redistribution rights are established.
 - The source CSVs contain abbreviated dates; ingestion and date-dependent models require deterministic ISO dates or the source workbook.
@@ -1319,7 +1306,7 @@ Run:
 uv sync --locked --all-groups
 ./scripts/check.sh
 uv run pre-commit run --all-files
-git check-ignore -v data/raw/item_sales.csv data/raw/item_recipes.csv data/raw/item_cost.csv data/raw/legacy/Items.xlsx data/warehouse/dofus_touch.duckdb skill-observations/log.md
+git check-ignore -v data/raw/item_sales.csv data/raw/item_recipes.csv data/raw/item_cost.csv data/warehouse/dofus_touch.duckdb skill-observations/log.md .worktrees/analytics-scaffold
 git status --short
 ```
 
@@ -1332,7 +1319,7 @@ Expected: dependency installation and all checks pass; each local-only file prin
 
 ## Context
 
-Established the public and local foundation for a Dofus Touch economy analytics engineering project using three private CSV exports and a legacy workbook.
+Established the public and local foundation for a Dofus Touch economy analytics engineering project using three private CSV exports.
 
 ## Work completed
 
@@ -1340,7 +1327,6 @@ Established the public and local foundation for a Dofus Touch economy analytics 
 - Initialized Git with atomic commits.
 - Established raw-data, warehouse, secret, and generated-file boundaries.
 - Preserved the three CSV exports under concise canonical local names.
-- Moved the legacy workbook into ignored local storage.
 - Created a locked Python 3.12 environment with uv.
 - Created an empty dbt Core project targeting local DuckDB.
 - Added Python, SQL, dbt, public-file, pre-commit, and CI checks.
@@ -1348,7 +1334,7 @@ Established the public and local foundation for a Dofus Touch economy analytics 
 
 ## Decisions
 
-- Keep raw and legacy source data out of Git.
+- Keep raw source data out of Git.
 - Use dbt Core and DuckDB locally before introducing hosted infrastructure.
 - Do not create placeholder domain models.
 - Do not infer missing years from abbreviated CSV dates.

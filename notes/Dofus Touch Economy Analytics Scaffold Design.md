@@ -18,7 +18,6 @@ The first implementation milestone establishes the repository, local toolchain, 
 - Protect raw source data, local databases, credentials, and private working files from Git.
 - Define source, SQL, Python, documentation, testing, and naming conventions before models are added.
 - Preserve the three supplied CSVs under concise canonical names.
-- Preserve the legacy workbook locally without treating it as a canonical source.
 
 ## Non-goals for the scaffold milestone
 
@@ -103,7 +102,6 @@ The dbt project will live at the repository root for simple commands and onboard
 ├── analyses/
 ├── data/
 │   ├── raw/
-│   │   └── legacy/
 │   ├── samples/
 │   └── warehouse/
 ├── docs/
@@ -125,7 +123,7 @@ The dbt project will live at the repository root for simple commands and onboard
 └── README.md
 ```
 
-Tracked README files will explain the purpose of otherwise empty directories. Raw CSVs, the legacy workbook, DuckDB files, dbt artifacts, secrets, and task-observer bookkeeping will be ignored.
+Tracked README files will explain the purpose of otherwise empty directories. Raw CSVs, DuckDB files, dbt artifacts, secrets, and task-observer bookkeeping will be ignored.
 
 ## Data conventions
 
@@ -193,7 +191,7 @@ The initial scaffold does not create fake domain models merely to make `dbt buil
 
 ## Public repository safeguards
 
-- Original CSVs and the legacy workbook are not committed.
+- Original CSVs are not committed.
 - Only synthetic sample data may be committed until redistribution rights are established.
 - The MIT license applies to original project code, not source data or third-party game material.
 - The README identifies the repository as an unofficial fan analytics project and avoids official logos, artwork, or claims of affiliation.
@@ -209,15 +207,14 @@ Initialize a local Git repository without creating or pushing a remote. Commit t
 The milestone is complete when:
 
 1. The supplied files exist locally as ignored `data/raw/item_sales.csv`, `data/raw/item_recipes.csv`, and `data/raw/item_cost.csv`.
-2. The legacy workbook exists locally under `data/raw/legacy/` and is ignored.
-3. Public files use only the concise canonical dataset names.
-4. `uv` can create the locked Python 3.12 environment.
-5. dbt can validate its DuckDB profile and parse the empty project.
-6. Configured lint and pre-commit checks pass.
-7. GitHub Actions expresses the same repeatable repository checks without requiring raw data.
-8. README and project documentation explain the purpose, architecture, data boundary, setup, and current limitations.
-9. Project-specific `AGENTS.md`, `MEMORY.md`, and dated session notes reflect the approved conventions.
-10. Git status contains no accidentally tracked raw data, databases, credentials, generated artifacts, or private observer files.
+2. Public files use only the concise canonical dataset names.
+3. `uv` can create the locked Python 3.12 environment.
+4. dbt can validate its DuckDB profile and parse the empty project.
+5. Configured lint and pre-commit checks pass.
+6. GitHub Actions expresses the same repeatable repository checks without requiring raw data.
+7. README and project documentation explain the purpose, architecture, data boundary, setup, and current limitations.
+8. Project-specific `AGENTS.md`, `MEMORY.md`, and dated session notes reflect the approved conventions.
+9. Git status contains no accidentally tracked raw data, databases, credentials, generated artifacts, or private observer files.
 
 ## Next milestone
 
