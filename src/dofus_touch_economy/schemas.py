@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, PlainSerializer, field_validator
@@ -11,6 +11,27 @@ DecimalString = Annotated[
     Decimal,
     PlainSerializer(lambda value: str(value), return_type=str, when_used="json"),
 ]
+
+
+class ItemCreate(BaseModel):
+    display_name: str = Field(min_length=1, max_length=200)
+    category: str | None = Field(default=None, max_length=200)
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_display_whitespace(cls, value: str) -> str:
+        display_name = " ".join(value.split())
+        if not display_name:
+            raise ValueError("item name must not be blank")
+        return display_name
+
+    @field_validator("category")
+    @classmethod
+    def normalize_optional_category(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        category = " ".join(value.split())
+        return category or None
 
 
 class PriceObservationCreate(BaseModel):
@@ -43,6 +64,7 @@ class ItemSummaryResponse(BaseModel):
     uuid: UUID
     display_name: str
     category: str | None
+    created_source: Literal["imported", "manual"]
 
 
 class CurrentPriceResponse(BaseModel):
@@ -91,6 +113,7 @@ class ItemDetailResponse(BaseModel):
     uuid: UUID
     display_name: str
     category: str | None
+    created_source: Literal["imported", "manual"]
     market_context: str
     current_price: CurrentPriceResponse | None
     recipe: RecipeResponse | None

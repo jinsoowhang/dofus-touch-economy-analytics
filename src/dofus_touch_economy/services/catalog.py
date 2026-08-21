@@ -1,10 +1,15 @@
 from decimal import Decimal
+from difflib import SequenceMatcher
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from dofus_touch_economy.models import Item
+from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.schemas import (
+    ItemCreate,
     ItemDetailResponse,
     ItemSummaryResponse,
     RecipeIngredientResponse,
@@ -19,21 +24,96 @@ from dofus_touch_economy.services.pricing import (
 )
 
 
+class CatalogItemConflict(RuntimeError):
+    def __init__(self, candidates: list[ItemSummaryResponse]) -> None:
+        super().__init__("catalog item identity already exists")
+        self.candidates = candidates
+
+
 class CatalogService:
     def __init__(self, session: Session, market_context: str) -> None:
+        self._session = session
         self._catalog = CatalogRepository(session)
         self._prices = PriceService(session, market_context)
         self._market_context = market_context
 
     def search(self, query: str, limit: int = 50) -> list[ItemSummaryResponse]:
-        return [
-            ItemSummaryResponse(
-                uuid=item.uuid,
-                display_name=item.display_name,
-                category=item.category,
+        return [_item_summary(item) for item in self._catalog.search(query, limit)]
+
+    def suggest(self, query: str, limit: int = 5) -> list[ItemSummaryResponse]:
+        if not query.strip():
+            return []
+        normalized_query = normalize_item_name(query)
+        scored = [
+            (
+                SequenceMatcher(None, normalized_query, item.normalized_name).ratio(),
+                item,
             )
-            for item in self._catalog.search(query, limit)
+            for item in self._catalog.suggestion_candidates()
         ]
+        close_items = [
+            item
+            for score, item in sorted(
+                scored,
+                key=lambda entry: (
+                    -entry[0],
+                    entry[1].normalized_name,
+                    entry[1].identity_category,
+                    entry[1].id,
+                ),
+            )
+            if score >= 0.62
+        ][:limit]
+        return [_item_summary(item) for item in close_items]
+
+    def create_manual(self, command: ItemCreate) -> ItemDetailResponse:
+        normalized_name = normalize_item_name(command.display_name)
+        identity_category = (
+            "" if command.category is None else normalize_item_name(command.category)
+        )
+        existing = self._conflicting_items(
+            normalized_name,
+            identity_category,
+            category_was_supplied=command.category is not None,
+        )
+        if existing:
+            raise CatalogItemConflict(existing)
+
+        item = Item(
+            display_name=command.display_name,
+            normalized_name=normalized_name,
+            category=command.category,
+            identity_category=identity_category,
+            created_source="manual",
+        )
+        self._session.add(item)
+        try:
+            self._session.commit()
+        except IntegrityError:
+            self._session.rollback()
+            existing = self._conflicting_items(
+                normalized_name,
+                identity_category,
+                category_was_supplied=command.category is not None,
+            )
+            if existing:
+                raise CatalogItemConflict(existing) from None
+            raise
+        return self.detail(item.uuid)
+
+    def _conflicting_items(
+        self,
+        normalized_name: str,
+        identity_category: str,
+        *,
+        category_was_supplied: bool,
+    ) -> list[ItemSummaryResponse]:
+        if category_was_supplied:
+            exact = self._catalog.find_by_identity(normalized_name, identity_category)
+            candidates = [] if exact is None else [exact]
+        else:
+            candidates = self._catalog.find_by_normalized_name(normalized_name)
+        return [_item_summary(item) for item in candidates]
 
     def detail(self, item_uuid: UUID) -> ItemDetailResponse:
         item = self._catalog.get_by_uuid(item_uuid)
@@ -103,9 +183,19 @@ class CatalogService:
             uuid=item.uuid,
             display_name=item.display_name,
             category=item.category,
+            created_source=item.created_source,
             market_context=self._market_context,
             current_price=current_price,
             recipe=recipe_response,
             metrics=metrics_response,
             price_history=self._prices.history_for_item(item.id),
         )
+
+
+def _item_summary(item: Item) -> ItemSummaryResponse:
+    return ItemSummaryResponse(
+        uuid=item.uuid,
+        display_name=item.display_name,
+        category=item.category,
+        created_source=item.created_source,
+    )

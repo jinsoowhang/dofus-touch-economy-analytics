@@ -7,8 +7,8 @@ from sqlalchemy import select
 
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item
-from dofus_touch_economy.schemas import PriceObservationCreate
-from dofus_touch_economy.services.catalog import CatalogService
+from dofus_touch_economy.schemas import ItemCreate, PriceObservationCreate
+from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
 from dofus_touch_economy.services.pricing import PriceService
 
 
@@ -33,6 +33,50 @@ def test_search_normalizes_substrings_and_disambiguates_categories(
         ("Shared Name", "Fiber"),
         ("Shared Name", "Ore"),
     ]
+
+
+def test_creates_normalized_manual_catalog_item(session_factory) -> None:
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").create_manual(
+            ItemCreate(display_name="  New   Blade  ", category="  Sword  ")
+        )
+
+    assert detail.display_name == "New Blade"
+    assert detail.category == "Sword"
+    assert detail.created_source == "manual"
+    with session_factory() as session:
+        result = CatalogService(session, "Dodge").search("new blade")
+    assert [item.uuid for item in result] == [detail.uuid]
+
+
+def test_manual_create_rejects_existing_identity(session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        service = CatalogService(session, "Dodge")
+        with pytest.raises(CatalogItemConflict) as error:
+            service.create_manual(ItemCreate(display_name=" SYNTHETIC ORE ", category="ore"))
+
+    assert [candidate.uuid for candidate in error.value.candidates] == [catalog_item.uuid]
+
+
+def test_manual_create_without_category_rejects_any_exact_name_candidate(
+    session_factory, synthetic_files
+) -> None:
+    synthetic_files.write_cost_rows([("Shared Name", "Ore", "1"), ("Shared Name", "Fiber", "2")])
+    ImportService(session_factory).import_files(*synthetic_files.paths)
+
+    with session_factory() as session, pytest.raises(CatalogItemConflict) as error:
+        CatalogService(session, "Dodge").create_manual(ItemCreate(display_name="Shared Name"))
+
+    assert len(error.value.candidates) == 2
+
+
+def test_suggestions_find_typo_without_changing_identity(session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        service = CatalogService(session, "Dodge")
+        assert service.search("syntheic ore") == []
+        suggestions = service.suggest("syntheic ore")
+
+    assert [suggestion.uuid for suggestion in suggestions] == [catalog_item.uuid]
 
 
 def test_unresolved_ingredient_makes_metrics_incomplete(session_factory, synthetic_files) -> None:

@@ -263,13 +263,27 @@ class ImportService:
             )
         )
         if item is None:
-            item = Item(
-                display_name=row.raw_material.strip(),
-                normalized_name=normalized_name,
-                category=row.category.strip(),
-                identity_category=identity_category,
+            candidates = ImportService._name_candidates(session, normalized_name)
+            manual_uncategorized = (
+                candidates[0]
+                if len(candidates) == 1
+                and candidates[0].created_source == "manual"
+                and candidates[0].identity_category == ""
+                else None
             )
-            session.add(item)
+            if manual_uncategorized is not None:
+                item = manual_uncategorized
+                item.category = row.category.strip()
+                item.identity_category = identity_category
+            else:
+                item = Item(
+                    display_name=row.raw_material.strip(),
+                    normalized_name=normalized_name,
+                    category=row.category.strip(),
+                    identity_category=identity_category,
+                    created_source="imported",
+                )
+                session.add(item)
             session.flush()
         return item
 
@@ -311,6 +325,7 @@ class ImportService:
             normalized_name=normalized_name,
             category=None,
             identity_category="",
+            created_source="imported",
         )
         session.add(item)
         session.flush()

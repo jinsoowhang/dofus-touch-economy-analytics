@@ -23,6 +23,30 @@ class CatalogRepository:
         )
         return list(self._session.scalars(statement))
 
+    def find_by_identity(self, normalized_name: str, identity_category: str) -> Item | None:
+        return self._session.scalar(
+            select(Item).where(
+                Item.normalized_name == normalized_name,
+                Item.identity_category == identity_category,
+            )
+        )
+
+    def find_by_normalized_name(self, normalized_name: str) -> list[Item]:
+        statement = (
+            select(Item)
+            .where(Item.normalized_name == normalized_name)
+            .order_by(func.coalesce(Item.category, ""), Item.id)
+        )
+        return list(self._session.scalars(statement))
+
+    def suggestion_candidates(self) -> list[Item]:
+        statement = select(Item).order_by(
+            Item.normalized_name,
+            func.coalesce(Item.category, ""),
+            Item.id,
+        )
+        return list(self._session.scalars(statement))
+
     def get_by_uuid(self, item_uuid: UUID) -> Item | None:
         statement = (
             select(Item)

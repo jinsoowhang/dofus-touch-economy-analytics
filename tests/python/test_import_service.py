@@ -15,6 +15,9 @@ from dofus_touch_economy.models import (
     SourceItemName,
     SourceRecord,
 )
+from dofus_touch_economy.schemas import ItemCreate, PriceObservationCreate
+from dofus_touch_economy.services.catalog import CatalogService
+from dofus_touch_economy.services.pricing import PriceService
 
 
 def test_import_is_idempotent(session_factory, fixture_dir: Path) -> None:
@@ -93,6 +96,42 @@ def test_changed_checksum_creates_batch_without_duplicate_identity(
     with session_factory() as session:
         assert session.scalar(select(func.count(ImportBatch.id))) == 3
         assert session.scalar(select(func.count(Item.id))) == 2
+
+
+def test_import_enriches_sole_uncategorized_manual_item_without_losing_price(
+    session_factory, synthetic_files
+) -> None:
+    with session_factory() as session:
+        manual = CatalogService(session, "Dodge").create_manual(ItemCreate(display_name="New Ore"))
+    with session_factory() as session:
+        PriceService(session, "Dodge").record(
+            manual.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=125,
+                observed_at="2026-08-21T12:00:00Z",
+            ),
+        )
+    synthetic_files.write_cost_rows([("New Ore", "Ore", "10")])
+    synthetic_files.write_recipe(ingredient="New Ore")
+
+    ImportService(session_factory).import_files(*synthetic_files.paths)
+
+    with session_factory() as session:
+        matching = session.scalars(select(Item).where(Item.normalized_name == "new ore")).all()
+        assert len(matching) == 1
+        assert matching[0].uuid == manual.uuid
+        assert matching[0].category == "Ore"
+        assert matching[0].identity_category == "ore"
+        assert matching[0].created_source == "manual"
+        assert (
+            session.scalar(
+                select(func.count(PriceObservation.id)).where(
+                    PriceObservation.item_id == matching[0].id
+                )
+            )
+            == 1
+        )
 
 
 def test_file_contract_failure_happens_before_any_database_write(
