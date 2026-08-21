@@ -1,0 +1,66 @@
+<section id="price-panel">
+  <h2>Price observations</h2>
+  <p>Market: {{ detail.market_context }}</p>
+  {% if detail.current_price %}
+    <p>Current unit price: {{ detail.current_price.unit_price }} kama</p>
+  {% else %}
+    <p>No current price has been recorded.</p>
+  {% endif %}
+
+  {% if errors %}
+    <div role="alert">
+      <p>Could not save the observation:</p>
+      <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <form
+    method="post"
+    action="/items/{{ detail.uuid }}/price-observations"
+    hx-post="/items/{{ detail.uuid }}/price-observations"
+    hx-target="#price-panel"
+    hx-swap="outerHTML"
+  >
+    <label for="lot-quantity">Lot quantity</label>
+    <input id="lot-quantity" name="lot_quantity" inputmode="numeric" value="{{ form_values.get('lot_quantity', '1') }}" required>
+    <label for="total-price">Total price</label>
+    <input id="total-price" name="total_price" inputmode="numeric" value="{{ form_values.get('total_price', '') }}" required>
+    <label for="observed-at">Observed at (ISO 8601 with timezone)</label>
+    <input id="observed-at" name="observed_at" value="{{ form_values.get('observed_at', default_observed_at) }}" required>
+    <label for="price-note">Note</label>
+    <textarea id="price-note" name="note" maxlength="500">{{ form_values.get('note', '') }}</textarea>
+    <button type="submit">Record price</button>
+  </form>
+
+  <h3>History</h3>
+  {% if detail.price_history %}
+    <ul>
+      {% for observation in detail.price_history %}
+        <li>
+          {{ observation.observed_at }} · {{ observation.total_price }} kama for {{ observation.lot_quantity }}
+          {% if observation.invalidated_at %}
+            — invalidated: {{ observation.invalidation_reason }}
+          {% else %}
+            <form
+              method="post"
+              action="/price-observations/{{ observation.observation_uuid }}/invalidation"
+              hx-post="/price-observations/{{ observation.observation_uuid }}/invalidation"
+              hx-target="#price-panel"
+              hx-swap="outerHTML"
+            >
+              <label for="reason-{{ observation.observation_uuid }}">Invalidation reason</label>
+              <input id="reason-{{ observation.observation_uuid }}" name="reason" maxlength="500" required>
+              <button type="submit">Invalidate</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No price history yet.</p>
+  {% endif %}
+</section>
+{% if include_metrics_oob %}
+  {% set oob = true %}
+  {% include "fragments/recipe_metrics.html" %}
+{% endif %}

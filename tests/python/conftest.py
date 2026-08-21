@@ -1,7 +1,9 @@
 import csv
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +13,8 @@ from dofus_touch_economy.config import Settings
 from dofus_touch_economy.database import Base, create_engine_for_url, create_session_factory
 from dofus_touch_economy.importers.contracts import RECIPE_HEADERS
 from dofus_touch_economy.models import Item
+from dofus_touch_economy.schemas import PriceObservationCreate
+from dofus_touch_economy.services.pricing import PriceService
 
 
 @pytest.fixture
@@ -62,6 +66,36 @@ def catalog_item(session_factory) -> Item:
         session.add(item)
         session.commit()
         return item
+
+
+@dataclass(frozen=True)
+class PricedItem:
+    item_uuid: UUID
+    previous_uuid: UUID
+    current_uuid: UUID
+
+
+@pytest.fixture
+def priced_item(session_factory, catalog_item) -> PricedItem:
+    with session_factory() as session:
+        service = PriceService(session, "Dodge")
+        previous = service.record(
+            catalog_item.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=100,
+                observed_at=datetime(2026, 8, 19, tzinfo=UTC),
+            ),
+        )
+        current = service.record(
+            catalog_item.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=120,
+                observed_at=datetime(2026, 8, 20, tzinfo=UTC),
+            ),
+        )
+    return PricedItem(catalog_item.uuid, previous.observation_uuid, current.observation_uuid)
 
 
 @dataclass

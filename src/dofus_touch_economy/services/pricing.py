@@ -128,6 +128,12 @@ class PriceService:
             for observation in self._repository.history(item_id, self._market_context, limit)
         ]
 
+    def item_uuid_for_observation(self, observation_uuid: UUID) -> UUID:
+        observation = self._repository.get_by_uuid(observation_uuid, self._market_context)
+        if observation is None:
+            raise ObservationNotFound(str(observation_uuid))
+        return observation.item.uuid
+
 
 def _current_price_response(observation: PriceObservation) -> CurrentPriceResponse:
     return CurrentPriceResponse(
@@ -144,6 +150,7 @@ def _current_price_response(observation: PriceObservation) -> CurrentPriceRespon
 def _observation_response(observation: PriceObservation) -> PriceObservationResponse:
     return PriceObservationResponse(
         **_current_price_response(observation).model_dump(),
+        item_uuid=observation.item.uuid,
         note=observation.note,
         source=observation.source,
         invalidated_at=observation.invalidated_at,

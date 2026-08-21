@@ -56,6 +56,7 @@ class CurrentPriceResponse(BaseModel):
 
 
 class PriceObservationResponse(CurrentPriceResponse):
+    item_uuid: UUID
     note: str | None
     source: str
     invalidated_at: datetime | None

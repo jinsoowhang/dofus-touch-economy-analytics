@@ -4,6 +4,8 @@ from sqlalchemy import select
 
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item
+from dofus_touch_economy.schemas import PriceObservationCreate
+from dofus_touch_economy.services.pricing import PriceService
 
 
 def test_root_redirects_to_items(client) -> None:
@@ -54,3 +56,96 @@ def test_detail_labels_incomplete_recipe_cost(client, session_factory, synthetic
 
     assert response.status_code == 200
     assert "Recipe cost is incomplete" in response.text
+
+
+def test_htmx_price_create_returns_panel_and_recalculated_metrics(
+    client, session_factory, fixture_dir
+) -> None:
+    ImportService(session_factory).import_files(
+        fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        service = PriceService(session, "Dodge")
+        service.record(
+            items["synthetic ore"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=10,
+                observed_at="2026-08-20T12:00:00Z",
+            ),
+        )
+        service.record(
+            items["synthetic fiber"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=20,
+                observed_at="2026-08-20T12:00:00Z",
+            ),
+        )
+        crafted_uuid = items["synthetic widget"].uuid
+
+    response = client.post(
+        f"/items/{crafted_uuid}/price-observations",
+        headers={"HX-Request": "true"},
+        data={
+            "lot_quantity": "1",
+            "total_price": "125",
+            "observed_at": "2026-08-20T12:00:00Z",
+            "note": "Manual check",
+        },
+    )
+
+    assert response.status_code == 200
+    assert 'id="price-panel"' in response.text
+    assert 'hx-swap-oob="true"' in response.text
+    assert "Market: Dodge" in response.text
+    assert "Recipe cost: 80" in response.text
+    assert "Profit: 45" in response.text
+    assert "<html" not in response.text
+
+
+def test_html_validation_is_inline_and_preserves_safe_values(client, catalog_item) -> None:
+    response = client.post(
+        f"/items/{catalog_item.uuid}/price-observations",
+        headers={"HX-Request": "true"},
+        data={
+            "lot_quantity": "-1",
+            "total_price": "125",
+            "observed_at": "2026-08-20T12:00:00Z",
+            "note": "Keep this note",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Input should be greater than 0" in response.text
+    assert 'value="-1"' in response.text
+    assert "Keep this note" in response.text
+
+
+def test_non_htmx_price_create_redirects_to_detail(client, catalog_item) -> None:
+    response = client.post(
+        f"/items/{catalog_item.uuid}/price-observations",
+        data={
+            "lot_quantity": "1",
+            "total_price": "125",
+            "observed_at": "2026-08-20T12:00:00Z",
+            "note": "",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/items/{catalog_item.uuid}"
+
+
+def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
+    response = client.post(
+        f"/price-observations/{priced_item.current_uuid}/invalidation",
+        headers={"HX-Request": "true"},
+        data={"reason": "Mistyped price"},
+    )
+
+    assert response.status_code == 200
+    assert "Current unit price: 100" in response.text
+    assert 'hx-swap-oob="true"' in response.text

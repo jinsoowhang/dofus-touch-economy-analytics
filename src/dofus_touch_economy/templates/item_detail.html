@@ -7,11 +7,7 @@
   {% else %}
     <h1>{{ detail.display_name }}</h1>
     <p>{{ detail.category or "Uncategorized" }} · Market: {{ detail.market_context }}</p>
-    {% if detail.current_price %}
-      <p>Current unit price: {{ detail.current_price.unit_price }} kama</p>
-    {% else %}
-      <p>No current price has been recorded.</p>
-    {% endif %}
+    {% include "fragments/price_panel.html" %}
 
     {% if detail.recipe %}
       <section>
@@ -21,32 +17,12 @@
             <li>
               {{ ingredient.quantity }} × {{ ingredient.display_name }}
               {% if not ingredient.is_resolved %}— unresolved item{% elif not ingredient.current_price %}— price missing{% endif %}
+              {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">View item</a>{% endif %}
             </li>
           {% endfor %}
         </ul>
-        {% if detail.metrics.is_complete %}
-          <p>Recipe cost: {{ detail.metrics.recipe_cost }} kama</p>
-          {% if detail.metrics.profit is not none %}<p>Profit: {{ detail.metrics.profit }} kama</p>{% endif %}
-          {% if detail.metrics.roi is not none %}<p>ROI: {{ detail.metrics.roi }}</p>{% endif %}
-        {% else %}
-          <p>Recipe cost is incomplete.</p>
-        {% endif %}
       </section>
-    {% else %}
-      <p>No recipe is available for this item.</p>
     {% endif %}
-
-    <section>
-      <h2>Price history</h2>
-      {% if detail.price_history %}
-        <ul>
-          {% for observation in detail.price_history %}
-            <li>{{ observation.observed_at }} · {{ observation.total_price }} kama for {{ observation.lot_quantity }}</li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p>No price history yet.</p>
-      {% endif %}
-    </section>
+    {% include "fragments/recipe_metrics.html" %}
   {% endif %}
 {% endblock %}
