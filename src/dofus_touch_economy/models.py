@@ -80,6 +80,10 @@ class Item(Base):
         UniqueConstraint(
             "normalized_name", "identity_category", name="uq_items_normalized_identity"
         ),
+        CheckConstraint(
+            "created_source IN ('imported', 'manual')",
+            name="ck_items_created_source",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -88,6 +92,7 @@ class Item(Base):
     normalized_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     category: Mapped[str | None] = mapped_column(String)
     identity_category: Mapped[str] = mapped_column(String, nullable=False)
+    created_source: Mapped[str] = mapped_column(String(16), default="imported", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )

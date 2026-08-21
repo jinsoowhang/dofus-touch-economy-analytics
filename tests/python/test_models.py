@@ -77,6 +77,20 @@ def test_price_observation_rejects_nonpositive_lot_quantity(session) -> None:
         session.commit()
 
 
+def test_item_creation_source_is_constrained(session) -> None:
+    session.add(
+        Item(
+            display_name="Iron",
+            normalized_name="iron",
+            identity_category="ore",
+            created_source="unknown",
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_recipe_ingredient_position_is_unique(session) -> None:
     recipe = make_recipe(session)
     session.add_all(
