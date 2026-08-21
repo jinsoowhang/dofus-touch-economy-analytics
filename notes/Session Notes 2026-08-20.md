@@ -29,10 +29,10 @@ Established the public and local analytics foundation for Dofus Touch economy wo
 - `uv sync --locked --all-groups` completed successfully.
 - `./scripts/check.sh` passed, including formatting, Python tests, dbt debug, dbt parse, and the public-file policy check.
 - `uv run pre-commit run --all-files` passed, including Ruff, pytest, dbt parse, and the public file policy hook.
-- `git check-ignore -v` confirmed the local CSV files, DuckDB artifact, local secret file, skill-observation log, and analytics worktree are ignored as intended.
+- `git check-ignore -v` confirmed the local CSV files, DuckDB artifact, local secret/config files, skill-observation log, and analytics worktree are ignored as intended.
 - Confirmed the three canonical raw CSV files exist locally and remain ignored.
-- Confirmed no `.user.yml` file remained after verification.
-- Confirmed the repository and analytics worktree contain no `.xlsx` files, and public tracked files do not reference forbidden spreadsheet/worktree wording or private machine paths.
+- Confirmed `.user.yml` is ignored and untracked.
+- Confirmed the repository and analytics worktree contain no `.xlsx` files, no `.xlsx` or `.user.yml` paths are tracked, and public tracked files contain no private machine paths.
 - dbt emitted the expected warnings for unused model configuration paths because no models have been added yet.
 
 ## Next Step
