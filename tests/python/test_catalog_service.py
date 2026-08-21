@@ -49,6 +49,26 @@ def test_creates_normalized_manual_catalog_item(session_factory) -> None:
     assert [item.uuid for item in result] == [detail.uuid]
 
 
+def test_manual_create_title_cases_name_and_infers_category(session_factory) -> None:
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").create_manual(
+            ItemCreate(display_name="chouquish belt")
+        )
+
+    assert detail.display_name == "Chouquish Belt"
+    assert detail.category == "Belt"
+
+
+def test_manual_category_override_wins_over_inference(session_factory) -> None:
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").create_manual(
+            ItemCreate(display_name="decorative belt", category="quest item")
+        )
+
+    assert detail.display_name == "Decorative Belt"
+    assert detail.category == "Quest Item"
+
+
 def test_manual_create_rejects_existing_identity(session_factory, catalog_item) -> None:
     with session_factory() as session:
         service = CatalogService(session, "Dodge")

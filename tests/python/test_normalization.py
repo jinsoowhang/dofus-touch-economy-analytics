@@ -1,6 +1,10 @@
 import pytest
 
-from dofus_touch_economy.normalization import normalize_item_name
+from dofus_touch_economy.normalization import (
+    format_item_display_name,
+    infer_item_category,
+    normalize_item_name,
+)
 
 
 @pytest.mark.parametrize(
@@ -18,3 +22,23 @@ def test_normalize_item_name(raw: str, expected: str) -> None:
 def test_normalize_item_name_rejects_blank() -> None:
     with pytest.raises(ValueError, match="must not be blank"):
         normalize_item_name("  ")
+
+
+def test_format_item_display_name_collapses_whitespace_and_uses_title_case() -> None:
+    assert format_item_display_name("  chouquish   belt ") == "Chouquish Belt"
+
+
+@pytest.mark.parametrize(
+    ("raw_name", "expected"),
+    [
+        ("chouquish belt", "Belt"),
+        ("royal gobball hat", "Hat"),
+        ("synthetic daggers", "Dagger"),
+        ("belt leather", None),
+        ("ringed fabric", None),
+    ],
+)
+def test_infer_item_category_uses_only_known_final_words(
+    raw_name: str, expected: str | None
+) -> None:
+    assert infer_item_category(raw_name) == expected

@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, PlainSerializer, field_validator
 
+from dofus_touch_economy.normalization import format_item_display_name
+
 DecimalString = Annotated[
     Decimal,
     PlainSerializer(lambda value: str(value), return_type=str, when_used="json"),
@@ -19,19 +21,15 @@ class ItemCreate(BaseModel):
 
     @field_validator("display_name")
     @classmethod
-    def normalize_display_whitespace(cls, value: str) -> str:
-        display_name = " ".join(value.split())
-        if not display_name:
-            raise ValueError("item name must not be blank")
-        return display_name
+    def format_display_name(cls, value: str) -> str:
+        return format_item_display_name(value)
 
     @field_validator("category")
     @classmethod
     def normalize_optional_category(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        category = " ".join(value.split())
-        return category or None
+        return None if not value.strip() else format_item_display_name(value)
 
 
 class PriceObservationCreate(BaseModel):

@@ -36,6 +36,17 @@ def test_api_creates_manual_item_and_makes_it_searchable(client) -> None:
     assert [item["uuid"] for item in search.json()] == [created.json()["uuid"]]
 
 
+def test_api_title_cases_manual_item_and_infers_category(client) -> None:
+    response = client.post(
+        "/api/v1/items",
+        json={"display_name": "chouquish belt"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["display_name"] == "Chouquish Belt"
+    assert response.json()["category"] == "Belt"
+
+
 def test_api_rejects_duplicate_manual_item_with_existing_candidate(client, catalog_item) -> None:
     response = client.post(
         "/api/v1/items",

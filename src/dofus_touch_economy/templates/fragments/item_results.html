@@ -29,21 +29,24 @@
     </ul>
   {% endif %}
   <h2>Add a new item</h2>
-  <p>Use the exact in-game name. Category is optional and can be filled by a later import.</p>
+  <p>
+    The name is title-cased automatically. A recognized equipment suffix supplies the
+    category; you can override it when needed.
+  </p>
   <form method="post" action="/items" class="add-item-form">
     <label for="new-item-name">Item name</label>
     <input
       id="new-item-name"
       name="display_name"
-      value="{{ form_values.get('display_name', query) }}"
+      value="{{ form_values.get('display_name', proposed_display_name) }}"
       maxlength="200"
       required
     >
-    <label for="new-item-category">Category (optional)</label>
+    <label for="new-item-category">Category (automatic; optional override)</label>
     <input
       id="new-item-category"
       name="category"
-      value="{{ form_values.get('category', '') }}"
+      value="{{ form_values.get('category', recognized_category or '') }}"
       maxlength="200"
     >
     <button type="submit">Add item</button>

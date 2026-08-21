@@ -6,7 +6,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dofus_touch_economy.models import Item
-from dofus_touch_economy.normalization import normalize_item_name
+from dofus_touch_economy.normalization import (
+    format_item_display_name,
+    infer_item_category,
+    normalize_item_name,
+)
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.schemas import (
     ItemCreate,
@@ -68,13 +72,12 @@ class CatalogService:
 
     def create_manual(self, command: ItemCreate) -> ItemDetailResponse:
         normalized_name = normalize_item_name(command.display_name)
-        identity_category = (
-            "" if command.category is None else normalize_item_name(command.category)
-        )
+        category = command.category or infer_item_category(command.display_name)
+        identity_category = "" if category is None else normalize_item_name(category)
         existing = self._conflicting_items(
             normalized_name,
             identity_category,
-            category_was_supplied=command.category is not None,
+            category_was_supplied=category is not None,
         )
         if existing:
             raise CatalogItemConflict(existing)
@@ -82,7 +85,7 @@ class CatalogService:
         item = Item(
             display_name=command.display_name,
             normalized_name=normalized_name,
-            category=command.category,
+            category=category,
             identity_category=identity_category,
             created_source="manual",
         )
@@ -94,12 +97,20 @@ class CatalogService:
             existing = self._conflicting_items(
                 normalized_name,
                 identity_category,
-                category_was_supplied=command.category is not None,
+                category_was_supplied=category is not None,
             )
             if existing:
                 raise CatalogItemConflict(existing) from None
             raise
         return self.detail(item.uuid)
+
+    @staticmethod
+    def infer_category(display_name: str) -> str | None:
+        return infer_item_category(display_name)
+
+    @staticmethod
+    def format_display_name(display_name: str) -> str:
+        return format_item_display_name(display_name)
 
     def _conflicting_items(
         self,

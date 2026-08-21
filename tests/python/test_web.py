@@ -54,13 +54,23 @@ def test_no_results_offers_typo_suggestion_and_manual_add_form(client, catalog_i
     assert "Similar items" in response.text
     assert catalog_item.display_name in response.text
     assert 'action="/items"' in response.text
-    assert 'value="syntheic ore"' in response.text
+    assert 'value="Syntheic Ore"' in response.text
+
+
+def test_no_results_previews_title_case_and_recognized_category(client) -> None:
+    response = client.get("/items", params={"q": "chouquish belt"})
+
+    assert response.status_code == 200
+    assert 'name="display_name"' in response.text
+    assert 'value="Chouquish Belt"' in response.text
+    assert 'name="category"' in response.text
+    assert 'value="Belt"' in response.text
 
 
 def test_html_creates_manual_item_and_redirects_to_detail(client) -> None:
     response = client.post(
         "/items",
-        data={"display_name": "New Blade", "category": "Sword"},
+        data={"display_name": "chouquish belt", "category": ""},
         follow_redirects=False,
     )
 
@@ -68,7 +78,8 @@ def test_html_creates_manual_item_and_redirects_to_detail(client) -> None:
     assert response.headers["location"].startswith("/items/")
     detail = client.get(response.headers["location"])
     assert detail.status_code == 200
-    assert "New Blade" in detail.text
+    assert "Chouquish Belt" in detail.text
+    assert "Belt · Market: Dodge" in detail.text
     assert "Catalog source: Manual" in detail.text
 
 

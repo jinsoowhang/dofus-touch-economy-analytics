@@ -55,10 +55,14 @@ def _search_context(
 ) -> dict[str, object]:
     items = catalog.search(query, limit=50)
     suggestions = catalog.suggest(query, limit=5) if query.strip() and not items else []
+    proposed_display_name = catalog.format_display_name(query) if query.strip() else query
+    recognized_category = catalog.infer_category(query) if query.strip() else None
     return {
         "query": query,
         "items": items,
         "suggestions": suggestions,
+        "proposed_display_name": proposed_display_name,
+        "recognized_category": recognized_category,
         "market_context": market_context,
         "errors": errors or [],
         "form_values": form_values or {},
