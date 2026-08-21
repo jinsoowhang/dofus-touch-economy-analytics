@@ -138,3 +138,51 @@ common equipment categories do not need to be entered by hand.
 Merge and push the feature branch only after approval. Extend the reviewed suffix map
 only when another unambiguous equipment type is needed; do not infer arbitrary source
 categories.
+
+## Follow-up: Catalog Table and Navigation
+
+### Context
+
+Expanded Item Search into the first tab of a multi-page navigation and made the full
+catalog browsable without requiring an initial query.
+
+### Work Completed
+
+- Added a shared top-level navigation with Item Search marked as the active tab.
+- Changed blank item search to return the complete catalog in alphabetical order.
+- Added bulk current-price selection for catalog summaries using one ranked query per
+  market context instead of one database query per item.
+- Replaced the result list with a responsive table showing item name, category, current
+  unit price, observed lot, observation time, and an update-price action.
+- Made every table cell link to item detail, where price changes remain append-only
+  observations with history and invalidation support.
+- Preserved delayed HTMX name filtering and missing-item creation when no row matches.
+- Updated the README, architecture, application design, and focused regression tests.
+
+### Decisions
+
+- Item Search is the first reusable top-level tab; later pages should extend the shared
+  navigation rather than add page-local menus.
+- The HTML catalog is intentionally uncapped for the current local dataset, while the
+  JSON search endpoint retains its existing result limit.
+- The table displays the latest valid price only for the configured active market.
+- “Update price” opens detail and records a new observation; existing observations are
+  never edited in place.
+
+### Verification
+
+- `./scripts/check.sh` passed with 111 Python tests, application compilation, dbt debug
+  and parse, SQLFluff, and public-file verification.
+- `DO_NOT_TRACK=1 uv run pre-commit run --all-files` passed every configured hook.
+- A live loopback smoke rendered all 989 local catalog items in alphabetical table
+  rows, including seven current prices, in approximately 0.11 seconds.
+- A name query reduced the live table to eight matching rows, and a selected row opened
+  item detail with HTTP 200.
+- Every rendered item row contained links across all six table columns.
+- The upstream TestClient deprecation warning and the three expected empty dbt model
+  configuration warnings remain non-blocking.
+
+### Next Step
+
+Merge and push the feature branch only after approval. Add future application pages as
+new shared-header tabs while retaining Item Search as the catalog and price-entry hub.
