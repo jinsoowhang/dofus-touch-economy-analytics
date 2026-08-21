@@ -77,3 +77,18 @@ def test_price_command_requires_timezone() -> None:
             total_price=100,
             observed_at=datetime(2026, 8, 20),
         )
+
+
+def test_detail_uses_latest_recipe_import(session_factory, synthetic_files) -> None:
+    service = ImportService(session_factory)
+    service.import_files(*synthetic_files.paths)
+    synthetic_files.write_recipe(quantity="2")
+    service.import_files(*synthetic_files.paths)
+
+    with session_factory() as session:
+        product = session.scalar(select(Item).where(Item.normalized_name == "synthetic product"))
+        assert product is not None
+        detail = CatalogService(session, "Dodge").detail(product.uuid)
+
+    assert detail.recipe is not None
+    assert detail.recipe.ingredients[0].quantity == 2

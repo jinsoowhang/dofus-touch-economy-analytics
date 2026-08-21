@@ -105,3 +105,21 @@ def test_rejects_invalid_price_commands(client, catalog_item) -> None:
 
     assert nonpositive.status_code == 422
     assert naive_time.status_code == 422
+
+
+def test_observation_timestamps_are_normalized_and_returned_as_utc(client, catalog_item) -> None:
+    path = f"/api/v1/items/{catalog_item.uuid}/price-observations"
+    created = client.post(
+        path,
+        json={
+            "lot_quantity": 1,
+            "total_price": 100,
+            "observed_at": "2026-08-20T12:00:00+05:00",
+        },
+    )
+    reloaded = client.get(f"/api/v1/items/{catalog_item.uuid}")
+
+    assert created.status_code == 201
+    assert created.json()["current_price"]["observed_at"] == "2026-08-20T07:00:00Z"
+    assert reloaded.json()["current_price"]["observed_at"] == "2026-08-20T07:00:00Z"
+    assert reloaded.json()["current_price"]["recorded_at"].endswith("Z")

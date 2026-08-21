@@ -44,7 +44,7 @@ class CatalogService:
         recipe_response = None
         metrics_response = None
         if item.recipes:
-            recipe = min(item.recipes, key=lambda candidate: candidate.id)
+            recipe = max(item.recipes, key=lambda candidate: candidate.id)
             ingredient_responses: list[RecipeIngredientResponse] = []
             ingredient_prices: list[IngredientPrice] = []
             for ingredient in recipe.ingredients:

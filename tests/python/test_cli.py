@@ -63,6 +63,10 @@ def test_import_cli_returns_one_for_rejected_rows(
 
     assert result == 1
     assert "rejected=1" in capsys.readouterr().out
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["rejections"][0]["dataset"] == "item_recipes"
+    assert report["rejections"][0]["row_number"] == 2
+    assert report["rejections"][0]["messages"]
 
 
 def test_web_main_binds_loopback(monkeypatch) -> None:

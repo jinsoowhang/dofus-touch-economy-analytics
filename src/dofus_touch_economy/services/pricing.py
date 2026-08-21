@@ -82,7 +82,7 @@ class PriceService:
             item_id=item_id,
             lot_quantity=command.lot_quantity,
             total_price=command.total_price,
-            observed_at=command.observed_at,
+            observed_at=command.observed_at.astimezone(UTC),
             market_context=self._market_context,
             note=note,
         )
@@ -141,8 +141,8 @@ def _current_price_response(observation: PriceObservation) -> CurrentPriceRespon
         lot_quantity=observation.lot_quantity,
         total_price=observation.total_price,
         unit_price=unit_price(observation.total_price, observation.lot_quantity),
-        observed_at=observation.observed_at,
-        recorded_at=observation.recorded_at,
+        observed_at=_as_utc(observation.observed_at),
+        recorded_at=_as_utc(observation.recorded_at),
         market_context=observation.market_context,
     )
 
@@ -153,6 +153,14 @@ def _observation_response(observation: PriceObservation) -> PriceObservationResp
         item_uuid=observation.item.uuid,
         note=observation.note,
         source=observation.source,
-        invalidated_at=observation.invalidated_at,
+        invalidated_at=(
+            None if observation.invalidated_at is None else _as_utc(observation.invalidated_at)
+        ),
         invalidation_reason=observation.invalidation_reason,
     )
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

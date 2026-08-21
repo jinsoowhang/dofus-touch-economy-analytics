@@ -37,6 +37,7 @@ class ImportSummary:
     rejected_count: int
     warning_count: int
     conflicts: list[dict[str, Any]]
+    rejections: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +46,7 @@ class ImportSummary:
             "rejected_count": self.rejected_count,
             "warning_count": self.warning_count,
             "conflicts": self.conflicts,
+            "rejections": self.rejections,
         }
 
 
@@ -65,12 +67,14 @@ class ImportService:
         accepted_count = 0
         rejected_count = 0
         conflicts: list[dict[str, Any]] = []
+        rejections: list[dict[str, Any]] = []
         with self._session_factory() as session, session.begin():
             if not self._completed_batch_exists(session, "item_cost", cost_checksum):
                 self._import_costs(session, cost_path, cost_checksum, cost_result)
                 created_batches += 1
                 accepted_count += len(cost_result.accepted)
                 rejected_count += len(cost_result.rejected)
+                rejections.extend(_rejection_details("item_cost", cost_result.rejected))
 
             if not self._completed_batch_exists(session, "item_recipes", recipe_checksum):
                 recipe_conflicts = self._import_recipes(
@@ -80,6 +84,7 @@ class ImportService:
                 accepted_count += len(recipe_result.accepted)
                 rejected_count += len(recipe_result.rejected)
                 conflicts.extend(recipe_conflicts)
+                rejections.extend(_rejection_details("item_recipes", recipe_result.rejected))
 
         return ImportSummary(
             created_batches=created_batches,
@@ -87,6 +92,7 @@ class ImportService:
             rejected_count=rejected_count,
             warning_count=len(conflicts),
             conflicts=conflicts,
+            rejections=rejections,
         )
 
     @staticmethod
@@ -320,3 +326,14 @@ def _sha256(path: Path) -> str:
     except OSError as error:
         raise ContractError(f"could not hash {path.name}: {error}") from error
     return digest.hexdigest()
+
+
+def _rejection_details(dataset: str, rejected_rows: list[RejectedRow]) -> list[dict[str, Any]]:
+    return [
+        {
+            "dataset": dataset,
+            "row_number": row.row_number,
+            "messages": list(row.messages),
+        }
+        for row in rejected_rows
+    ]

@@ -64,6 +64,13 @@ def test_preserves_source_rows_and_rejections_without_importing_prices(
 
     assert summary.accepted_count == 1
     assert summary.rejected_count == 1
+    assert summary.rejections == [
+        {
+            "dataset": "item_recipes",
+            "row_number": 2,
+            "messages": ["raw_material_1 and quantity_1 must be populated together"],
+        }
+    ]
     with session_factory() as session:
         records = session.scalars(select(SourceRecord).order_by(SourceRecord.id)).all()
         assert len(records) == 2
