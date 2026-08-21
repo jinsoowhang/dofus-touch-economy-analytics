@@ -4,9 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
+from dofus_touch_economy.app import create_app
+from dofus_touch_economy.config import Settings
 from dofus_touch_economy.database import Base, create_engine_for_url, create_session_factory
 from dofus_touch_economy.importers.contracts import RECIPE_HEADERS
+from dofus_touch_economy.models import Item
 
 
 @pytest.fixture
@@ -27,6 +31,37 @@ def session_factory(tmp_path: Path):
 def session(session_factory):
     with session_factory() as database_session:
         yield database_session
+
+
+@pytest.fixture
+def app(session_factory, tmp_path: Path):
+    settings = Settings(
+        project_root=tmp_path,
+        database_path=tmp_path / "application.sqlite3",
+        market_context="Dodge",
+        allowed_hosts=("localhost", "127.0.0.1"),
+    )
+    return create_app(settings=settings, session_factory=session_factory)
+
+
+@pytest.fixture
+def client(app):
+    with TestClient(app, base_url="http://localhost") as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def catalog_item(session_factory) -> Item:
+    with session_factory() as session:
+        item = Item(
+            display_name="Synthetic Ore",
+            normalized_name="synthetic ore",
+            category="Ore",
+            identity_category="ore",
+        )
+        session.add(item)
+        session.commit()
+        return item
 
 
 @dataclass

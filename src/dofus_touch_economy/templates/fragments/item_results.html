@@ -1,0 +1,14 @@
+{% if items %}
+  <ul>
+    {% for item in items %}
+      <li>
+        <a href="/items/{{ item.uuid }}">{{ item.display_name }}</a>
+        <span>{{ item.category or "Uncategorized" }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% elif query %}
+  <p>No items found.</p>
+{% else %}
+  <p>Enter an item name to search.</p>
+{% endif %}
