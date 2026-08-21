@@ -1,1 +1,38 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# dbt and SQLFluff
+target/
+dbt_packages/
+logs/
+.sqlfluffcache
+
+# Local data and warehouse artifacts
+data/raw/**
+!data/raw/README.md
+data/warehouse/**
+!data/warehouse/README.md
+*.duckdb
+*.duckdb.wal
+*.xlsx
+
+# Private workflow bookkeeping
+skill-observations/
 .worktrees/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
