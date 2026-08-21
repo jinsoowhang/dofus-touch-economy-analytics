@@ -93,6 +93,7 @@ class PriceService:
                 item_id=item_id,
                 price_observation_id=observation.id,
                 lot_quantity=command.lot_quantity,
+                asking_price=command.total_price,
                 selling_started_at=observation.recorded_at,
             )
         )

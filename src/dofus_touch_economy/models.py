@@ -230,6 +230,10 @@ class SaleListing(Base):
             name="ck_sale_listings_positive_lot_quantity",
         ),
         CheckConstraint(
+            "asking_price IS NULL OR asking_price > 0",
+            name="ck_sale_listings_positive_asking_price",
+        ),
+        CheckConstraint(
             "date_sold IS NULL OR date_sold >= selling_started_at",
             name="ck_sale_listings_valid_sale_date",
         ),
@@ -246,6 +250,7 @@ class SaleListing(Base):
         ForeignKey("price_observations.id", ondelete="RESTRICT")
     )
     lot_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    asking_price: Mapped[int | None] = mapped_column(Integer)
     selling_started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

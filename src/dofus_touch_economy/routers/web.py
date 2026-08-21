@@ -16,6 +16,7 @@ from dofus_touch_economy.schemas import (
     ItemCreate,
     PriceObservationCreate,
     SaleListingCreate,
+    SalePriceUpdate,
 )
 from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
 from dofus_touch_economy.services.pricing import (
@@ -158,6 +159,8 @@ def sales_page(
 ) -> HTMLResponse:
     notifications = {
         "listing-added": "Sale listing has been added.",
+        "listing-duplicated": "Sale listing has been duplicated.",
+        "listing-price-updated": "Sale price has been updated.",
         "listing-sold": "Item has been marked as sold.",
     }
     context = _sales_context(
@@ -173,7 +176,7 @@ async def start_sale(
     session: Annotated[Session, Depends(get_session)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
-    values = _form_values(form, ("item_uuid", "lot_quantity"))
+    values = _form_values(form, ("item_uuid", "lot_quantity", "asking_price"))
     service = SalesService(session)
     try:
         command = SaleListingCreate.model_validate(values)
@@ -202,6 +205,70 @@ async def start_sale(
             status_code=404,
         )
     return RedirectResponse(url="/sales?notice=listing-added", status_code=303)
+
+
+@router.post(
+    "/sales/{listing_uuid}/duplicate",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def duplicate_sale(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse | RedirectResponse:
+    service = SalesService(session)
+    try:
+        service.duplicate(listing_uuid)
+    except SaleListingNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=["Sale listing not found."]),
+            status_code=404,
+        )
+    return RedirectResponse(url="/sales?notice=listing-duplicated", status_code=303)
+
+
+@router.post(
+    "/sales/{listing_uuid}/price",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+async def update_sale_price(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("asking_price",))
+    service = SalesService(session)
+    try:
+        command = SalePriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=_validation_messages(error)),
+            status_code=422,
+        )
+    try:
+        service.update_price(listing_uuid, command)
+    except SaleListingNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=["Sale listing not found."]),
+            status_code=404,
+        )
+    except SaleListingConflict:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=["A sold listing cannot be repriced."]),
+            status_code=409,
+        )
+    return RedirectResponse(url="/sales?notice=listing-price-updated", status_code=303)
 
 
 @router.post(
@@ -240,10 +307,17 @@ def search_items(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     q: str = Query(default=""),
-    notice: str | None = Query(default=None),
+    updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
     catalog = CatalogService(session, settings.market_context)
-    notification = "Item price has been updated." if notice == "price-recorded" else None
+    notification = None
+    if updated is not None:
+        try:
+            updated_item = catalog.detail(updated)
+        except ItemNotFound:
+            pass
+        else:
+            notification = f"{updated_item.display_name} price has been updated."
     context = _search_context(
         catalog,
         q,
@@ -351,7 +425,7 @@ async def record_price(
         )
 
     PriceService(session, settings.market_context).record(item_uuid, command)
-    redirect_url = "/items?notice=price-recorded"
+    redirect_url = f"/items?updated={item_uuid}"
     if _is_htmx(request):
         return Response(status_code=204, headers={"HX-Redirect": redirect_url})
     return RedirectResponse(url=redirect_url, status_code=303)

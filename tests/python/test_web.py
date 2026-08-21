@@ -50,6 +50,7 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
             Item(
                 display_name="Alpha Item",
                 normalized_name="alpha item",
+                category="hat",
                 identity_category="",
             )
         )
@@ -63,13 +64,18 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert 'aria-current="page"' in response.text
     assert "Currently selling" in response.text
     assert "Sold history" in response.text
+    assert "Alpha Item — Hat" in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
 
 
 def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:
     created = client.post(
         "/sales",
-        data={"item_uuid": str(catalog_item.uuid), "lot_quantity": "10"},
+        data={
+            "item_uuid": str(catalog_item.uuid),
+            "lot_quantity": "10",
+            "asking_price": "50000",
+        },
         follow_redirects=False,
     )
 
@@ -78,8 +84,9 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     active_page = client.get(created.headers["location"])
     assert "Sale listing has been added." in active_page.text
     assert catalog_item.display_name in active_page.text
-    assert "10" in active_page.text
+    assert 'value="50000"' in active_page.text
     assert "Mark sold" in active_page.text
+    assert "Duplicate" in active_page.text
 
     with session_factory() as session:
         listing_uuid = session.scalar(select(SaleListing.uuid))
@@ -100,7 +107,11 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
 def test_sales_page_validates_lot_quantity_inline(client, catalog_item) -> None:
     response = client.post(
         "/sales",
-        data={"item_uuid": str(catalog_item.uuid), "lot_quantity": "0"},
+        data={
+            "item_uuid": str(catalog_item.uuid),
+            "lot_quantity": "0",
+            "asking_price": "",
+        },
     )
 
     assert response.status_code == 422
@@ -122,8 +133,73 @@ def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> 
     assert response.status_code == 303
     sales = client.get("/sales")
     assert catalog_item.display_name in sales.text
-    assert "125000 kamas" in sales.text
+    assert 'value="125000"' in sales.text
     assert "1 active" in sales.text
+
+
+def test_sales_page_duplicates_and_reprices_a_listing(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    client.post(
+        "/sales",
+        data={
+            "item_uuid": str(catalog_item.uuid),
+            "lot_quantity": "10",
+            "asking_price": "50000",
+        },
+    )
+    with session_factory() as session:
+        original_uuid = session.scalar(select(SaleListing.uuid))
+
+    duplicated = client.post(
+        f"/sales/{original_uuid}/duplicate",
+        follow_redirects=False,
+    )
+
+    assert duplicated.status_code == 303
+    assert duplicated.headers["location"] == "/sales?notice=listing-duplicated"
+    with session_factory() as session:
+        listings = list(session.scalars(select(SaleListing).order_by(SaleListing.id)))
+    assert len(listings) == 2
+    assert listings[0].asking_price == listings[1].asking_price == 50_000
+    assert listings[0].lot_quantity == listings[1].lot_quantity == 10
+
+    repriced = client.post(
+        f"/sales/{listings[1].uuid}/price",
+        data={"asking_price": "45000"},
+        follow_redirects=False,
+    )
+
+    assert repriced.status_code == 303
+    assert repriced.headers["location"] == "/sales?notice=listing-price-updated"
+    page = client.get(repriced.headers["location"])
+    assert "Sale price has been updated." in page.text
+    assert 'value="50000"' in page.text
+    assert 'value="45000"' in page.text
+    assert "2 active" in page.text
+
+
+def test_sales_page_validates_repriced_value(client, session_factory, catalog_item) -> None:
+    client.post(
+        "/sales",
+        data={
+            "item_uuid": str(catalog_item.uuid),
+            "lot_quantity": "1",
+            "asking_price": "1000",
+        },
+    )
+    with session_factory() as session:
+        listing_uuid = session.scalar(select(SaleListing.uuid))
+
+    response = client.post(
+        f"/sales/{listing_uuid}/price",
+        data={"asking_price": "0"},
+    )
+
+    assert response.status_code == 422
+    assert "Input should be greater than 0" in response.text
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:
@@ -134,6 +210,7 @@ def test_blank_search_lists_catalog_alphabetically(client, session_factory, cata
                 Item(
                     display_name="Alpha Item",
                     normalized_name="alpha item",
+                    category="hat",
                     identity_category="",
                 ),
             ]
@@ -147,6 +224,7 @@ def test_blank_search_lists_catalog_alphabetically(client, session_factory, cata
     assert "Current price" in response.text
     assert "Observed lot" not in response.text
     assert "Last observed" in response.text
+    assert "Hat" in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
     assert response.text.index(catalog_item.display_name) < response.text.index("Zeta Item")
 
@@ -176,7 +254,10 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
 
     assert response.status_code == 200
     assert 'class="item-table"' in response.text
-    assert "120 kamas" in response.text
+    assert "120 kamas" not in response.text
+    assert ">\n                120\n" in response.text
+    assert "2026-08-20" in response.text
+    assert "2026-08-20 00:00 UTC" not in response.text
     assert "Update price" in response.text
     assert response.text.count(f'href="{item_url}"') == 5
 
@@ -312,7 +393,7 @@ def test_htmx_price_create_redirects_to_item_search(client, session_factory, fix
     )
 
     assert response.status_code == 204
-    assert response.headers["hx-redirect"] == "/items?notice=price-recorded"
+    assert response.headers["hx-redirect"] == f"/items?updated={crafted_uuid}"
 
     with session_factory() as session:
         detail = CatalogService(session, "Dodge").detail(crafted_uuid)
@@ -351,11 +432,12 @@ def test_non_htmx_price_create_redirects_to_search_with_notification(client, cat
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/items?notice=price-recorded"
+    assert response.headers["location"] == f"/items?updated={catalog_item.uuid}"
 
     search = client.get(response.headers["location"])
     assert search.status_code == 200
-    assert "Item price has been updated." in search.text
+    assert f"{catalog_item.display_name} price has been updated." in search.text
+    assert 'class="notification" role="status"' in search.text
 
 
 def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:

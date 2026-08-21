@@ -140,11 +140,27 @@ button {
 }
 
 .notification {
+  animation: notification-dismiss 250ms ease 3s forwards;
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   border-left: 0.35rem solid var(--accent);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--text) 18%, transparent);
   color: var(--accent);
   font-weight: 700;
+  inset: 1rem 1rem auto auto;
+  margin: 0;
+  max-width: min(24rem, calc(100vw - 2rem));
   padding: 0.75rem;
+  position: fixed;
+  z-index: 10;
+}
+
+@keyframes notification-dismiss {
+  to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    visibility: hidden;
+  }
 }
 
 .status {
@@ -233,6 +249,42 @@ button {
 
 .inline-form button {
   min-height: 2.2rem;
+}
+
+.price-edit-form,
+.row-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.price-edit-form {
+  flex-direction: row;
+}
+
+.price-edit-form input,
+.price-edit-form button {
+  min-height: 2.2rem;
+}
+
+.price-edit-form input {
+  min-width: 7rem;
+  width: 8rem;
+}
+
+.secondary-button {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .recipe-table {

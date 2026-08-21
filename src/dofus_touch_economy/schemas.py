@@ -61,6 +61,16 @@ class InvalidationCreate(BaseModel):
 class SaleListingCreate(BaseModel):
     item_uuid: UUID
     lot_quantity: int = Field(gt=0)
+    asking_price: int | None = Field(default=None, gt=0)
+
+    @field_validator("asking_price", mode="before")
+    @classmethod
+    def blank_price_is_none(cls, value: object) -> object:
+        return None if value == "" else value
+
+
+class SalePriceUpdate(BaseModel):
+    asking_price: int = Field(gt=0)
 
 
 class SaleItemChoiceResponse(BaseModel):
@@ -75,7 +85,7 @@ class SaleListingResponse(BaseModel):
     display_name: str
     category: str | None
     lot_quantity: int
-    total_price: int | None
+    asking_price: int | None
     selling_started_at: datetime
     date_sold: datetime | None
 

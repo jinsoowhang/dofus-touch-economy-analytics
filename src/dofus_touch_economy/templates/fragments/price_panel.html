@@ -35,7 +35,7 @@
     <ul>
       {% for observation in detail.price_history %}
         <li class="numeric">
-          {{ observation.observed_at }} · {{ observation.total_price }} kama
+          {{ observation.observed_at.strftime("%Y-%m-%d") }} · {{ observation.total_price }} kama
           {% if observation.invalidated_at %}
             — invalidated: {{ observation.invalidation_reason }}
           {% else %}

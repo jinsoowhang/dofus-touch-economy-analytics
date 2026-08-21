@@ -30,19 +30,19 @@
           </td>
           <td>
             <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
-              {{ item.category or "Uncategorized" }}
+              {{ (item.category or "Uncategorized") | title }}
             </a>
           </td>
           {% if item.current_price %}
             <td class="numeric">
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
-                {{ item.current_price.total_price }} kamas
+                {{ item.current_price.total_price }}
               </a>
             </td>
             <td>
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
                 <time datetime="{{ item.current_price.observed_at.isoformat() }}">
-                  {{ item.current_price.observed_at.strftime("%Y-%m-%d %H:%M UTC") }}
+                  {{ item.current_price.observed_at.strftime("%Y-%m-%d") }}
                 </time>
               </a>
             </td>
@@ -71,7 +71,7 @@
       {% for item in suggestions %}
         <li>
           <a href="/items/{{ item.uuid }}">{{ item.display_name }}</a>
-          <span>{{ item.category or "Uncategorized" }}</span>
+          <span>{{ (item.category or "Uncategorized") | title }}</span>
         </li>
       {% endfor %}
     </ul>

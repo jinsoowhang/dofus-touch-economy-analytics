@@ -11,6 +11,7 @@ from dofus_touch_economy.schemas import (
     SaleItemChoiceResponse,
     SaleListingCreate,
     SaleListingResponse,
+    SalePriceUpdate,
 )
 
 
@@ -55,11 +56,43 @@ class SalesService:
         listing = SaleListing(
             item_id=item_id,
             lot_quantity=command.lot_quantity,
+            asking_price=command.asking_price,
             selling_started_at=datetime.now(UTC),
         )
         self._session.add(listing)
         self._session.commit()
         return _response(self._sales.get_by_uuid(listing.uuid) or listing)
+
+    def duplicate(self, listing_uuid: UUID) -> SaleListingResponse:
+        original = self._sales.get_by_uuid(listing_uuid)
+        if original is None:
+            raise SaleListingNotFound(str(listing_uuid))
+        duplicate = SaleListing(
+            item_id=original.item_id,
+            lot_quantity=original.lot_quantity,
+            asking_price=original.asking_price,
+            selling_started_at=datetime.now(UTC),
+        )
+        self._session.add(duplicate)
+        self._session.commit()
+        return _response(self._sales.get_by_uuid(duplicate.uuid) or duplicate)
+
+    def update_price(
+        self,
+        listing_uuid: UUID,
+        command: SalePriceUpdate,
+    ) -> SaleListingResponse:
+        if not self._sales.update_price(listing_uuid, command.asking_price):
+            self._session.rollback()
+            existing = self._sales.get_by_uuid(listing_uuid)
+            if existing is None:
+                raise SaleListingNotFound(str(listing_uuid))
+            raise SaleListingConflict(str(listing_uuid))
+        self._session.commit()
+        listing = self._sales.get_by_uuid(listing_uuid)
+        if listing is None:  # pragma: no cover - protected by successful update
+            raise SaleListingNotFound(str(listing_uuid))
+        return _response(listing)
 
     def mark_sold(self, listing_uuid: UUID) -> SaleListingResponse:
         if not self._sales.mark_sold(listing_uuid, datetime.now(UTC)):
@@ -76,14 +109,13 @@ class SalesService:
 
 
 def _response(listing: SaleListing) -> SaleListingResponse:
-    observation = listing.price_observation
     return SaleListingResponse(
         uuid=listing.uuid,
         item_uuid=listing.item.uuid,
         display_name=listing.item.display_name,
         category=listing.item.category,
         lot_quantity=listing.lot_quantity,
-        total_price=None if observation is None else observation.total_price,
+        asking_price=listing.asking_price,
         selling_started_at=_as_utc(listing.selling_started_at),
         date_sold=None if listing.date_sold is None else _as_utc(listing.date_sold),
     )

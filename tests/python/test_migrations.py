@@ -64,7 +64,9 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         "source_records",
     }
     item_columns = {column["name"] for column in inspect(engine).get_columns("items")}
+    sale_columns = {column["name"] for column in inspect(engine).get_columns("sale_listings")}
     assert "created_source" in item_columns
+    assert "asking_price" in sale_columns
     with engine.connect() as connection:
         source = connection.scalar(
             text("SELECT created_source FROM items WHERE normalized_name = 'imported item'")
@@ -72,6 +74,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         assert source == "imported"
         assert connection.scalar(text("SELECT count(*) FROM price_observations")) == 1
         assert connection.scalar(text("SELECT count(*) FROM sale_listings")) == 1
+        assert connection.scalar(text("SELECT asking_price FROM sale_listings")) == 100
     engine.dispose()
 
     subprocess.run(

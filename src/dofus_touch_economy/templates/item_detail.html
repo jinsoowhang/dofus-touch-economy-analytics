@@ -7,7 +7,7 @@
   {% else %}
     <h1>{{ detail.display_name }}</h1>
     <p>
-      {{ detail.category or "Uncategorized" }} · Market: {{ detail.market_context }} ·
+      {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
       Catalog source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
     </p>
     {% include "fragments/price_panel.html" %}

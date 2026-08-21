@@ -102,6 +102,16 @@ def test_sale_listing_rejects_nonpositive_lot_quantity(session) -> None:
         session.commit()
 
 
+def test_sale_listing_rejects_nonpositive_asking_price(session) -> None:
+    item = Item(display_name="Iron", normalized_name="iron", identity_category="ore")
+    session.add(item)
+    session.flush()
+    session.add(SaleListing(item_id=item.id, lot_quantity=1, asking_price=0))
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_recipe_ingredient_position_is_unique(session) -> None:
     recipe = make_recipe(session)
     session.add_all(

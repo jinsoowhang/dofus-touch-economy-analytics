@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -14,10 +15,7 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.date_sold.is_(None))
-            .options(
-                selectinload(SaleListing.item),
-                selectinload(SaleListing.price_observation),
-            )
+            .options(selectinload(SaleListing.item))
             .order_by(SaleListing.selling_started_at.desc(), SaleListing.id.desc())
         )
         return list(self._session.scalars(statement))
@@ -26,10 +24,7 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.date_sold.is_not(None))
-            .options(
-                selectinload(SaleListing.item),
-                selectinload(SaleListing.price_observation),
-            )
+            .options(selectinload(SaleListing.item))
             .order_by(SaleListing.date_sold.desc(), SaleListing.id.desc())
         )
         return list(self._session.scalars(statement))
@@ -38,14 +33,22 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.uuid == listing_uuid)
-            .options(
-                selectinload(SaleListing.item),
-                selectinload(SaleListing.price_observation),
-            )
+            .options(selectinload(SaleListing.item))
         )
         return self._session.scalar(statement)
 
-    def mark_sold(self, listing_uuid: UUID, date_sold) -> bool:
+    def update_price(self, listing_uuid: UUID, asking_price: int) -> bool:
+        result = self._session.execute(
+            update(SaleListing)
+            .where(
+                SaleListing.uuid == listing_uuid,
+                SaleListing.date_sold.is_(None),
+            )
+            .values(asking_price=asking_price)
+        )
+        return result.rowcount == 1
+
+    def mark_sold(self, listing_uuid: UUID, date_sold: datetime) -> bool:
         result = self._session.execute(
             update(SaleListing)
             .where(
