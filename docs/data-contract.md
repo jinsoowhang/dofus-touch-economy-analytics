@@ -1,75 +1,71 @@
-# Source data contract
+# Data contracts
 
-## Shared rules
+## Shared source rules
 
-- Files are UTF-8 CSV with commas and one header row.
-- Canonical field names stay in stable `snake_case` within a dataset version. Raw source exceptions require explicit documented mapping instead of being treated as already compliant.
-- Dates use ISO `YYYY-MM-DD`.
-- Timestamps use ISO 8601 with timezone.
-- Kama-denominated values are whole numbers.
-- Raw files are immutable inputs.
-- Missing values must be empty or documented null representations, not spreadsheet error strings.
+- Source files are UTF-8 CSV with commas and one header row; a UTF-8 BOM is accepted.
+- Raw source values and source-row numbers remain available for reconciliation.
+- Raw files are immutable inputs and are never rewritten by the importer.
+- File-level encoding or header failures abort before database writes.
+- Row-level failures are retained as rejected source records while valid rows load transactionally.
+- Names are normalized by trimming and collapsing whitespace and applying Unicode case folding. Fuzzy identity repair is excluded.
 
-Current exports still contain abbreviated dates, formatted numerics, percentages, and spreadsheet errors. They are preserved locally but are not ingestion-ready until deterministic replacements or explicit parsing rules are approved.
+## Application import scope
 
-## `item_sales`
+### `item_cost.csv`
 
-Required columns in source order:
+The exact source-order header is:
 
-- `date`
-- `item`
-- `sold_date`
-- `sold_price`
-- `cost`
-- `profit`
-- `previous_price`
-- `start_reference`
-- `end_reference`
-- `difference`
-- `est_price_per_unit`
-- `memo`
+```text
+raw_material,category,price
+```
 
-Provisional grain: one listing or sale observation per source row. The source does not provide a stable transaction identifier or quantity column, and final modeling grain remains unresolved until the source semantics are confirmed.
+Material and category are required. Canonical identity uses normalized item name plus normalized category, so duplicate names in different categories remain distinct. The raw `price` value is preserved for reconciliation but does not create a current-price observation because the export lacks a deterministic observation timestamp.
 
-## `item_recipes`
+### `item_recipes.csv`
 
-Leading columns:
+The exact source-order contract contains `recipe_item`, `profession`, eight repeated `raw_material_n`, `quantity_n`, `cost_n` groups, then `total_cost`, `profit`, and `ROI`.
 
-- `recipe_item`
-- `profession`
+Recipe item and profession are required. Within each ingredient position, material and quantity are either both blank or both present; quantity must be a positive base-10 integer after comma removal. Populated groups become ordered recipe ingredients. Source costs and derived totals remain raw reconciliation values.
 
-Repeated column groups:
+Exact normalized names resolve automatically only when one candidate exists. Ambiguous ingredient names remain unresolved and make recipe metrics incomplete. No partial or fuzzy match establishes identity.
 
-- `raw_material_n`
-- `quantity_n`
-- `cost_n`
+### `item_sales.csv`
 
-`n` runs from `1` through `8`. Preserve the wide raw layout as received, then normalize only populated groups in later transformations.
+Sales ingestion remains deferred. The source has abbreviated dates, no stable transaction identifier, no quantity, and an unresolved listing-versus-sale row grain. Missing years must never be inferred.
 
-Trailing source measures:
+## Operational price observations
 
-- `total_cost`
-- `profit`
-- `ROI`
+Manual observations persisted by the application contain:
 
-The raw `ROI` header is preserved as observed and maps to canonical `roi` during standardization; the source header is not already `snake_case`.
+- stable observation UUID and monotonic internal ordering identifier;
+- canonical item UUID;
+- positive integer lot quantity;
+- positive whole-kama total price;
+- timezone-bearing observation timestamp;
+- database recording timestamp;
+- configured market context;
+- optional note and fixed `manual` source;
+- optional paired invalidation timestamp and required reason.
 
-## `item_cost`
+Unit price is derived with decimal arithmetic as `total_price / lot_quantity`. The current price for an item is the latest valid observation in the active market context ordered by:
 
-Columns:
+1. observation timestamp descending;
+2. recording timestamp descending;
+3. internal observation identifier descending.
 
-- `raw_material`
-- `category`
-- `price`
+Invalidated observations remain in history but never participate in current-price or crafting calculations. An observation is invalidated once with a reason; direct edits and hard deletion are not application operations.
 
-Item names are not unique. Retain duplicates and report candidate-key violations during ingestion rather than silently selecting one row. Final modeling semantics for duplicate costs remain unresolved.
+## Governed crafting calculations
 
-## Required load metadata
+```text
+ingredient cost = required quantity * current ingredient unit price
+recipe cost = sum of ingredient costs
+profit = current crafted-item unit price - recipe cost
+ROI = profit / recipe cost
+```
 
-- `source_file_name`
-- `source_row_number`
-- `loaded_at`
-- `observed_at`
-- `market_context` for server or market context when known
+Recipe cost is incomplete when an ingredient is unresolved or lacks a current valid price. Profit requires a complete recipe and a current crafted-item price. ROI is absent when recipe cost is zero. Missing values are never treated as zero.
 
-`observed_at` remains blocked until dates and collection context become deterministic.
+## Future analytical metadata
+
+The deferred SQLite-to-DuckDB bridge must preserve source identifiers, source filename and row, import checksum, recorded and observed timestamps, market context, invalidation state, and load metadata. Analytical ingestion will be immutable and separate from request-time application writes.
