@@ -1,0 +1,33 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check .
+        language: system
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format check
+        entry: uv run ruff format --check .
+        language: system
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+      - id: dbt-parse
+        name: dbt parse
+        entry: env DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
+        language: system
+        pass_filenames: false
+      - id: sqlfluff
+        name: sqlfluff
+        entry: env DO_NOT_TRACK=1 uv run sqlfluff lint
+        language: system
+        files: ^(analyses|models)/.*\.sql$
+      - id: public-file-policy
+        name: public file policy
+        entry: uv run python scripts/check_public_files.py
+        language: system
+        pass_filenames: false
