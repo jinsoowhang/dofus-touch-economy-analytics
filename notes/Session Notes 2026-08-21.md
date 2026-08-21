@@ -95,3 +95,46 @@ price can be recorded without waiting for a new CSV export.
 Merge and push the feature branch only after approval. The next product milestone
 remains immutable SQLite-to-DuckDB ingestion and dbt models for operational price
 analytics; sales ingestion still requires deterministic dates and confirmed grain.
+
+## Follow-up: Automatic Category Recognition
+
+### Context
+
+Improved manual item creation so lowercase item names are presented consistently and
+common equipment categories do not need to be entered by hand.
+
+### Work Completed
+
+- Added whitespace normalization and title casing for manual item names and entered
+  category overrides.
+- Added a conservative final-word suffix map for common equipment categories.
+- Added browser previews for the formatted name and recognized category.
+- Applied the same behavior through the HTML and versioned JSON creation interfaces.
+- Added focused normalization, service, API, and browser regression tests.
+- Updated the README, data contract, and application design.
+
+### Decisions
+
+- Category inference matches only a complete final word from the reviewed suffix map;
+  embedded substrings do not classify an item.
+- An explicit category override takes precedence over inferred category.
+- Inference remains a manual-creation convenience and does not change imported source
+  values or fuzzy identity-resolution rules.
+- Python title casing is the requested display rule for new manual items; existing
+  imported and manually created records are not rewritten.
+
+### Verification
+
+- `./scripts/check.sh` passed with 103 Python tests, application compilation, dbt debug
+  and parse, SQLFluff, and public-file verification.
+- `DO_NOT_TRACK=1 uv run pre-commit run --all-files` passed every configured hook.
+- A disposable loopback HTTP smoke previewed `Chouquish Belt` and category `Belt` from
+  the lowercase input and persisted both values with `201 Created`.
+- The upstream TestClient deprecation warning and the three expected empty dbt model
+  configuration warnings remain non-blocking.
+
+### Next Step
+
+Merge and push the feature branch only after approval. Extend the reviewed suffix map
+only when another unambiguous equipment type is needed; do not infer arbitrary source
+categories.
