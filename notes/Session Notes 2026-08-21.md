@@ -15,6 +15,7 @@ Completed and verified the approved local FastAPI item-search and price-tracking
 - Added loopback-only FastAPI HTML and `/api/v1` JSON routes with trusted hosts and same-origin browser mutations.
 - Added Jinja and vendored HTMX browser flows for search, detail, price recording, recalculation, and invalidation.
 - Added responsive local styling, reviewed HTMX assets and license, import and web entry points, ADR 0002, and developer documentation.
+- Closed final review findings by adding structured rejection details to reports, normalizing persisted observations to UTC, and selecting the latest imported recipe version.
 
 ## Durable Decisions
 
@@ -28,11 +29,12 @@ Completed and verified the approved local FastAPI item-search and price-tracking
 ## Verification
 
 - `uv sync --locked --all-groups` completed successfully.
-- `./scripts/check.sh` passed with 78 Python tests, application compilation, dbt debug and parse, SQLFluff, and public-file verification.
+- `./scripts/check.sh` passed with 80 Python tests, application compilation, dbt debug and parse, SQLFluff, and public-file verification.
 - `DO_NOT_TRACK=1 uv run pre-commit run --all-files` passed all configured hooks, including application compilation.
 - The pinned HTMX JavaScript and license matched their approved SHA-256 digests.
 - A disposable ignored SQLite database migrated from empty to Alembic head.
 - Local import created two batches with 1,271 accepted rows, 47 rejected rows, and no ambiguity warnings.
+- The ignored JSON report contained one structured entry per rejected row with dataset, row number, and validation messages, without printing raw rows to the console.
 - The accepted rows comprised 1,022 cost rows and 249 recipe rows. All 47 rejected recipe rows lacked both required recipe identity fields, matching the approved contract and known source shape.
 - The application importer read only the cost and recipe inputs; sales remained outside the command interface.
 - A server bound only to `127.0.0.1` returned HTTP 200 for `/items` and shut down cleanly.
