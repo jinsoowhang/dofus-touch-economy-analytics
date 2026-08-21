@@ -5,15 +5,39 @@ from collections.abc import Iterable
 from pathlib import PurePosixPath
 
 FORBIDDEN_PREFIXES = (
+    "data/app/",
     "data/raw/",
+    "data/reports/",
     "data/warehouse/",
     "dbt_packages/",
     "logs/",
     "skill-observations/",
     "target/",
 )
-ALLOWED_PATHS = {".env.example", "data/raw/README.md", "data/warehouse/README.md"}
-FORBIDDEN_SUFFIXES = (".duckdb", ".duckdb.wal", ".xlsx")
+ALLOWED_PATHS = {
+    ".env.example",
+    "data/app/README.md",
+    "data/raw/README.md",
+    "data/reports/README.md",
+    "data/warehouse/README.md",
+}
+FORBIDDEN_SUFFIXES = (
+    ".db",
+    ".db-journal",
+    ".db-shm",
+    ".db-wal",
+    ".duckdb",
+    ".duckdb.wal",
+    ".sqlite",
+    ".sqlite-journal",
+    ".sqlite-shm",
+    ".sqlite-wal",
+    ".sqlite3",
+    ".sqlite3-journal",
+    ".sqlite3-shm",
+    ".sqlite3-wal",
+    ".xlsx",
+)
 FORBIDDEN_NAMES = {".user.yml"}
 
 

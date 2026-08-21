@@ -4,12 +4,19 @@ version = "0.1.0"
 description = "Analytics engineering for a player-observed Dofus Touch economy"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+  "alembic==1.19.0",
   "dbt-core==1.12.0",
   "dbt-duckdb==1.10.1",
+  "fastapi==0.141.1",
+  "jinja2==3.1.6",
+  "python-multipart==0.0.32",
+  "sqlalchemy==2.0.51",
+  "uvicorn==0.51.0",
 ]
 
 [dependency-groups]
 dev = [
+  "httpx==0.28.1",
   "pre-commit==4.6.1",
   "pytest==9.1.1",
   "ruff==0.16.1",
@@ -17,8 +24,12 @@ dev = [
   "sqlfluff-templater-dbt==4.2.2",
 ]
 
-[tool.uv]
-package = false
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "dofus_touch_economy"
 
 [tool.ruff]
 target-version = "py312"
