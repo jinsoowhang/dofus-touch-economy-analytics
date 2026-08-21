@@ -23,9 +23,9 @@ def is_forbidden_tracked_path(path: str) -> bool:
         return False
 
     path_name = PurePosixPath(normalized_path).name
-    if normalized_path in FORBIDDEN_NAMES:
+    if path_name in FORBIDDEN_NAMES:
         return True
-    if normalized_path == ".env" or path_name.startswith(".env."):
+    if path_name == ".env" or path_name.startswith(".env."):
         return True
     if normalized_path.startswith(FORBIDDEN_PREFIXES):
         return True

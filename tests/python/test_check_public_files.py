@@ -23,6 +23,9 @@ def test_rejects_private_or_generated_files() -> None:
     paths = [
         ".env",
         ".env.local",
+        "nested/.env",
+        "nested/.env.local",
+        "nested/.user.yml",
         "data/raw/item_sales.csv",
         "private/local_source.xlsx",
         "data/warehouse/dofus_touch.duckdb",
