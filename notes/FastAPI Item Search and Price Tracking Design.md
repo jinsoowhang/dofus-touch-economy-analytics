@@ -164,9 +164,14 @@ Normalization trims surrounding whitespace, collapses repeated internal whitespa
 and applies Unicode case folding. It does not perform fuzzy correction.
 
 Manual creation uses the same normalized name and category identity key as imports.
-An exact existing identity is never duplicated. When category is omitted, any exact
-name candidate blocks creation. Similar-name suggestions are advisory and never
-establish identity.
+An exact existing identity is never duplicated. When no category is entered or
+inferred, any exact name candidate blocks creation. Similar-name suggestions are
+advisory and never establish identity.
+
+Manual names and category overrides are whitespace-normalized and title-cased. When
+category is omitted, a reviewed suffix map may infer a common equipment category from
+the complete final word. Explicit category input always wins, and arbitrary substrings
+never establish a category.
 
 ### `source_item_names`
 
@@ -297,7 +302,9 @@ query is offered in a manual item form.
 `POST /items` validates the exact display name and optional category, rejects duplicate
 or ambiguous identities, records manual creation provenance, and redirects to the new
 item detail page so a price can be recorded immediately. Existing item identities are
-not editable in this milestone.
+not editable in this milestone. The form previews automatic title casing and a category
+recognized from the item's final equipment-type word; the category field remains an
+optional override.
 
 ### Item detail
 

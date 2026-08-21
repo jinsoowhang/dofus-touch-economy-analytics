@@ -40,11 +40,18 @@ commands require an exact display name and accept an optional category. Identity
 the same normalized name and normalized category key as imports, and each item records
 whether it was first created manually or by import.
 
+Manual display names and entered category overrides are whitespace-normalized and
+title-cased. When category is omitted, the application may infer one only from a
+reviewed equipment type appearing as the complete final word. Recognized suffixes are
+amulet, axe, belt, boots, bow, cape, cloak, dagger or daggers, hammer, hat, ring,
+shield, shovel, staff, sword, and wand. An explicit category overrides inference.
+
 An exact existing identity is not duplicated. If category is omitted, any existing
-exact-name candidate blocks creation so the user can select the existing item. Similar
-names are suggestions only and never merge automatically. A cost import may add a
-category to a sole uncategorized manual item with the same normalized name; the item
-UUID, creation provenance, and observations remain unchanged.
+exact-name candidate blocks creation when no category can be inferred so the user can
+select the existing item. Similar names are suggestions only and never merge
+automatically. A cost import may add a category to a sole uncategorized manual item
+with the same normalized name; the item UUID, creation provenance, and observations
+remain unchanged.
 
 ## Operational price observations
 

@@ -55,6 +55,11 @@ price observations immediately. A later import reuses the same normalized
 name/category identity, or enriches a sole uncategorized manual item without changing
 its UUID or price history.
 
+Manual item names are whitespace-normalized and title-cased. The add form recognizes
+common equipment types from a complete final word, so `chouquish belt` previews and
+creates `Chouquish Belt` in category `Belt`. The category remains editable as an
+explicit override.
+
 The import command validates both CSV contracts before writing, stores accepted and rejected source-row provenance in SQLite, and writes an ignored report to `data/reports/latest-import.json`. A repeated dataset checksum is a no-op. A result containing rejected rows returns a nonzero exit code while retaining valid rows from the completed transaction.
 
 ## Data boundary
