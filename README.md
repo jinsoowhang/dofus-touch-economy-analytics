@@ -55,6 +55,12 @@ price observations immediately. A later import reuses the same normalized
 name/category identity, or enriches a sole uncategorized manual item without changing
 its UUID or price history.
 
+The top navigation contains an **Item Search** tab and is ready for additional pages.
+The item page lists the full catalog alphabetically beneath the search field, including
+category, latest unit price, observed lot, and observation time. Typing filters the
+table by item name. Clicking any row opens item detail, where a new audited price
+observation can be recorded.
+
 Manual item names are whitespace-normalized and title-cased. The add form recognizes
 common equipment types from a complete final word, so `chouquish belt` previews and
 creates `Chouquish Belt` in category `Belt`. The category remains editable as an

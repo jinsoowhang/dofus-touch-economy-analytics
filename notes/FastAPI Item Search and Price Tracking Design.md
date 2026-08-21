@@ -291,11 +291,18 @@ the application recomputes governed values from observations and recipe quantiti
 
 ### Item search
 
-`GET /items?q=<query>` returns a responsive search page. Matching is case-insensitive
-substring search over normalized names, with category displayed to distinguish
-duplicates. The current dataset size does not justify SQLite FTS in this milestone.
-When no item matches, close-name suggestions are shown only as links and the exact
-query is offered in a manual item form.
+The shared header exposes **Item Search** as the active top-level tab and leaves room
+for later application pages. `GET /items?q=<query>` returns a responsive search page.
+With an empty query it lists the full catalog alphabetically. Typing applies
+case-insensitive substring filtering over normalized names and replaces the table
+fragment after a short delay.
+
+Each row displays item name, category, current unit price, observed lot, observation
+time, and an update-price action. Current prices are loaded in bulk for the configured
+market context. Every row cell links to item detail, where price updates remain
+append-only observations. When no item matches, close-name suggestions are shown only
+as links and the exact query is offered in a manual item form. The current dataset size
+does not justify SQLite FTS in this milestone.
 
 ### Adding a missing item
 
@@ -426,10 +433,12 @@ The milestone is complete when a contributor can:
 1. Install the locked environment and migrate an empty local application database.
 2. Import the local cost and recipe exports with a deterministic validation report.
 3. Search for an imported item in the browser.
-4. Add a missing item manually and record its price immediately.
-5. View an imported recipe and clearly see missing or unresolved inputs.
-6. Record lot-based item and ingredient prices.
-7. See current prices, recipe cost, profit, and ROI update correctly.
-8. Invalidate an incorrect observation and recover the previous valid price.
-9. Exercise equivalent versioned JSON endpoints.
-10. Run all tests and repository checks without access to private source data.
+4. Browse the alphabetical catalog with current prices and filter it by item name.
+5. Open an item row and record a new price observation.
+6. Add a missing item manually and record its price immediately.
+7. View an imported recipe and clearly see missing or unresolved inputs.
+8. Record lot-based item and ingredient prices.
+9. See current prices, recipe cost, profit, and ROI update correctly.
+10. Invalidate an incorrect observation and recover the previous valid price.
+11. Exercise equivalent versioned JSON endpoints.
+12. Run all tests and repository checks without access to private source data.
