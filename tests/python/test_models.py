@@ -10,6 +10,7 @@ from dofus_touch_economy.models import (
     PriceObservation,
     Recipe,
     RecipeIngredient,
+    SaleListing,
     SourceRecord,
 )
 
@@ -86,6 +87,16 @@ def test_item_creation_source_is_constrained(session) -> None:
             created_source="unknown",
         )
     )
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_sale_listing_rejects_nonpositive_lot_quantity(session) -> None:
+    item = Item(display_name="Iron", normalized_name="iron", identity_category="ore")
+    session.add(item)
+    session.flush()
+    session.add(SaleListing(item_id=item.id, lot_quantity=0))
 
     with pytest.raises(IntegrityError):
         session.commit()

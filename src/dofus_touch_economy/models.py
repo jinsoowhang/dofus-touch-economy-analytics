@@ -102,6 +102,7 @@ class Item(Base):
 
     recipes: Mapped[list[Recipe]] = relationship(back_populates="crafted_item")
     price_observations: Mapped[list[PriceObservation]] = relationship(back_populates="item")
+    sale_listings: Mapped[list[SaleListing]] = relationship(back_populates="item")
 
 
 class SourceItemName(Base):
@@ -211,3 +212,49 @@ class PriceObservation(Base):
     invalidation_reason: Mapped[str | None] = mapped_column(Text)
 
     item: Mapped[Item] = relationship(back_populates="price_observations")
+    sale_listing: Mapped[SaleListing | None] = relationship(
+        back_populates="price_observation",
+        uselist=False,
+    )
+
+
+class SaleListing(Base):
+    __tablename__ = "sale_listings"
+    __table_args__ = (
+        UniqueConstraint(
+            "price_observation_id",
+            name="uq_sale_listings_price_observation_id",
+        ),
+        CheckConstraint(
+            "lot_quantity > 0",
+            name="ck_sale_listings_positive_lot_quantity",
+        ),
+        CheckConstraint(
+            "date_sold IS NULL OR date_sold >= selling_started_at",
+            name="ck_sale_listings_valid_sale_date",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    uuid: Mapped[UUID] = mapped_column(Uuid, default=uuid4, unique=True, nullable=False)
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    price_observation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("price_observations.id", ondelete="RESTRICT")
+    )
+    lot_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    selling_started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    date_sold: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+    )
+
+    item: Mapped[Item] = relationship(back_populates="sale_listings")
+    price_observation: Mapped[PriceObservation | None] = relationship(back_populates="sale_listing")

@@ -59,6 +59,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         "price_observations",
         "recipe_ingredients",
         "recipes",
+        "sale_listings",
         "source_item_names",
         "source_records",
     }
@@ -70,6 +71,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         )
         assert source == "imported"
         assert connection.scalar(text("SELECT count(*) FROM price_observations")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM sale_listings")) == 1
     engine.dispose()
 
     subprocess.run(

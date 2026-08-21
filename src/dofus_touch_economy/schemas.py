@@ -58,6 +58,28 @@ class InvalidationCreate(BaseModel):
         return reason
 
 
+class SaleListingCreate(BaseModel):
+    item_uuid: UUID
+    lot_quantity: int = Field(gt=0)
+
+
+class SaleItemChoiceResponse(BaseModel):
+    uuid: UUID
+    display_name: str
+    category: str | None
+
+
+class SaleListingResponse(BaseModel):
+    uuid: UUID
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    lot_quantity: int
+    total_price: int | None
+    selling_started_at: datetime
+    date_sold: datetime | None
+
+
 class ItemSummaryResponse(BaseModel):
     uuid: UUID
     display_name: str
