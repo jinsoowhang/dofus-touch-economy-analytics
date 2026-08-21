@@ -5,6 +5,7 @@ from sqlalchemy import select
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item
 from dofus_touch_economy.schemas import PriceObservationCreate
+from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
 
 
@@ -58,7 +59,8 @@ def test_blank_search_lists_catalog_alphabetically(client, session_factory, cata
 
     assert response.status_code == 200
     assert "Item name" in response.text
-    assert "Current unit price" in response.text
+    assert "Current price" in response.text
+    assert "Observed lot" not in response.text
     assert "Last observed" in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
     assert response.text.index(catalog_item.display_name) < response.text.index("Zeta Item")
@@ -90,9 +92,8 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert response.status_code == 200
     assert 'class="item-table"' in response.text
     assert "120 kamas" in response.text
-    assert "1 for 120 kamas" in response.text
     assert "Update price" in response.text
-    assert response.text.count(f'href="{item_url}"') == 6
+    assert response.text.count(f'href="{item_url}"') == 5
 
 
 def test_htmx_search_returns_only_results_fragment(client, catalog_item) -> None:
@@ -190,9 +191,7 @@ def test_detail_labels_incomplete_recipe_cost(client, session_factory, synthetic
     assert "Recipe cost is incomplete" in response.text
 
 
-def test_htmx_price_create_returns_panel_and_recalculated_metrics(
-    client, session_factory, fixture_dir
-) -> None:
+def test_htmx_price_create_redirects_to_item_search(client, session_factory, fixture_dir) -> None:
     ImportService(session_factory).import_files(
         fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
     )
@@ -221,20 +220,20 @@ def test_htmx_price_create_returns_panel_and_recalculated_metrics(
         f"/items/{crafted_uuid}/price-observations",
         headers={"HX-Request": "true"},
         data={
-            "lot_quantity": "1",
             "total_price": "125",
             "observed_at": "2026-08-20T12:00:00Z",
             "note": "Manual check",
         },
     )
 
-    assert response.status_code == 200
-    assert 'id="price-panel"' in response.text
-    assert 'hx-swap-oob="true"' in response.text
-    assert "Market: Dodge" in response.text
-    assert "Recipe cost: 80" in response.text
-    assert "Profit: 45" in response.text
-    assert "<html" not in response.text
+    assert response.status_code == 204
+    assert response.headers["hx-redirect"] == "/items?notice=price-recorded"
+
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(crafted_uuid)
+    assert detail.current_price is not None
+    assert detail.current_price.total_price == 125
+    assert detail.current_price.lot_quantity == 1
 
 
 def test_html_validation_is_inline_and_preserves_safe_values(client, catalog_item) -> None:
@@ -242,8 +241,7 @@ def test_html_validation_is_inline_and_preserves_safe_values(client, catalog_ite
         f"/items/{catalog_item.uuid}/price-observations",
         headers={"HX-Request": "true"},
         data={
-            "lot_quantity": "-1",
-            "total_price": "125",
+            "total_price": "-1",
             "observed_at": "2026-08-20T12:00:00Z",
             "note": "Keep this note",
         },
@@ -252,14 +250,14 @@ def test_html_validation_is_inline_and_preserves_safe_values(client, catalog_ite
     assert response.status_code == 422
     assert "Input should be greater than 0" in response.text
     assert 'value="-1"' in response.text
+    assert 'name="lot_quantity"' not in response.text
     assert "Keep this note" in response.text
 
 
-def test_non_htmx_price_create_redirects_to_detail(client, catalog_item) -> None:
+def test_non_htmx_price_create_redirects_to_search_with_notification(client, catalog_item) -> None:
     response = client.post(
         f"/items/{catalog_item.uuid}/price-observations",
         data={
-            "lot_quantity": "1",
             "total_price": "125",
             "observed_at": "2026-08-20T12:00:00Z",
             "note": "",
@@ -268,7 +266,11 @@ def test_non_htmx_price_create_redirects_to_detail(client, catalog_item) -> None
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/items/{catalog_item.uuid}"
+    assert response.headers["location"] == "/items?notice=price-recorded"
+
+    search = client.get(response.headers["location"])
+    assert search.status_code == 200
+    assert "Item price has been updated." in search.text
 
 
 def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
@@ -279,5 +281,5 @@ def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
     )
 
     assert response.status_code == 200
-    assert "Current unit price: 100" in response.text
+    assert "Current price: 100" in response.text
     assert 'hx-swap-oob="true"' in response.text

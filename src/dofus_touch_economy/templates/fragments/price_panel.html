@@ -2,7 +2,7 @@
   <h2>Price observations</h2>
   <p>Market: {{ detail.market_context }}</p>
   {% if detail.current_price %}
-    <p class="numeric">Current unit price: {{ detail.current_price.unit_price }} kama</p>
+    <p class="numeric">Current price: {{ detail.current_price.total_price }} kama</p>
   {% else %}
     <p>No current price has been recorded.</p>
   {% endif %}
@@ -21,8 +21,6 @@
     hx-target="#price-panel"
     hx-swap="outerHTML"
   >
-    <label for="lot-quantity">Lot quantity</label>
-    <input id="lot-quantity" name="lot_quantity" inputmode="numeric" value="{{ form_values.get('lot_quantity', '1') }}" required>
     <label for="total-price">Total price</label>
     <input id="total-price" name="total_price" inputmode="numeric" value="{{ form_values.get('total_price', '') }}" required>
     <label for="observed-at">Observed at (ISO 8601 with timezone)</label>
@@ -37,7 +35,7 @@
     <ul>
       {% for observation in detail.price_history %}
         <li class="numeric">
-          {{ observation.observed_at }} · {{ observation.total_price }} kama for {{ observation.lot_quantity }}
+          {{ observation.observed_at }} · {{ observation.total_price }} kama
           {% if observation.invalidated_at %}
             — invalidated: {{ observation.invalidation_reason }}
           {% else %}

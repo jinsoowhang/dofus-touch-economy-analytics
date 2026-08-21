@@ -16,8 +16,7 @@
         <tr>
           <th>Item name</th>
           <th>Category</th>
-          <th class="numeric">Current unit price</th>
-          <th>Observed lot</th>
+          <th class="numeric">Current price</th>
           <th>Last observed</th>
           <th>Action</th>
         </tr>
@@ -37,12 +36,7 @@
           {% if item.current_price %}
             <td class="numeric">
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
-                {{ item.current_price.unit_price }} kamas
-              </a>
-            </td>
-            <td>
-              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
-                {{ item.current_price.lot_quantity }} for {{ item.current_price.total_price }} kamas
+                {{ item.current_price.total_price }} kamas
               </a>
             </td>
             <td>
@@ -55,9 +49,6 @@
           {% else %}
             <td class="numeric">
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">—</a>
-            </td>
-            <td>
-              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">Not recorded</a>
             </td>
             <td>
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">—</a>

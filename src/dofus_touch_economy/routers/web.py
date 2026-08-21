@@ -51,6 +51,7 @@ def _search_context(
     query: str,
     market_context: str,
     *,
+    notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
@@ -66,6 +67,7 @@ def _search_context(
         "proposed_display_name": proposed_display_name,
         "recognized_category": recognized_category,
         "market_context": market_context,
+        "notification": notification,
         "errors": errors or [],
         "form_values": form_values or {},
     }
@@ -125,9 +127,16 @@ def search_items(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     q: str = Query(default=""),
+    notice: str | None = Query(default=None),
 ) -> HTMLResponse:
     catalog = CatalogService(session, settings.market_context)
-    context = _search_context(catalog, q, settings.market_context)
+    notification = "Item price has been updated." if notice == "price-recorded" else None
+    context = _search_context(
+        catalog,
+        q,
+        settings.market_context,
+        notification=notification,
+    )
     if _is_htmx(request):
         return templates.TemplateResponse(request, "fragments/item_results.html", context=context)
     return templates.TemplateResponse(request, "items.html", context=context)
@@ -210,7 +219,8 @@ async def record_price(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Response:
     form = await request.form()
-    values = _form_values(form, ("lot_quantity", "total_price", "observed_at", "note"))
+    values = _form_values(form, ("total_price", "observed_at", "note"))
+    values["lot_quantity"] = "1"
     catalog = CatalogService(session, settings.market_context)
     try:
         detail = catalog.detail(item_uuid)
@@ -228,7 +238,10 @@ async def record_price(
         )
 
     PriceService(session, settings.market_context).record(item_uuid, command)
-    return _mutation_response(request, catalog.detail(item_uuid))
+    redirect_url = "/items?notice=price-recorded"
+    if _is_htmx(request):
+        return Response(status_code=204, headers={"HX-Redirect": redirect_url})
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 
 @router.post(

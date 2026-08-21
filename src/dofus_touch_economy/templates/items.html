@@ -3,6 +3,9 @@
 {% block content %}
   <h1>Item search</h1>
   <p>Market: {{ market_context }}</p>
+  {% if notification %}
+    <p class="notification" role="status">{{ notification }}</p>
+  {% endif %}
   <form method="get" action="/items" class="search-form">
     <label for="item-query">Item name</label>
     <input

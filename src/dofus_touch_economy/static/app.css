@@ -138,6 +138,14 @@ button {
   padding-inline: 0.75rem;
 }
 
+.notification {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-left: 0.35rem solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0.75rem;
+}
+
 .status {
   color: var(--warning);
   font-weight: 650;
@@ -170,7 +178,7 @@ button {
 
 .item-table {
   border-collapse: collapse;
-  min-width: 60rem;
+  min-width: 50rem;
   width: 100%;
 }
 
