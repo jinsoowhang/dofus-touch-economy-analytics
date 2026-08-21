@@ -340,9 +340,7 @@ class Settings:
             raise ValueError("DOFUS_MARKET_CONTEXT must not be empty")
         allowed_hosts = tuple(
             host.strip()
-            for host in os.environ.get(
-                "DOFUS_ALLOWED_HOSTS", "127.0.0.1,localhost"
-            ).split(",")
+            for host in os.environ.get("DOFUS_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
             if host.strip()
         )
         if not allowed_hosts:
@@ -442,8 +440,12 @@ def test_recipe_ingredient_position_is_unique(session) -> None:
     recipe = make_recipe(session)
     session.add_all(
         [
-            RecipeIngredient(recipe_id=recipe.id, position=1, raw_name="A", normalized_name="a", quantity=1),
-            RecipeIngredient(recipe_id=recipe.id, position=1, raw_name="B", normalized_name="b", quantity=1),
+            RecipeIngredient(
+                recipe_id=recipe.id, position=1, raw_name="A", normalized_name="a", quantity=1
+            ),
+            RecipeIngredient(
+                recipe_id=recipe.id, position=1, raw_name="B", normalized_name="b", quantity=1
+            ),
         ]
     )
     with pytest.raises(IntegrityError):
@@ -759,9 +761,7 @@ def test_import_is_idempotent(session_factory, fixture_dir: Path) -> None:
 
 
 def test_ambiguous_exact_name_remains_unresolved(session_factory, synthetic_files) -> None:
-    synthetic_files.write_cost_rows(
-        [("Shared Name", "Ore", "1"), ("Shared Name", "Fiber", "2")]
-    )
+    synthetic_files.write_cost_rows([("Shared Name", "Ore", "1"), ("Shared Name", "Fiber", "2")])
     synthetic_files.write_recipe(ingredient="Shared Name", quantity="1")
     ImportService(session_factory).import_files(*synthetic_files.paths)
     with session_factory() as session:
@@ -1093,7 +1093,10 @@ git commit -m "feat: record and invalidate item prices"
 ```python
 def test_vendored_htmx_has_reviewed_digest() -> None:
     data = resources.files("dofus_touch_economy").joinpath("static/htmx.min.js").read_bytes()
-    assert hashlib.sha256(data).hexdigest() == "71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de"
+    assert (
+        hashlib.sha256(data).hexdigest()
+        == "71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de"
+    )
 
 
 def test_web_main_binds_loopback(monkeypatch) -> None:
