@@ -1,0 +1,96 @@
+from pathlib import Path
+
+import pytest
+from sqlalchemy import text
+
+from dofus_touch_economy.config import Settings
+from dofus_touch_economy.database import create_engine_for_url, create_session_factory
+
+
+def test_settings_defaults_are_deterministic(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("DOFUS_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.delenv("DOFUS_APP_DATABASE_PATH", raising=False)
+    monkeypatch.delenv("DOFUS_MARKET_CONTEXT", raising=False)
+    monkeypatch.delenv("DOFUS_ALLOWED_HOSTS", raising=False)
+
+    settings = Settings.from_env()
+
+    assert settings.project_root == tmp_path.resolve()
+    assert settings.database_path == (tmp_path / "data/app/dofus_touch.sqlite3").resolve()
+    assert settings.database_url == f"sqlite+pysqlite:///{settings.database_path}"
+    assert settings.market_context == "unspecified"
+    assert settings.allowed_hosts == ("127.0.0.1", "localhost")
+
+
+def test_database_paths_resolve_relative_to_project_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    project_root = tmp_path / "project"
+    monkeypatch.setenv("DOFUS_PROJECT_ROOT", str(project_root))
+    monkeypatch.setenv("DOFUS_APP_DATABASE_PATH", "custom/app.sqlite3")
+
+    relative_settings = Settings.from_env()
+
+    assert relative_settings.database_path == (project_root / "custom/app.sqlite3").resolve()
+
+    absolute_path = tmp_path / "outside" / "app.sqlite3"
+    monkeypatch.setenv("DOFUS_APP_DATABASE_PATH", str(absolute_path))
+
+    absolute_settings = Settings.from_env()
+
+    assert absolute_settings.database_path == absolute_path.resolve()
+    assert absolute_settings.database_path.is_absolute()
+
+
+def test_empty_market_context_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DOFUS_MARKET_CONTEXT", " \t ")
+
+    with pytest.raises(ValueError, match="^DOFUS_MARKET_CONTEXT must not be empty$"):
+        Settings.from_env()
+
+
+def test_allowed_hosts_are_stripped_and_empty_entries_are_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DOFUS_ALLOWED_HOSTS", " example.test, , 127.0.0.1, ")
+
+    settings = Settings.from_env()
+
+    assert settings.allowed_hosts == ("example.test", "127.0.0.1")
+
+
+def test_empty_allowed_hosts_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DOFUS_ALLOWED_HOSTS", " , \t, ")
+
+    with pytest.raises(ValueError, match="^DOFUS_ALLOWED_HOSTS must contain at least one host$"):
+        Settings.from_env()
+
+
+def test_file_backed_engine_creates_directory_and_sets_sqlite_pragmas(tmp_path: Path) -> None:
+    database_path = tmp_path / "nested" / "app.sqlite3"
+
+    engine = create_engine_for_url(f"sqlite+pysqlite:///{database_path}")
+
+    assert database_path.parent.is_dir()
+    with engine.connect() as connection:
+        foreign_keys = connection.execute(text("PRAGMA foreign_keys")).scalar_one()
+        busy_timeout = connection.execute(text("PRAGMA busy_timeout")).scalar_one()
+        journal_mode = connection.execute(text("PRAGMA journal_mode")).scalar_one()
+
+    assert foreign_keys == 1
+    assert busy_timeout == 5000
+    assert str(journal_mode).lower() == "wal"
+    engine.dispose()
+
+
+def test_session_factory_disables_autoflush_and_expiration() -> None:
+    engine = create_engine_for_url("sqlite+pysqlite:///:memory:")
+    session_factory = create_session_factory(engine)
+
+    with session_factory() as session:
+        assert session.autoflush is False
+        assert session.expire_on_commit is False
+
+    engine.dispose()
