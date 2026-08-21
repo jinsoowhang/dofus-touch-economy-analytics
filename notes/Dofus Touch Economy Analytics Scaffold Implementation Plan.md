@@ -1301,7 +1301,7 @@ Expected: the commit contains only the GitHub Actions workflow.
 - Raw CSVs, DuckDB files, secrets, task-observer files, and worktree contents remain local and ignored.
 - Canonical local sources: `item_sales.csv`, `item_recipes.csv`, and `item_cost.csv` under `data/raw/`.
 - Only synthetic samples may be committed until source-data redistribution rights are established.
-- The source CSVs contain abbreviated dates; ingestion and date-dependent models require deterministic ISO dates or the source workbook.
+- The source CSVs contain abbreviated dates; ingestion and date-dependent models require deterministic ISO dates from a re-export or an explicitly approved parsing rule.
 - Source-derived costs, profits, differences, and ROI values will be preserved for reconciliation but recomputed as governed measures.
 - The next milestone is test-driven source-contract validation and immutable loading into DuckDB.
 ```
@@ -1356,7 +1356,7 @@ Established the public and local foundation for a Dofus Touch economy analytics 
 - `uv run pre-commit run --all-files` passed.
 - dbt profile validation and project parsing passed.
 - The public-file policy found no forbidden tracked artifacts.
-- Git ignored all local CSV, workbook, and DuckDB files.
+- Git ignored all local CSV and DuckDB files.
 
 ## Next step
 

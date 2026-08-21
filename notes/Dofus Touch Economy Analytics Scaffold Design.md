@@ -61,7 +61,7 @@ The user supplied three UTF-8 CSV exports. Their public canonical names will be:
 - Ingredient cost columns use zero when their corresponding ingredient and quantity are absent.
 - Item cost names are not unique across the source file.
 
-Date-dependent ingestion will require either a new export with ISO `YYYY-MM-DD` values or a source workbook that preserves the complete dates. The pipeline must not guess missing years.
+Date-dependent ingestion will require either a new CSV export with ISO `YYYY-MM-DD` values or an explicitly approved parsing rule. The pipeline must not guess missing years.
 
 ## Architecture
 
