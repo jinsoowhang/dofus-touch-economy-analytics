@@ -33,6 +33,19 @@ Exact normalized names resolve automatically only when one candidate exists. Amb
 
 Sales ingestion remains deferred. The source has abbreviated dates, no stable transaction identifier, no quantity, and an unresolved listing-versus-sale row grain. Missing years must never be inferred.
 
+## Operational catalog identities
+
+The local application may create an item manually when search has no result. Manual
+commands require an exact display name and accept an optional category. Identity uses
+the same normalized name and normalized category key as imports, and each item records
+whether it was first created manually or by import.
+
+An exact existing identity is not duplicated. If category is omitted, any existing
+exact-name candidate blocks creation so the user can select the existing item. Similar
+names are suggestions only and never merge automatically. A cost import may add a
+category to a sole uncategorized manual item with the same normalized name; the item
+UUID, creation provenance, and observations remain unchanged.
+
 ## Operational price observations
 
 Manual observations persisted by the application contain:

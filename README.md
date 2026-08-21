@@ -49,6 +49,12 @@ uv run dofus-web
 
 The website binds to `127.0.0.1:8000` by default. Public or non-loopback binding is rejected because it requires a separate authentication, authorization, CSRF, HTTPS, secrets, and production-database design.
 
+Search is normalized and case-insensitive. When no catalog item matches, the page shows
+advisory spelling suggestions and an **Add item** form. Manually added items can receive
+price observations immediately. A later import reuses the same normalized
+name/category identity, or enriches a sole uncategorized manual item without changing
+its UUID or price history.
+
 The import command validates both CSV contracts before writing, stores accepted and rejected source-row provenance in SQLite, and writes an ignored report to `data/reports/latest-import.json`. A repeated dataset checksum is a no-op. A result containing rejected rows returns a nonzero exit code while retaining valid rows from the completed transaction.
 
 ## Data boundary

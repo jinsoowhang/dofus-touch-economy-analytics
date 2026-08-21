@@ -14,7 +14,7 @@ ignored item_cost.csv + item_recipes.csv
  ignored JSON report       ignored SQLite database
                                 ^           |
                                 |           v
-                         FastAPI services -> Jinja + HTMX / JSON API
+      manual item command -> FastAPI services -> Jinja + HTMX / JSON API
                                 |
                                 v
                  deferred immutable operational extract
@@ -33,13 +33,19 @@ ignored item_cost.csv + item_recipes.csv
 SQLite owns transactional application state:
 
 - import batches and accepted or rejected source-row provenance;
-- canonical catalog identities and explicit source-name resolution decisions;
+- imported or manually created canonical catalog identities, their creation source,
+  and explicit source-name resolution decisions;
 - normalized recipes and ordered ingredients;
 - append-only manual lot-price observations and audit-preserving invalidation.
 
 FastAPI reads and writes SQLite through repositories and services. Routers translate HTML or JSON only, and DuckDB receives no request-time writes. Alembic exclusively manages the operational schema. The default ignored database is `data/app/dofus_touch.sqlite3`.
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
+
+Missing items may be created through the HTML or JSON interface. Similar-name results
+are advisory and never establish identity. A later source import may enrich a sole
+uncategorized manual item when its normalized name is unambiguous; stable UUIDs and
+existing observations are preserved.
 
 ## Analytical boundary
 

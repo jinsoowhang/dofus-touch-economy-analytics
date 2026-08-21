@@ -36,6 +36,7 @@ validated.
 
 - Validate and import `item_cost.csv` and `item_recipes.csv` from ignored local paths.
 - Search items by case-insensitive normalized name.
+- Create a missing catalog item manually after reviewing advisory similar-name results.
 - View an item, its recipe, current prices, and price history.
 - Record a timestamped price observation for any item or ingredient.
 - Store market lot quantity and total price and derive unit price.
@@ -50,7 +51,7 @@ validated.
 - `item_sales.csv` ingestion until its dates and row grain are deterministic.
 - Public hosting, authentication, authorization, and multiple users.
 - React or another separate frontend.
-- Editing item identity, aliases, or recipe structure through the website.
+- Editing an existing item identity, aliases, or recipe structure through the website.
 - Automatic fuzzy merging of source names.
 - Market fees, taxes, alerts, dashboards, scraping, or game-client automation.
 - The SQLite-to-DuckDB analytical ingestion and dbt models. The application schema
@@ -156,10 +157,16 @@ Represents a canonical searchable item:
 - display name
 - normalized name
 - optional category
+- creation source (`imported` or `manual`)
 - created and updated timestamps
 
 Normalization trims surrounding whitespace, collapses repeated internal whitespace,
 and applies Unicode case folding. It does not perform fuzzy correction.
+
+Manual creation uses the same normalized name and category identity key as imports.
+An exact existing identity is never duplicated. When category is omitted, any exact
+name candidate blocks creation. Similar-name suggestions are advisory and never
+establish identity.
 
 ### `source_item_names`
 
@@ -231,7 +238,9 @@ The import command accepts the canonical ignored paths and performs these steps:
 2. Preserve source-row locators and raw item names.
 3. Parse only fields required for catalog and recipe behavior.
 4. Normalize names using the documented deterministic rule.
-5. Reuse exact unambiguous items and create category-aware candidates when needed.
+5. Reuse exact unambiguous items and create category-aware candidates when needed. A
+   sole uncategorized manual item may be enriched with the imported category while
+   retaining its UUID, creation source, and observations.
 6. Expand populated recipe ingredient groups into ordered ingredient rows.
 7. Record rejected rows, warnings, and ambiguous matches in a report.
 8. Commit accepted application rows and the import-batch result in one transaction.
@@ -280,6 +289,15 @@ the application recomputes governed values from observations and recipe quantiti
 `GET /items?q=<query>` returns a responsive search page. Matching is case-insensitive
 substring search over normalized names, with category displayed to distinguish
 duplicates. The current dataset size does not justify SQLite FTS in this milestone.
+When no item matches, close-name suggestions are shown only as links and the exact
+query is offered in a manual item form.
+
+### Adding a missing item
+
+`POST /items` validates the exact display name and optional category, rejects duplicate
+or ambiguous identities, records manual creation provenance, and redirects to the new
+item detail page so a price can be recorded immediately. Existing item identities are
+not editable in this milestone.
 
 ### Item detail
 
@@ -317,19 +335,21 @@ HTML routes:
 
 - `GET /` redirects to `/items`.
 - `GET /items` searches and lists items.
+- `POST /items` creates a missing catalog item manually.
 - `GET /items/{item_uuid}` renders item detail.
 - `POST /items/{item_uuid}/price-observations` records an observation.
 - `POST /price-observations/{observation_uuid}/invalidation` invalidates one.
 
-JSON routes under `/api/v1` expose equivalent search, detail, create-observation, and
-invalidate-observation behavior. HTML and JSON routers call the same services rather
-than duplicating business rules.
+JSON routes under `/api/v1` expose equivalent search, item creation, detail,
+create-observation, and invalidate-observation behavior. HTML and JSON routers call
+the same services rather than duplicating business rules.
 
 ## Validation and error handling
 
 - Unknown items and observations return `404`.
 - Nonpositive quantities or prices and malformed timestamps return `422`.
 - Invalidating an already invalid observation returns `409`.
+- Duplicate or ambiguous manual item creation returns `409`.
 - Import schema failures return a nonzero CLI result and a readable validation report.
 - SQLite command operations run in explicit transactions and roll back on failure.
 - HTML errors render next to the relevant form; JSON errors use stable structured
@@ -399,9 +419,10 @@ The milestone is complete when a contributor can:
 1. Install the locked environment and migrate an empty local application database.
 2. Import the local cost and recipe exports with a deterministic validation report.
 3. Search for an imported item in the browser.
-4. View its recipe and clearly see missing or unresolved inputs.
-5. Record lot-based item and ingredient prices.
-6. See current prices, recipe cost, profit, and ROI update correctly.
-7. Invalidate an incorrect observation and recover the previous valid price.
-8. Exercise equivalent versioned JSON endpoints.
-9. Run all tests and repository checks without access to private source data.
+4. Add a missing item manually and record its price immediately.
+5. View an imported recipe and clearly see missing or unresolved inputs.
+6. Record lot-based item and ingredient prices.
+7. See current prices, recipe cost, profit, and ROI update correctly.
+8. Invalidate an incorrect observation and recover the previous valid price.
+9. Exercise equivalent versioned JSON endpoints.
+10. Run all tests and repository checks without access to private source data.
