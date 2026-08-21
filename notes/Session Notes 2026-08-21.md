@@ -186,3 +186,47 @@ catalog browsable without requiring an initial query.
 
 Merge and push the feature branch only after approval. Add future application pages as
 new shared-header tabs while retaining Item Search as the catalog and price-entry hub.
+
+## Follow-up: Sales Tracking
+
+### Context
+
+Simplified Item Search price entry and added an operational Sales page for active and
+completed listings. The user requested faster iterations, so no broad README or design
+documents were changed.
+
+### Work Completed
+
+- Removed lot quantity from Item Search price entry and catalog display; HTML price
+  records now use implicit quantity one.
+- Redirected successful price recording to Item Search with a confirmation notice.
+- Added a Sales tab with direct item selection, lot quantity, automatic selling start
+  time, active listings, a Mark sold action, and sold history with `date_sold`.
+- Linked price observations to automatically created Sales entries and display their
+  recorded total price on the Sales page.
+- Added migration `0003`, which seeded manual price observations recorded that day as
+  active listings without duplicating their linked observation.
+
+### Decisions
+
+- Each price observation represents a separate sale entry with its recorded lot
+  quantity; the Item Search workflow therefore creates quantity-one entries.
+- Direct Sales entries may use any positive lot quantity and have no required price.
+- Selling and sold timestamps are recorded automatically in UTC.
+- Broad documentation updates are reserved for meaningful public contract changes or
+  explicit requests; required memory and session records remain part of session close.
+
+### Verification
+
+- `./scripts/check.sh` passed with 120 Python tests plus application compilation, dbt
+  debug and parse, SQLFluff, and public-file verification.
+- Focused Sales, web, model, and populated migration tests passed.
+- Migration `0003` upgraded the local database and seeded all 15 manual prices recorded
+  on 2026-08-21 as active Sales listings.
+- The running loopback site returned `/sales` with HTTP 200, 15 active entries, linked
+  prices, and Mark sold controls.
+
+### Next Step
+
+Merge and push the feature branch only after approval. Future Sales enhancements can
+add optional direct-entry pricing or reporting when requested.
