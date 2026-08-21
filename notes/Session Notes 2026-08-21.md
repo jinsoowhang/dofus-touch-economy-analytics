@@ -230,3 +230,16 @@ documents were changed.
 
 Merge and push the feature branch only after approval. Future Sales enhancements can
 add optional direct-entry pricing or reporting when requested.
+
+## Follow-up: Compact Item Display and Editable Sales
+
+- Replaced the Item Search success banner with a fixed corner notification containing
+  the updated item name; it fades after three seconds.
+- Displayed category labels in title case without rewriting source values, removed the
+  currency suffix from catalog prices, and reduced visible dates to `YYYY-MM-DD`.
+- Added an independent editable asking price to Sales, backfilled it from linked price
+  observations, and added Duplicate and inline Update price actions.
+- A duplicate copies item, lot quantity, and asking price into a separate active
+  listing, so its price can change without affecting the original.
+- Migration `0004` completed with no missing linked prices. `./scripts/check.sh` passed
+  with 126 tests, and live Item Search and Sales smoke requests returned HTTP 200.
