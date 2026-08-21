@@ -1,12 +1,53 @@
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
+from dofus_touch_economy.models import Item, PriceObservation
+from dofus_touch_economy.repositories.prices import PriceRepository
 from dofus_touch_economy.services.pricing import (
     IngredientPrice,
+    ObservationConflict,
+    PriceService,
     calculate_recipe_metrics,
     unit_price,
 )
+
+
+def dt(year: int, month: int, day: int) -> datetime:
+    return datetime(year, month, day, tzinfo=UTC)
+
+
+@pytest.fixture
+def item(session) -> Item:
+    model = Item(
+        display_name="Synthetic Ore", normalized_name="synthetic ore", identity_category="ore"
+    )
+    session.add(model)
+    session.flush()
+    return model
+
+
+def make_observation(
+    session,
+    item: Item,
+    *,
+    total_price: int = 100,
+    observed_at: datetime | None = None,
+    recorded_at: datetime | None = None,
+) -> PriceObservation:
+    observed_at = observed_at or dt(2026, 8, 20)
+    observation = PriceObservation(
+        item_id=item.id,
+        lot_quantity=1,
+        total_price=total_price,
+        observed_at=observed_at,
+        recorded_at=recorded_at or observed_at + timedelta(seconds=1),
+        market_context="Dodge",
+    )
+    session.add(observation)
+    session.flush()
+    return observation
 
 
 def test_calculates_unit_price_without_float_drift() -> None:
@@ -68,3 +109,45 @@ def test_zero_recipe_cost_has_no_roi() -> None:
     assert metrics.profit == Decimal("10")
     assert metrics.roi is None
     assert metrics.is_complete is True
+
+
+def test_latest_valid_observation_uses_observed_then_recorded_order(session, item) -> None:
+    older_recorded_later = make_observation(
+        session,
+        item,
+        total_price=100,
+        observed_at=dt(2026, 8, 19),
+        recorded_at=dt(2026, 8, 20),
+    )
+    newer_observed = make_observation(
+        session,
+        item,
+        total_price=120,
+        observed_at=dt(2026, 8, 20),
+        recorded_at=dt(2026, 8, 19),
+    )
+    session.commit()
+
+    assert PriceRepository(session).latest_valid(item.id, "Dodge").id == newer_observed.id
+    assert older_recorded_later.id != newer_observed.id
+
+
+def test_invalidation_restores_previous_valid_price(session, item) -> None:
+    previous = make_observation(session, item, total_price=100)
+    current = make_observation(session, item, total_price=120)
+    session.commit()
+    service = PriceService(session, market_context="Dodge")
+
+    service.invalidate(current.uuid, "Mistyped market price")
+
+    assert service.current_for_item(item.id).observation_uuid == previous.uuid
+
+
+def test_cannot_invalidate_twice(session, item) -> None:
+    observation = make_observation(session, item)
+    session.commit()
+    service = PriceService(session, market_context="Dodge")
+    service.invalidate(observation.uuid, "Mistake")
+
+    with pytest.raises(ObservationConflict):
+        service.invalidate(observation.uuid, "Again")

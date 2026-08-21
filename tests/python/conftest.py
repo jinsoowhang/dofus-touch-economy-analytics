@@ -23,6 +23,12 @@ def session_factory(tmp_path: Path):
     engine.dispose()
 
 
+@pytest.fixture
+def session(session_factory):
+    with session_factory() as database_session:
+        yield database_session
+
+
 @dataclass
 class SyntheticFiles:
     cost_path: Path
