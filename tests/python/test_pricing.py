@@ -132,6 +132,22 @@ def test_latest_valid_observation_uses_observed_then_recorded_order(session, ite
     assert older_recorded_later.id != newer_observed.id
 
 
+def test_bulk_current_prices_return_latest_observation_for_each_requested_item(
+    session, item
+) -> None:
+    other = Item(display_name="Other Item", normalized_name="other item", identity_category="")
+    session.add(other)
+    session.flush()
+    make_observation(session, item, total_price=100, observed_at=dt(2026, 8, 19))
+    latest = make_observation(session, item, total_price=120, observed_at=dt(2026, 8, 20))
+    other_latest = make_observation(session, other, total_price=80)
+
+    current = PriceService(session, "Dodge").current_for_items([item.id, other.id])
+
+    assert current[item.id].observation_uuid == latest.uuid
+    assert current[other.id].observation_uuid == other_latest.uuid
+
+
 def test_invalidation_restores_previous_valid_price(session, item) -> None:
     previous = make_observation(session, item, total_price=100)
     current = make_observation(session, item, total_price=120)

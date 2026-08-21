@@ -35,6 +35,36 @@ def test_search_normalizes_substrings_and_disambiguates_categories(
     ]
 
 
+def test_blank_search_lists_full_catalog_alphabetically(session_factory) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Item(display_name="Zeta Item", normalized_name="zeta item", identity_category=""),
+                Item(
+                    display_name="Alpha Item",
+                    normalized_name="alpha item",
+                    identity_category="",
+                ),
+            ]
+        )
+        session.commit()
+
+    with session_factory() as session:
+        results = CatalogService(session, "Dodge").search("", limit=None)
+
+    assert [result.display_name for result in results] == ["Alpha Item", "Zeta Item"]
+
+
+def test_search_summary_includes_current_price(session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        PriceService(session, "Dodge").record(catalog_item.uuid, price_command(125))
+    with session_factory() as session:
+        result = CatalogService(session, "Dodge").search("synthetic ore")[0]
+
+    assert result.current_price is not None
+    assert result.current_price.unit_price == Decimal("125")
+
+
 def test_creates_normalized_manual_catalog_item(session_factory) -> None:
     with session_factory() as session:
         detail = CatalogService(session, "Dodge").create_manual(

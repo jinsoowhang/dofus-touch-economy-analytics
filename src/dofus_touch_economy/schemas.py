@@ -63,6 +63,7 @@ class ItemSummaryResponse(BaseModel):
     display_name: str
     category: str | None
     created_source: Literal["imported", "manual"]
+    current_price: CurrentPriceResponse | None = None
 
 
 class CurrentPriceResponse(BaseModel):

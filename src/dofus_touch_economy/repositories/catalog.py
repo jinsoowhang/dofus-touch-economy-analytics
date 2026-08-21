@@ -11,16 +11,20 @@ class CatalogRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def search(self, query: str, limit: int = 50) -> list[Item]:
-        if not query.strip():
-            return []
-        normalized_query = normalize_item_name(query)
-        statement = (
-            select(Item)
-            .where(Item.normalized_name.contains(normalized_query, autoescape=True))
-            .order_by(Item.normalized_name, func.coalesce(Item.category, ""), Item.id)
-            .limit(limit)
+    def search(self, query: str, limit: int | None = 50) -> list[Item]:
+        statement = select(Item)
+        if query.strip():
+            normalized_query = normalize_item_name(query)
+            statement = statement.where(
+                Item.normalized_name.contains(normalized_query, autoescape=True)
+            )
+        statement = statement.order_by(
+            Item.normalized_name,
+            func.coalesce(Item.category, ""),
+            Item.id,
         )
+        if limit is not None:
+            statement = statement.limit(limit)
         return list(self._session.scalars(statement))
 
     def find_by_identity(self, normalized_name: str, identity_category: str) -> Item | None:

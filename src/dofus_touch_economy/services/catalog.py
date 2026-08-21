@@ -13,6 +13,7 @@ from dofus_touch_economy.normalization import (
 )
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.schemas import (
+    CurrentPriceResponse,
     ItemCreate,
     ItemDetailResponse,
     ItemSummaryResponse,
@@ -41,8 +42,10 @@ class CatalogService:
         self._prices = PriceService(session, market_context)
         self._market_context = market_context
 
-    def search(self, query: str, limit: int = 50) -> list[ItemSummaryResponse]:
-        return [_item_summary(item) for item in self._catalog.search(query, limit)]
+    def search(self, query: str, limit: int | None = 50) -> list[ItemSummaryResponse]:
+        items = self._catalog.search(query, limit)
+        current_prices = self._prices.current_for_items([item.id for item in items])
+        return [_item_summary(item, current_prices.get(item.id)) for item in items]
 
     def suggest(self, query: str, limit: int = 5) -> list[ItemSummaryResponse]:
         if not query.strip():
@@ -203,10 +206,14 @@ class CatalogService:
         )
 
 
-def _item_summary(item: Item) -> ItemSummaryResponse:
+def _item_summary(
+    item: Item,
+    current_price: CurrentPriceResponse | None = None,
+) -> ItemSummaryResponse:
     return ItemSummaryResponse(
         uuid=item.uuid,
         display_name=item.display_name,
         category=item.category,
         created_source=item.created_source,
+        current_price=current_price,
     )

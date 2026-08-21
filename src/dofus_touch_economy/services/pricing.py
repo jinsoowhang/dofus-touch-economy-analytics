@@ -122,6 +122,16 @@ class PriceService:
         observation = self._repository.latest_valid(item_id, self._market_context)
         return None if observation is None else _current_price_response(observation)
 
+    def current_for_items(self, item_ids: list[int]) -> dict[int, CurrentPriceResponse]:
+        if not item_ids:
+            return {}
+        requested_ids = set(item_ids)
+        return {
+            observation.item_id: _current_price_response(observation)
+            for observation in self._repository.latest_valid_for_market(self._market_context)
+            if observation.item_id in requested_ids
+        }
+
     def history_for_item(self, item_id: int, limit: int = 20) -> list[PriceObservationResponse]:
         return [
             _observation_response(observation)
