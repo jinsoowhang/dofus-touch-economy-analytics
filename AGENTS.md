@@ -6,7 +6,7 @@ This repository is a public, reproducible analytics project for player-observed 
 
 ## Session Workflow
 
-- Invoke task-observer at the start of any task-oriented session.
+- If the task-observer skill is available in the active agent environment, invoke it at the start of any task-oriented session. If it is unavailable, proceed without generating private observer logs.
 - Before behavioral changes, read `MEMORY.md`, the latest session notes in `notes/`, and any relevant docs that define current constraints.
 - Treat notes, design docs, and session logs in `notes/` as part of the working record.
 - At session end, update `MEMORY.md` with durable project decisions and append or create a dated session note.

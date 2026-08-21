@@ -4,7 +4,7 @@ Analytics engineering for player-observed item prices, crafting economics, and s
 
 This is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Ankama. Dofus Touch and related names belong to their respective owners.
 
-Status: this repository currently provides a reproducible dbt and DuckDB foundation only. Ingestion and domain models wait until abbreviated source dates are replaced with deterministic ISO dates.
+Status: this repository currently provides a reproducible dbt and DuckDB foundation only. Ingestion waits on deterministic ISO dates or approved source parsing rules, and domain modeling additionally waits on final row-grain and duplicate-cost decisions.
 
 Architecture:
 

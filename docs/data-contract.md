@@ -3,7 +3,7 @@
 ## Shared rules
 
 - Files are UTF-8 CSV with commas and one header row.
-- Column names stay in stable `snake_case` within a dataset version.
+- Canonical field names stay in stable `snake_case` within a dataset version. Raw source exceptions require explicit documented mapping instead of being treated as already compliant.
 - Dates use ISO `YYYY-MM-DD`.
 - Timestamps use ISO 8601 with timezone.
 - Kama-denominated values are whole numbers.
@@ -29,7 +29,7 @@ Required columns in source order:
 - `est_price_per_unit`
 - `memo`
 
-Provisional grain: one listing or sale observation per source row. The source does not provide a stable transaction identifier or quantity column.
+Provisional grain: one listing or sale observation per source row. The source does not provide a stable transaction identifier or quantity column, and final modeling grain remains unresolved until the source semantics are confirmed.
 
 ## `item_recipes`
 
@@ -52,6 +52,8 @@ Trailing source measures:
 - `profit`
 - `ROI`
 
+The raw `ROI` header is preserved as observed and maps to canonical `roi` during standardization; the source header is not already `snake_case`.
+
 ## `item_cost`
 
 Columns:
@@ -60,7 +62,7 @@ Columns:
 - `category`
 - `price`
 
-Item names are not unique. Retain duplicates and report candidate-key violations rather than silently selecting one row.
+Item names are not unique. Retain duplicates and report candidate-key violations during ingestion rather than silently selecting one row. Final modeling semantics for duplicate costs remain unresolved.
 
 ## Required load metadata
 
@@ -68,6 +70,6 @@ Item names are not unique. Retain duplicates and report candidate-key violations
 - `source_row_number`
 - `loaded_at`
 - `observed_at`
-- server or market context
+- `market_context` for server or market context when known
 
 `observed_at` remains blocked until dates and collection context become deterministic.
