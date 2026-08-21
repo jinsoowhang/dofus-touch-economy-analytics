@@ -108,6 +108,7 @@ data/warehouse/**
 *.xlsx
 
 # Private workflow bookkeeping
+.user.yml
 skill-observations/
 .worktrees/
 
@@ -221,6 +222,7 @@ git check-ignore --no-index -v data/raw/item_sales.csv
 git check-ignore --no-index -v data/raw/item_recipes.csv
 git check-ignore --no-index -v data/raw/item_cost.csv
 git check-ignore --no-index -v data/warehouse/dofus_touch.duckdb
+git check-ignore --no-index -v .user.yml
 git check-ignore --no-index -v skill-observations/log.md
 git check-ignore --no-index -v .worktrees/analytics-scaffold
 ```
@@ -253,7 +255,7 @@ Expected: both checks produce no output and the commit records only the listed p
 Run:
 
 ```bash
-downloads_dir=/mnt/c/Users/jwtre/Downloads
+downloads_dir="${DOFUS_TOUCH_DOWNLOADS_DIR:?Set DOFUS_TOUCH_DOWNLOADS_DIR to the source export directory}"
 sales_sources=("$downloads_dir"/*" - item_sales.csv")
 recipe_sources=("$downloads_dir"/*" - item_recipes.csv")
 cost_sources=("$downloads_dir"/*" - item_cost.csv")
@@ -270,7 +272,7 @@ Expected: all three validation commands exit successfully without output.
 Run:
 
 ```bash
-downloads_dir=/mnt/c/Users/jwtre/Downloads
+downloads_dir="${DOFUS_TOUCH_DOWNLOADS_DIR:?Set DOFUS_TOUCH_DOWNLOADS_DIR to the source export directory}"
 sales_sources=("$downloads_dir"/*" - item_sales.csv")
 recipe_sources=("$downloads_dir"/*" - item_recipes.csv")
 cost_sources=("$downloads_dir"/*" - item_cost.csv")
@@ -584,8 +586,8 @@ Store SQL tests for business invariants that cannot be expressed with generic sc
 Run:
 
 ```bash
-uv run dbt debug --profiles-dir .
-uv run dbt parse --profiles-dir .
+DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .
+DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
 ```
 
 Expected: `dbt debug` ends with `All checks passed!` and `dbt parse` exits successfully without creating domain models.
@@ -642,6 +644,7 @@ def test_rejects_private_or_generated_files() -> None:
         "data/warehouse/dofus_touch.duckdb",
         "dbt_packages/package/dbt_project.yml",
         "logs/dbt.log",
+        ".user.yml",
         "target/manifest.json",
     ]
 
@@ -692,6 +695,7 @@ ALLOWED_PATHS = {
     "data/warehouse/README.md",
 }
 FORBIDDEN_SUFFIXES = (".duckdb", ".duckdb.wal", ".xlsx")
+FORBIDDEN_NAMES = {".user.yml"}
 
 
 def is_forbidden_tracked_path(path: str) -> bool:
@@ -700,6 +704,8 @@ def is_forbidden_tracked_path(path: str) -> bool:
         return False
 
     name = PurePosixPath(normalized).name
+    if name in FORBIDDEN_NAMES:
+        return True
     if name == ".env" or name.startswith(".env."):
         return True
     if normalized.startswith(FORBIDDEN_PREFIXES):
@@ -756,6 +762,8 @@ Create `scripts/check.sh`:
 #!/usr/bin/env bash
 set -euo pipefail
 
+export DO_NOT_TRACK=1
+
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
@@ -796,7 +804,7 @@ repos:
         pass_filenames: false
       - id: dbt-parse
         name: dbt parse
-        entry: uv run dbt parse --profiles-dir .
+        entry: env DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
         language: system
         pass_filenames: false
       - id: sqlfluff
@@ -920,8 +928,8 @@ Only synthetic fixtures with clear provenance may be committed under `data/sampl
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
-uv run dbt debug --profiles-dir .
-uv run dbt parse --profiles-dir .
+DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .
+DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
 uv run sqlfluff lint models analyses
 uv run python scripts/check_public_files.py
 ```
@@ -1153,7 +1161,7 @@ This repository builds a public, reproducible analytics engineering project for 
 ## Data safety
 
 - Never commit files under `data/raw/` except `data/raw/README.md`.
-- Never commit DuckDB files, spreadsheets, credentials, `.env` files, task-observer logs, or worktree contents.
+- Never commit DuckDB files, spreadsheets, credentials, `.env` files, `.user.yml`, task-observer logs, or worktree contents.
 - Commit only synthetic data under `data/samples/` unless redistribution rights are documented.
 - Preserve raw values; do not silently repair source data.
 - Do not automate interaction with the game client or scrape a source without explicit authorization.
@@ -1243,7 +1251,7 @@ jobs:
 Run:
 
 ```bash
-rg -n "data/raw|Downloads|\.env" .github/workflows/ci.yml
+rg -n "data/raw|\\.env" .github/workflows/ci.yml
 ```
 
 Expected: the command exits with no matches.
@@ -1306,7 +1314,7 @@ Run:
 uv sync --locked --all-groups
 ./scripts/check.sh
 uv run pre-commit run --all-files
-git check-ignore -v data/raw/item_sales.csv data/raw/item_recipes.csv data/raw/item_cost.csv data/warehouse/dofus_touch.duckdb skill-observations/log.md .worktrees/analytics-scaffold
+git check-ignore -v data/raw/item_sales.csv data/raw/item_recipes.csv data/raw/item_cost.csv data/warehouse/dofus_touch.duckdb .user.yml skill-observations/log.md .worktrees/analytics-scaffold
 git status --short
 ```
 

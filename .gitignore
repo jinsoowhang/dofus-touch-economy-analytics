@@ -28,6 +28,7 @@ data/warehouse/**
 *.xlsx
 
 # Private workflow bookkeeping
+.user.yml
 skill-observations/
 .worktrees/
 
