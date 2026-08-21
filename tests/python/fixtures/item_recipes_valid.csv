@@ -1,0 +1,2 @@
+recipe_item,profession,raw_material_1,quantity_1,cost_1,raw_material_2,quantity_2,cost_2,raw_material_3,quantity_3,cost_3,raw_material_4,quantity_4,cost_4,raw_material_5,quantity_5,cost_5,raw_material_6,quantity_6,cost_6,raw_material_7,quantity_7,cost_7,raw_material_8,quantity_8,cost_8,total_cost,profit,ROI
+Synthetic Widget,Crafting,Synthetic Ore,2,20,Synthetic Fiber,3,30,,,,,,,,,,,,,,,,,,,50,25,50%
