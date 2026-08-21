@@ -809,7 +809,7 @@ repos:
         pass_filenames: false
       - id: sqlfluff
         name: sqlfluff
-        entry: uv run sqlfluff lint
+        entry: env DO_NOT_TRACK=1 uv run sqlfluff lint
         language: system
         files: ^(analyses|models)/.*\.sql$
       - id: public-file-policy
@@ -930,7 +930,7 @@ uv run ruff format --check .
 uv run pytest
 DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .
 DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
-uv run sqlfluff lint models analyses
+DO_NOT_TRACK=1 uv run sqlfluff lint models analyses
 uv run python scripts/check_public_files.py
 ```
 
