@@ -9,7 +9,16 @@
   </head>
   <body>
     <header class="site-header">
-      <a href="/items">Dofus Touch Economy</a>
+      <div class="site-header-inner">
+        <a href="/items" class="site-brand">Dofus Touch Economy</a>
+        <nav class="site-tabs" aria-label="Primary navigation">
+          <a
+            href="/items"
+            class="site-tab{% if active_tab == 'items' %} is-active{% endif %}"
+            {% if active_tab == "items" %}aria-current="page"{% endif %}
+          >Item Search</a>
+        </nav>
+      </div>
     </header>
     <main class="page-shell">
       {% block content %}{% endblock %}

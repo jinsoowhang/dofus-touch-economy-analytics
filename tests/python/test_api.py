@@ -22,6 +22,14 @@ def test_api_search_matches_html_catalog(client, catalog_item) -> None:
     assert [item["uuid"] for item in response.json()] == [str(catalog_item.uuid)]
 
 
+def test_api_search_includes_current_price(client, priced_item) -> None:
+    response = client.get("/api/v1/items", params={"q": "synthetic ore"})
+
+    assert response.status_code == 200
+    assert response.json()[0]["uuid"] == str(priced_item.item_uuid)
+    assert response.json()[0]["current_price"]["unit_price"] == "120"
+
+
 def test_api_creates_manual_item_and_makes_it_searchable(client) -> None:
     created = client.post(
         "/api/v1/items",

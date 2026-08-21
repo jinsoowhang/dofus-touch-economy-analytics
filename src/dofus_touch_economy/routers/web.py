@@ -38,6 +38,7 @@ def _detail_context(
     return {
         "detail": detail,
         "error": None,
+        "active_tab": "items",
         "errors": errors or [],
         "form_values": form_values or {},
         "default_observed_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -53,13 +54,14 @@ def _search_context(
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    items = catalog.search(query, limit=50)
+    items = catalog.search(query, limit=None)
     suggestions = catalog.suggest(query, limit=5) if query.strip() and not items else []
     proposed_display_name = catalog.format_display_name(query) if query.strip() else query
     recognized_category = catalog.infer_category(query) if query.strip() else None
     return {
         "query": query,
         "items": items,
+        "active_tab": "items",
         "suggestions": suggestions,
         "proposed_display_name": proposed_display_name,
         "recognized_category": recognized_category,
@@ -73,7 +75,7 @@ def _error_response(request: Request, message: str, status_code: int) -> HTMLRes
     return templates.TemplateResponse(
         request,
         "item_detail.html",
-        context={"detail": None, "error": message},
+        context={"detail": None, "error": message, "active_tab": "items"},
         status_code=status_code,
     )
 

@@ -30,6 +30,71 @@ def test_item_search_renders_matching_synthetic_item(client, catalog_item) -> No
     assert str(catalog_item.uuid) in response.text
 
 
+def test_item_search_has_active_top_navigation_tab(client) -> None:
+    response = client.get("/items")
+
+    assert response.status_code == 200
+    assert 'aria-label="Primary navigation"' in response.text
+    assert 'class="site-tab is-active"' in response.text
+    assert 'aria-current="page"' in response.text
+    assert ">Item Search</a>" in response.text
+
+
+def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Item(display_name="Zeta Item", normalized_name="zeta item", identity_category=""),
+                Item(
+                    display_name="Alpha Item",
+                    normalized_name="alpha item",
+                    identity_category="",
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/items")
+
+    assert response.status_code == 200
+    assert "Item name" in response.text
+    assert "Current unit price" in response.text
+    assert "Last observed" in response.text
+    assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
+    assert response.text.index(catalog_item.display_name) < response.text.index("Zeta Item")
+
+
+def test_search_field_reduces_catalog_table(client, session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        session.add(
+            Item(
+                display_name="Synthetic Fiber",
+                normalized_name="synthetic fiber",
+                identity_category="fiber",
+            )
+        )
+        session.commit()
+
+    response = client.get("/items", params={"q": "ore"})
+
+    assert response.status_code == 200
+    assert catalog_item.display_name in response.text
+    assert "Synthetic Fiber" not in response.text
+    assert "1 shown" in response.text
+
+
+def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_item) -> None:
+    response = client.get("/items")
+    item_url = f"/items/{priced_item.item_uuid}"
+
+    assert response.status_code == 200
+    assert 'class="item-table"' in response.text
+    assert "120 kamas" in response.text
+    assert "1 for 120 kamas" in response.text
+    assert "Update price" in response.text
+    assert response.text.count(f'href="{item_url}"') == 6
+
+
 def test_htmx_search_returns_only_results_fragment(client, catalog_item) -> None:
     response = client.get("/items?q=ore", headers={"HX-Request": "true"})
 

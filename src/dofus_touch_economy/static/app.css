@@ -41,7 +41,6 @@ a {
   color: var(--accent);
 }
 
-.site-header,
 .page-shell {
   margin-inline: auto;
   max-width: 72rem;
@@ -51,9 +50,41 @@ a {
 .site-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+  align-items: end;
+  display: flex;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  margin-inline: auto;
+  max-width: 72rem;
+  padding: 0.8rem clamp(1rem, 4vw, 3rem) 0;
+}
+
+.site-brand {
   font-size: 1.2rem;
   font-weight: 700;
-  max-width: none;
+  padding-block-end: 0.8rem;
+  text-decoration: none;
+}
+
+.site-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.site-tab {
+  border-bottom: 0.25rem solid transparent;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0.8rem 0.9rem 0.55rem;
+  text-decoration: none;
+}
+
+.site-tab:hover,
+.site-tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
 }
 
 section,
@@ -117,8 +148,64 @@ button {
   text-align: right;
 }
 
+.item-table-wrap,
 .recipe-table-wrap {
   overflow-x: auto;
+}
+
+.item-list-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.item-list-heading h2 {
+  margin-block: 0;
+}
+
+.item-list-heading span {
+  color: var(--muted);
+}
+
+.item-table {
+  border-collapse: collapse;
+  min-width: 60rem;
+  width: 100%;
+}
+
+.item-table th {
+  border-bottom: 2px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.item-table th.numeric {
+  text-align: right;
+}
+
+.item-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+}
+
+.item-table tbody tr:hover,
+.item-table tbody tr:focus-within {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.item-cell-link {
+  color: inherit;
+  display: block;
+  min-height: 3.25rem;
+  padding: 0.8rem 0.75rem;
+  text-decoration: none;
+}
+
+.item-name .item-cell-link,
+.item-action .item-cell-link {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .recipe-table {
@@ -149,6 +236,16 @@ button {
 }
 
 @media (max-width: 720px) {
+  .site-header-inner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .site-brand {
+    padding-block-end: 0.25rem;
+  }
+
   form {
     display: flex;
     flex-direction: column;

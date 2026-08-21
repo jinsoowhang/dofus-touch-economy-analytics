@@ -6,14 +6,71 @@
   </div>
 {% endif %}
 {% if items %}
-  <ul>
+  <div class="item-list-heading">
+    <h2>Items</h2>
+    <span>{{ items | length }} shown</span>
+  </div>
+  <div class="item-table-wrap">
+    <table class="item-table">
+      <thead>
+        <tr>
+          <th>Item name</th>
+          <th>Category</th>
+          <th class="numeric">Current unit price</th>
+          <th>Observed lot</th>
+          <th>Last observed</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
     {% for item in items %}
-      <li>
-        <a href="/items/{{ item.uuid }}">{{ item.display_name }}</a>
-        <span>{{ item.category or "Uncategorized" }}</span>
-      </li>
+        {% set item_url = "/items/" ~ item.uuid %}
+        <tr class="item-row">
+          <td class="item-name">
+            <a class="item-cell-link" href="{{ item_url }}">{{ item.display_name }}</a>
+          </td>
+          <td>
+            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
+              {{ item.category or "Uncategorized" }}
+            </a>
+          </td>
+          {% if item.current_price %}
+            <td class="numeric">
+              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
+                {{ item.current_price.unit_price }} kamas
+              </a>
+            </td>
+            <td>
+              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
+                {{ item.current_price.lot_quantity }} for {{ item.current_price.total_price }} kamas
+              </a>
+            </td>
+            <td>
+              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
+                <time datetime="{{ item.current_price.observed_at.isoformat() }}">
+                  {{ item.current_price.observed_at.strftime("%Y-%m-%d %H:%M UTC") }}
+                </time>
+              </a>
+            </td>
+          {% else %}
+            <td class="numeric">
+              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">—</a>
+            </td>
+            <td>
+              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">Not recorded</a>
+            </td>
+            <td>
+              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">—</a>
+            </td>
+          {% endif %}
+          <td class="item-action">
+            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">Update price</a>
+          </td>
+        </tr>
     {% endfor %}
-  </ul>
+      </tbody>
+    </table>
+  </div>
 {% elif query %}
   <p>No items found.</p>
   {% if suggestions %}
@@ -52,5 +109,5 @@
     <button type="submit">Add item</button>
   </form>
 {% else %}
-  <p>Enter an item name to search.</p>
+  <p>No items are in the catalog yet. Search for a name to add the first one.</p>
 {% endif %}
