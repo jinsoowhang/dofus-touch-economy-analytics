@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -692,6 +693,45 @@ def test_detail_labels_incomplete_recipe_cost(client, session_factory, synthetic
 
     assert response.status_code == 200
     assert "Recipe cost is incomplete" in response.text
+
+
+def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
+    client, session_factory, fixture_dir
+) -> None:
+    ImportService(session_factory).import_files(
+        fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        price_service = PriceService(session, "Dodge")
+        price_service.record(
+            items["synthetic ore"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=1_000,
+                observed_at=datetime(2026, 8, 21, tzinfo=UTC),
+            ),
+        )
+        price_service.record(
+            items["synthetic fiber"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=500,
+                observed_at=datetime(2026, 8, 21, tzinfo=UTC),
+            ),
+        )
+
+    response = client.get(f"/items/{items['synthetic widget'].uuid}")
+
+    assert response.status_code == 200
+    assert "Per Unit Price" in response.text
+    assert "Total Cost" in response.text
+    assert (
+        f'<a class="recipe-item-link" href="/items/{items["synthetic ore"].uuid}">Synthetic Ore</a>'
+    ) in response.text
+    assert "View item" not in response.text
+    for value in ("1,000", "2,000", "500", "1,500"):
+        assert re.search(rf'<td class="numeric">\s*{value}\s*</td>', response.text)
 
 
 def test_htmx_price_create_redirects_to_item_search(client, session_factory, fixture_dir) -> None:

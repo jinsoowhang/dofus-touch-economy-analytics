@@ -485,7 +485,7 @@ button {
 
 .recipe-table {
   border-collapse: collapse;
-  min-width: 42rem;
+  min-width: 52rem;
   width: 100%;
 }
 
@@ -498,6 +498,12 @@ button {
 
 .recipe-table .numeric {
   text-align: right;
+}
+
+.recipe-item-link {
+  font-weight: 750;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.16em;
 }
 
 .htmx-indicator {

@@ -21,7 +21,13 @@
         <div class="recipe-table-wrap">
         <table class="recipe-table">
           <thead>
-            <tr><th>Ingredient</th><th class="numeric">Quantity</th><th>Status</th></tr>
+            <tr>
+              <th>Ingredient</th>
+              <th class="numeric">Quantity</th>
+              <th class="numeric">Per Unit Price</th>
+              <th class="numeric">Total Cost</th>
+              <th>Status</th>
+            </tr>
           </thead>
           <tbody>
           {% for ingredient in detail.recipe.ingredients %}
@@ -31,11 +37,20 @@
                   {% if ingredient.icon_url %}
                     <img class="item-icon" src="{{ ingredient.icon_url }}" alt="" loading="lazy">
                   {% endif %}
-                  <span>{{ ingredient.display_name }}</span>
+                  {% if ingredient.item_uuid %}
+                    <a class="recipe-item-link" href="/items/{{ ingredient.item_uuid }}">{{ ingredient.display_name }}</a>
+                  {% else %}
+                    <span>{{ ingredient.display_name }}</span>
+                  {% endif %}
                 </span>
-                {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">View item</a>{% endif %}
               </td>
               <td class="numeric">{{ ingredient.quantity }}</td>
+              <td class="numeric">
+                {% if ingredient.current_price %}{{ "{:,}".format(ingredient.current_price.unit_price) }}{% else %}—{% endif %}
+              </td>
+              <td class="numeric">
+                {% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}
+              </td>
               <td class="status">
                 {% if not ingredient.is_resolved %}Unresolved item{% elif not ingredient.current_price %}Price missing{% else %}Priced{% endif %}
               </td>

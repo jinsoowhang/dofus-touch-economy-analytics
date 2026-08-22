@@ -351,3 +351,15 @@ add optional direct-entry pricing or reporting when requested.
   ingredient icons and quantities from the official source.
 - The full check passed with 165 tests, application compilation, dbt validation,
   SQLFluff, and public-file policy.
+
+## Follow-up: Recipe Ingredient Costs
+
+- Replaced each separate Recipe "View item" action with a highlighted ingredient-name
+  link and added comma-formatted Per Unit Price and Total Cost columns.
+- Kept missing prices explicit instead of substituting Ankama's static item values,
+  which are not server-specific player-market prices.
+- Research found TouchEmu's current third-party Touch Market, but no documented public
+  API or export suitable for safe ingestion; older community trackers were stale or
+  access-restricted.
+- The full check passed with 166 tests, and the live Abyss Necklace page displayed
+  correct linked names, priced totals, and missing-price placeholders.
