@@ -20,6 +20,7 @@ from dofus_touch_economy.schemas import (
     InvalidationCreate,
     ItemCreate,
     PriceObservationCreate,
+    RecipeIngredientPriceUpdate,
     SaleListingCreate,
     SalePriceUpdate,
 )
@@ -94,6 +95,9 @@ def _detail_context(
     *,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
+    recipe_errors: list[str] | None = None,
+    recipe_form_values: dict[str, str] | None = None,
+    notification: str | None = None,
     include_metrics_oob: bool = False,
 ) -> dict[str, object]:
     return {
@@ -102,6 +106,9 @@ def _detail_context(
         "active_tab": "items",
         "errors": errors or [],
         "form_values": form_values or {},
+        "recipe_errors": recipe_errors or [],
+        "recipe_form_values": recipe_form_values or {},
+        "notification": notification,
         "default_observed_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "include_metrics_oob": include_metrics_oob,
     }
@@ -216,6 +223,10 @@ def _sales_context(
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
     item_choices = service.item_choices()
+    active_sales = service.active(
+        sort_state.active_sort,
+        sort_state.active_direction,
+    )
     category_labels: dict[str, str] = {}
     for item in item_choices:
         if item.category_key:
@@ -231,10 +242,8 @@ def _sales_context(
                 key=lambda entry: entry[1].casefold(),
             )
         ],
-        "active_sales": service.active(
-            sort_state.active_sort,
-            sort_state.active_direction,
-        ),
+        "active_sales": active_sales,
+        "active_total_price": sum(sale.asking_price or 0 for sale in active_sales),
         "sold_sales": service.sold(sort_state.sold_sort, sort_state.sold_direction),
         "active_sort_columns": _sales_sort_columns(
             "active",
@@ -796,15 +805,92 @@ def item_detail(
     item_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
+    catalog = CatalogService(session, settings.market_context)
     try:
-        detail = CatalogService(session, settings.market_context).detail(item_uuid)
+        detail = catalog.detail(item_uuid)
     except ItemNotFound:
         return _error_response(request, "Item not found", 404)
+    notification = None
+    if updated is not None:
+        try:
+            updated_item = catalog.detail(updated)
+        except ItemNotFound:
+            pass
+        else:
+            notification = f"{updated_item.display_name} price has been updated."
     return templates.TemplateResponse(
         request,
         "item_detail.html",
-        context=_detail_context(detail),
+        context=_detail_context(detail, notification=notification),
+    )
+
+
+@router.post(
+    "/items/{item_uuid}/recipe-ingredients/{ingredient_uuid}/price",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+async def update_recipe_ingredient_price(
+    request: Request,
+    item_uuid: UUID,
+    ingredient_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse | RedirectResponse:
+    catalog = CatalogService(session, settings.market_context)
+    try:
+        detail = catalog.detail(item_uuid)
+    except ItemNotFound:
+        return _error_response(request, "Item not found", 404)
+    recipe_ingredient_uuids = {
+        ingredient.item_uuid
+        for ingredient in ([] if detail.recipe is None else detail.recipe.ingredients)
+        if ingredient.item_uuid is not None
+    }
+    if ingredient_uuid not in recipe_ingredient_uuids:
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            context=_detail_context(
+                detail,
+                recipe_errors=["Recipe ingredient not found."],
+            ),
+            status_code=404,
+        )
+
+    form = await request.form()
+    values = _form_values(form, ("unit_price",))
+    try:
+        command = RecipeIngredientPriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            context=_detail_context(
+                detail,
+                recipe_errors=_validation_messages(error),
+                recipe_form_values={
+                    "ingredient_uuid": str(ingredient_uuid),
+                    **values,
+                },
+            ),
+            status_code=422,
+        )
+
+    PriceService(session, settings.market_context).record(
+        ingredient_uuid,
+        PriceObservationCreate(
+            lot_quantity=1,
+            total_price=command.unit_price,
+            observed_at=datetime.now(UTC),
+            note="Recipe ingredient price update",
+        ),
+    )
+    return RedirectResponse(
+        url=f"/items/{item_uuid}?updated={ingredient_uuid}#recipe",
+        status_code=303,
     )
 
 

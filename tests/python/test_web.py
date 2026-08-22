@@ -126,8 +126,13 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert "Sale listing has been added." in active_page.text
     assert catalog_item.display_name in active_page.text
     assert 'value="50,000"' in active_page.text
-    assert "Mark sold" in active_page.text
-    assert "Duplicate" in active_page.text
+    assert "1 active · Total Price: 50,000" in active_page.text
+    assert f'aria-label="Duplicate sale row for {catalog_item.display_name}"' in active_page.text
+    assert f'aria-label="Mark {catalog_item.display_name} as sold"' in active_page.text
+    assert '<span aria-hidden="true">⧉</span>' in active_page.text
+    assert '<span aria-hidden="true">✓</span>' in active_page.text
+    assert ">Duplicate</button>" not in active_page.text
+    assert ">Mark sold</button>" not in active_page.text
     assert active_page.text.count('class="collapsible-section" open') == 4
     assert '<button type="submit">Update</button>' not in active_page.text
     assert 'data-initial-value="50,000"' in active_page.text
@@ -730,8 +735,80 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
         f'<a class="recipe-item-link" href="/items/{items["synthetic ore"].uuid}">Synthetic Ore</a>'
     ) in response.text
     assert "View item" not in response.text
-    for value in ("1,000", "2,000", "500", "1,500"):
+    assert 'name="unit_price"' in response.text
+    assert 'value="1,000"' in response.text
+    assert 'value="500"' in response.text
+    assert '<script src="/static/sales.js" defer></script>' in response.text
+    script = client.get("/static/sales.js")
+    assert 'input[name="asking_price"], input[name="unit_price"]' in script.text
+    for value in ("2,000", "1,500"):
         assert re.search(rf'<td class="numeric">\s*{value}\s*</td>', response.text)
+
+
+def test_recipe_unit_price_edit_updates_history_sales_and_recipe_total(
+    client, session_factory, fixture_dir
+) -> None:
+    ImportService(session_factory).import_files(
+        fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+
+    response = client.post(
+        f"/items/{items['synthetic widget'].uuid}/recipe-ingredients/"
+        f"{items['synthetic ore'].uuid}/price",
+        data={"unit_price": "1,250"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        f"/items/{items['synthetic widget'].uuid}?updated={items['synthetic ore'].uuid}#recipe"
+    )
+    updated_page = client.get(response.headers["location"])
+    assert "Synthetic Ore price has been updated." in updated_page.text
+    assert 'value="1,250"' in updated_page.text
+    assert re.search(r'<td class="numeric">\s*2,500\s*</td>', updated_page.text)
+
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(items["synthetic widget"].uuid)
+        listing = session.scalar(select(SaleListing))
+    assert detail.recipe is not None
+    assert detail.recipe.ingredients[0].current_price is not None
+    assert detail.recipe.ingredients[0].current_price.total_price == 1_250
+    assert detail.recipe.ingredients[0].extended_cost == 2_500
+    assert listing is not None
+    assert listing.item_id == items["synthetic ore"].id
+    assert listing.asking_price == 1_250
+
+
+def test_recipe_price_edit_rejects_item_outside_current_recipe(
+    client, session_factory, fixture_dir
+) -> None:
+    ImportService(session_factory).import_files(
+        fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
+    )
+    with session_factory() as session:
+        product_uuid = session.scalar(
+            select(Item.uuid).where(Item.normalized_name == "synthetic widget")
+        )
+        unrelated_item = Item(
+            display_name="Unrelated Item",
+            normalized_name="unrelated item",
+            identity_category="",
+        )
+        session.add(unrelated_item)
+        session.commit()
+
+    response = client.post(
+        f"/items/{product_uuid}/recipe-ingredients/{unrelated_item.uuid}/price",
+        data={"unit_price": "1,000"},
+    )
+
+    assert response.status_code == 404
+    assert "Recipe ingredient not found." in response.text
+    with session_factory() as session:
+        assert session.scalar(select(SaleListing.id)) is None
 
 
 def test_htmx_price_create_redirects_to_item_search(client, session_factory, fixture_dir) -> None:

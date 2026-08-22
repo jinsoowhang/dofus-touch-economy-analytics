@@ -363,3 +363,16 @@ add optional direct-entry pricing or reporting when requested.
   access-restricted.
 - The full check passed with 166 tests, and the live Abyss Necklace page displayed
   correct linked names, priced totals, and missing-price placeholders.
+
+## Follow-up: Active Sales Total and Recipe Price Editing
+
+- Added the exact summed asking price beside the Currently Selling active-item count.
+- Replaced Duplicate and Mark Sold text buttons with compact overlapping-page and
+  checkmark icons while retaining descriptive labels and tooltips for accessibility.
+- Made resolved Recipe per-unit prices editable on Enter or blur, including blank
+  missing-price fields and comma-formatted values.
+- Recipe edits append price history, create the ingredient's active Sales row under the
+  existing manual-price rule, recalculate ingredient totals, and return to the Recipe
+  section with a notification; unrelated item UUIDs are rejected.
+- The full check passed with 168 tests. A read-only live smoke matched 117 active rows
+  to a total price of 6,436,350 and rendered eight editable Abyss Necklace ingredients.

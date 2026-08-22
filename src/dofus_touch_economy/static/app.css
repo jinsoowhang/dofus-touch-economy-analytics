@@ -342,6 +342,14 @@ button {
   color: var(--accent);
 }
 
+.action-icon-button {
+  font-size: 1.25rem;
+  line-height: 1;
+  min-height: 2.2rem;
+  min-width: 2.5rem;
+  padding: 0.35rem 0.6rem;
+}
+
 .reopen-button {
   background: transparent;
   border-color: var(--accent);

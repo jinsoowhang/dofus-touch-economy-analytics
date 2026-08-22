@@ -52,7 +52,7 @@
     <summary>
       <span class="section-summary">
         <h2>Currently Selling</h2>
-        <span>{{ active_sales | length }} active</span>
+        <span>{{ active_sales | length }} active · Total Price: {{ "{:,}".format(active_total_price) }}</span>
       </span>
     </summary>
     {% if active_sales %}
@@ -117,10 +117,20 @@
                 <td>
                   <div class="row-actions">
                     <form method="post" action="/sales/{{ sale.uuid }}/duplicate?{{ sales_sort_query }}" class="inline-form">
-                      <button type="submit" class="secondary-button">Duplicate</button>
+                      <button
+                        type="submit"
+                        class="action-icon-button secondary-button"
+                        aria-label="Duplicate sale row for {{ sale.display_name }}"
+                        title="Duplicate listing"
+                      ><span aria-hidden="true">⧉</span></button>
                     </form>
                     <form method="post" action="/sales/{{ sale.uuid }}/sold?{{ sales_sort_query }}" class="inline-form">
-                      <button type="submit">Mark sold</button>
+                      <button
+                        type="submit"
+                        class="action-icon-button"
+                        aria-label="Mark {{ sale.display_name }} as sold"
+                        title="Mark as sold"
+                      ><span aria-hidden="true">✓</span></button>
                     </form>
                     <form
                       method="post"

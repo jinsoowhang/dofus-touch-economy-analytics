@@ -5,6 +5,9 @@
     <h1>{{ error }}</h1>
     <p><a href="/items">Return to item search</a></p>
   {% else %}
+    {% if notification %}
+      <p class="notification" role="status">{{ notification }}</p>
+    {% endif %}
     <h1 class="item-label">
       {% if detail.icon_url %}<img class="item-icon item-icon-large" src="{{ detail.icon_url }}" alt="">{% endif %}
       <span>{{ detail.display_name }}</span>
@@ -16,8 +19,14 @@
     {% include "fragments/price_panel.html" %}
 
     {% if detail.recipe %}
-      <details class="collapsible-section" open>
+      <details id="recipe" class="collapsible-section" open>
         <summary><h2>Recipe · {{ detail.recipe.profession }}</h2></summary>
+        {% if recipe_errors %}
+          <div role="alert">
+            <p>Could not save the ingredient price:</p>
+            <ul>{% for message in recipe_errors %}<li>{{ message }}</li>{% endfor %}</ul>
+          </div>
+        {% endif %}
         <div class="recipe-table-wrap">
         <table class="recipe-table">
           <thead>
@@ -46,7 +55,31 @@
               </td>
               <td class="numeric">{{ ingredient.quantity }}</td>
               <td class="numeric">
-                {% if ingredient.current_price %}{{ "{:,}".format(ingredient.current_price.unit_price) }}{% else %}—{% endif %}
+                {% if ingredient.item_uuid %}
+                  {% set is_edited_ingredient = recipe_form_values.get('ingredient_uuid') == ingredient.item_uuid|string %}
+                  {% set ingredient_price_value = recipe_form_values.get('unit_price') if is_edited_ingredient else ("{:,}".format(ingredient.current_price.unit_price) if ingredient.current_price else '') %}
+                  <form
+                    method="post"
+                    action="/items/{{ detail.uuid }}/recipe-ingredients/{{ ingredient.item_uuid }}/price"
+                    class="price-edit-form recipe-price-edit-form"
+                  >
+                    <label class="visually-hidden" for="recipe-price-{{ ingredient.item_uuid }}">
+                      Per Unit Price for {{ ingredient.display_name }}
+                    </label>
+                    <input
+                      id="recipe-price-{{ ingredient.item_uuid }}"
+                      name="unit_price"
+                      inputmode="numeric"
+                      value="{{ ingredient_price_value }}"
+                      data-initial-value="{{ '{:,}'.format(ingredient.current_price.unit_price) if ingredient.current_price else '' }}"
+                      placeholder="—"
+                      title="Click to edit. Press Enter or leave the field to save."
+                      required
+                    >
+                  </form>
+                {% else %}
+                  —
+                {% endif %}
               </td>
               <td class="numeric">
                 {% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}
@@ -64,3 +97,4 @@
     {% include "fragments/recipe_metrics.html" %}
   {% endif %}
 {% endblock %}
+{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}
