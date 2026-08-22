@@ -35,7 +35,7 @@ class CostRow:
     row_number: int
     raw_material: str
     category: str
-    price: str
+    price: int
     raw_payload: RawPayload
 
 
@@ -94,17 +94,28 @@ def _value(payload: RawPayload, field: str) -> str:
     return payload[field] or ""
 
 
+def _parse_positive_integer(raw: str) -> int | None:
+    candidate = raw.replace(",", "").strip()
+    if not re.fullmatch(r"[0-9]+", candidate):
+        return None
+    value = int(candidate, 10)
+    return value if value > 0 else None
+
+
 def validate_cost_csv(path: Path) -> ValidationResult[CostRow]:
     accepted: list[CostRow] = []
     rejected: list[RejectedRow] = []
     for row_number, payload in _read_rows(path, COST_HEADERS):
         raw_material = _value(payload, "raw_material")
         category = _value(payload, "category")
+        price = _parse_positive_integer(_value(payload, "price"))
         messages: list[str] = []
         if not raw_material.strip():
             messages.append("raw_material must not be blank")
         if not category.strip():
             messages.append("category must not be blank")
+        if price is None:
+            messages.append("price must be a positive integer")
 
         if messages:
             rejected.append(RejectedRow(row_number, payload, tuple(messages)))
@@ -114,7 +125,7 @@ def validate_cost_csv(path: Path) -> ValidationResult[CostRow]:
                 row_number=row_number,
                 raw_material=raw_material,
                 category=category,
-                price=_value(payload, "price"),
+                price=price,
                 raw_payload=payload,
             )
         )
@@ -122,11 +133,7 @@ def validate_cost_csv(path: Path) -> ValidationResult[CostRow]:
 
 
 def _parse_quantity(raw: str) -> int | None:
-    candidate = raw.replace(",", "").strip()
-    if not re.fullmatch(r"[0-9]+", candidate):
-        return None
-    quantity = int(candidate, 10)
-    return quantity if quantity > 0 else None
+    return _parse_positive_integer(raw)
 
 
 def validate_recipe_csv(path: Path) -> ValidationResult[RecipeRow]:

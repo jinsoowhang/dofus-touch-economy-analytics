@@ -20,11 +20,13 @@ def import_main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--report-file", type=Path, default=Path("data/reports/latest-import.json"))
     arguments = parser.parse_args(argv)
 
-    engine = create_engine_for_url(Settings.from_env().database_url)
+    settings = Settings.from_env()
+    engine = create_engine_for_url(settings.database_url)
     try:
-        summary = ImportService(create_session_factory(engine)).import_files(
-            arguments.cost_file, arguments.recipe_file
-        )
+        summary = ImportService(
+            create_session_factory(engine),
+            settings.market_context,
+        ).import_files(arguments.cost_file, arguments.recipe_file)
     finally:
         engine.dispose()
 
@@ -36,6 +38,7 @@ def import_main(argv: Sequence[str] | None = None) -> int:
     print(
         f"created_batches={summary.created_batches} accepted={summary.accepted_count} "
         f"rejected={summary.rejected_count} warnings={summary.warning_count} "
+        f"prices={summary.price_count} "
         f"report={arguments.report_file}"
     )
     return 1 if summary.rejected_count else 0

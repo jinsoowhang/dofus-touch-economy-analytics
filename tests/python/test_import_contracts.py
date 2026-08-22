@@ -63,7 +63,21 @@ def test_validates_cost_rows(fixture_dir: Path) -> None:
         "Synthetic Fiber",
     ]
     assert result.accepted[0].row_number == 2
+    assert result.accepted[0].price == 1000
     assert result.accepted[0].raw_payload["price"] == "1,000"
+
+
+def test_rejects_nonpositive_or_noninteger_cost_prices(tmp_path: Path) -> None:
+    path = tmp_path / "cost.csv"
+    path.write_text(
+        "raw_material,category,price\nSynthetic Ore,Ore,0\n",
+        encoding="utf-8",
+    )
+
+    result = validate_cost_csv(path)
+
+    assert result.accepted == []
+    assert result.rejected[0].messages == ("price must be a positive integer",)
 
 
 def test_flattens_populated_recipe_ingredients(fixture_dir: Path) -> None:

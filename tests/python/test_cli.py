@@ -33,9 +33,12 @@ def test_import_cli_writes_report_and_prints_only_counts(
     output = capsys.readouterr().out
     assert result == 0
     assert "created_batches=2 accepted=3 rejected=0 warnings=0" in output
+    assert "prices=2" in output
     assert f"report={report_path}" in output
     assert "Synthetic" not in output
-    assert json.loads(report_path.read_text(encoding="utf-8"))["created_batches"] == 2
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["created_batches"] == 2
+    assert report["price_count"] == 2
 
 
 def test_import_cli_returns_one_for_rejected_rows(

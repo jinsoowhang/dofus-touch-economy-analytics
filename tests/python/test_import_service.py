@@ -12,6 +12,7 @@ from dofus_touch_economy.models import (
     PriceObservation,
     Recipe,
     RecipeIngredient,
+    SaleListing,
     SourceItemName,
     SourceRecord,
 )
@@ -32,11 +33,14 @@ def test_import_is_idempotent(session_factory, fixture_dir: Path) -> None:
     )
 
     assert first.created_batches == 2
+    assert first.price_count == 2
     assert second.created_batches == 0
+    assert second.price_count == 0
     with session_factory() as session:
         assert session.scalar(select(func.count(Item.id))) == 3
         assert session.scalar(select(func.count(Recipe.id))) == 1
         assert session.scalar(select(func.count(RecipeIngredient.id))) == 2
+        assert session.scalar(select(func.count(PriceObservation.id))) == 2
 
 
 def test_ambiguous_exact_name_remains_unresolved(session_factory, synthetic_files) -> None:
@@ -58,7 +62,7 @@ def test_ambiguous_exact_name_remains_unresolved(session_factory, synthetic_file
     assert summary.conflicts[0]["candidate_count"] == 2
 
 
-def test_preserves_source_rows_and_rejections_without_importing_prices(
+def test_preserves_source_rows_and_imports_valid_cost_prices(
     session_factory, synthetic_files
 ) -> None:
     synthetic_files.write_recipe(quantity="")
@@ -80,7 +84,12 @@ def test_preserves_source_rows_and_rejections_without_importing_prices(
         assert json.loads(records[0].raw_payload_json)["price"] == "10"
         assert records[1].status == "rejected"
         assert json.loads(records[1].validation_messages_json)
-        assert session.scalar(select(func.count(PriceObservation.id))) == 0
+        observation = session.scalar(select(PriceObservation))
+        assert observation is not None
+        assert observation.total_price == 10
+        assert observation.lot_quantity == 1
+        assert observation.source == "item_cost"
+        assert observation.market_context == "unspecified"
 
 
 def test_changed_checksum_creates_batch_without_duplicate_identity(
@@ -96,6 +105,8 @@ def test_changed_checksum_creates_batch_without_duplicate_identity(
     with session_factory() as session:
         assert session.scalar(select(func.count(ImportBatch.id))) == 3
         assert session.scalar(select(func.count(Item.id))) == 2
+        prices = session.scalars(select(PriceObservation).order_by(PriceObservation.id)).all()
+        assert [price.total_price for price in prices] == [10, 999]
 
 
 def test_import_enriches_sole_uncategorized_manual_item_without_losing_price(
@@ -130,8 +141,29 @@ def test_import_enriches_sole_uncategorized_manual_item_without_losing_price(
                     PriceObservation.item_id == matching[0].id
                 )
             )
-            == 1
+            == 2
         )
+
+
+def test_last_duplicate_cost_row_becomes_current_without_creating_sales(
+    session_factory, synthetic_files
+) -> None:
+    synthetic_files.write_cost_rows(
+        [
+            ("Synthetic Ore", "Ore", "10"),
+            ("Synthetic Ore", "Ore", "25"),
+        ]
+    )
+
+    summary = ImportService(session_factory, "Dodge").import_files(*synthetic_files.paths)
+
+    assert summary.price_count == 1
+    with session_factory() as session:
+        observations = session.scalars(select(PriceObservation)).all()
+        assert len(observations) == 1
+        assert observations[0].total_price == 25
+        assert observations[0].market_context == "Dodge"
+        assert session.scalar(select(func.count(SaleListing.id))) == 0
 
 
 def test_file_contract_failure_happens_before_any_database_write(

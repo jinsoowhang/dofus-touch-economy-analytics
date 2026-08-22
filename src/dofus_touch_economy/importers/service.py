@@ -22,6 +22,7 @@ from dofus_touch_economy.importers.contracts import (
 from dofus_touch_economy.models import (
     ImportBatch,
     Item,
+    PriceObservation,
     Recipe,
     RecipeIngredient,
     SourceItemName,
@@ -36,6 +37,7 @@ class ImportSummary:
     accepted_count: int
     rejected_count: int
     warning_count: int
+    price_count: int
     conflicts: list[dict[str, Any]]
     rejections: list[dict[str, Any]]
 
@@ -45,14 +47,20 @@ class ImportSummary:
             "accepted_count": self.accepted_count,
             "rejected_count": self.rejected_count,
             "warning_count": self.warning_count,
+            "price_count": self.price_count,
             "conflicts": self.conflicts,
             "rejections": self.rejections,
         }
 
 
 class ImportService:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        market_context: str = "unspecified",
+    ) -> None:
         self._session_factory = session_factory
+        self._market_context = market_context
 
     def import_files(self, cost_path: Path, recipe_path: Path) -> ImportSummary:
         cost_path = Path(cost_path)
@@ -68,6 +76,7 @@ class ImportService:
         rejected_count = 0
         conflicts: list[dict[str, Any]] = []
         rejections: list[dict[str, Any]] = []
+        price_count = 0
         with self._session_factory() as session, session.begin():
             if not self._completed_batch_exists(session, "item_cost", cost_checksum):
                 self._import_costs(session, cost_path, cost_checksum, cost_result)
@@ -86,11 +95,18 @@ class ImportService:
                 conflicts.extend(recipe_conflicts)
                 rejections.extend(_rejection_details("item_recipes", recipe_result.rejected))
 
+            price_count = self._sync_cost_prices(
+                session,
+                cost_checksum,
+                cost_result,
+            )
+
         return ImportSummary(
             created_batches=created_batches,
             accepted_count=accepted_count,
             rejected_count=rejected_count,
             warning_count=len(conflicts),
+            price_count=price_count,
             conflicts=conflicts,
             rejections=rejections,
         )
@@ -123,6 +139,47 @@ class ImportService:
             self._store_rejection(session, batch, row)
         batch.status = "completed"
         batch.completed_at = datetime.now(UTC)
+
+    def _sync_cost_prices(
+        self,
+        session: Session,
+        checksum: str,
+        result: ValidationResult[CostRow],
+    ) -> int:
+        import_note = f"Imported from item_cost sha256:{checksum}"
+        existing = session.scalar(
+            select(PriceObservation.id).where(
+                PriceObservation.market_context == self._market_context,
+                PriceObservation.source == "item_cost",
+                PriceObservation.note == import_note,
+            )
+        )
+        if existing is not None:
+            return 0
+
+        latest_rows: dict[tuple[str, str], CostRow] = {}
+        for row in result.accepted:
+            identity = (
+                normalize_item_name(row.raw_material),
+                normalize_item_name(row.category),
+            )
+            latest_rows[identity] = row
+
+        observed_at = datetime.now(UTC)
+        for row in latest_rows.values():
+            item = self._get_or_create_cost_item(session, row)
+            session.add(
+                PriceObservation(
+                    item_id=item.id,
+                    lot_quantity=1,
+                    total_price=row.price,
+                    observed_at=observed_at,
+                    market_context=self._market_context,
+                    note=import_note,
+                    source="item_cost",
+                )
+            )
+        return len(latest_rows)
 
     def _import_recipes(
         self,
