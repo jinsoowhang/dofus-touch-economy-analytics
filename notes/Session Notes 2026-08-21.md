@@ -316,3 +316,13 @@ add optional direct-entry pricing or reporting when requested.
 - The full check passed with 158 tests, dbt validation, SQLFluff, and public-file policy;
   live Item Search, item icons, Sales filtering, sorting state, Pacific dates, and the
   chart all returned successfully.
+
+## Follow-up: Compact Sales Editing and Collapsible Sections
+
+- Capitalized manual item names only at space boundaries, corrected the existing
+  `Daggero's Red Necklace` row, and title-cased visible field and section labels.
+- Made page sections collapsible, required Sale Price for new listings, moved typed
+  item matches to the top of the Sales dropdown, and saved inline price edits on Enter
+  or blur without an Update button.
+- The full check passed with 160 tests; live smoke checks confirmed the new markup and
+  scripts, and a missing-price request left all 79 Sales rows unchanged.
