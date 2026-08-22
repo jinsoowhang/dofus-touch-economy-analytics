@@ -46,8 +46,9 @@ connector.
 - `uv run pytest tests/python/test_check_public_files.py -v` passed after the new
   `.secrets/` policy was implemented.
 - `git diff --check` passed.
-- `./scripts/check.sh` passed, including Ruff lint and formatting, Python tests, dbt
-  debug and parse against local DuckDB, SQLFluff, and the public-file policy.
+- `./scripts/check.sh` passed after synchronization, including Ruff lint and
+  formatting, 172 Python tests, application compilation, dbt debug and parse against
+  local DuckDB, SQLFluff, and the public-file policy.
 - GitHub authentication and the public repository URL were verified read-only.
 - Hosted BigQuery connection, parse, and compile verification remain pending because
   account credentials are intentionally not available to this environment.
@@ -57,3 +58,18 @@ connector.
 Use `docs/dbt-cloud-bigquery-setup.md` with the user's Google Cloud project ID and
 dataset location, then confirm the dbt connection test plus hosted `dbt parse` and
 `dbt compile`.
+
+## GitHub Synchronization
+
+- The first push was rejected safely because `origin/main` had advanced.
+- Fetched `origin/main` from the previously observed `2e6e06c` tip to `171ee1d`.
+- Created rollback branch `backup-pre-origin-sync-20260822` at the pre-sync local tip.
+- Reviewed the 64 incoming commits and their 87-file delta before applying changes.
+- Replayed only the hosted-pilot commit onto the fetched remote tip. The local
+  formatting commit was dropped because remote commit `8686785` already contained
+  the same mechanical formatting.
+- Resolved conflicts in `AGENTS.md`, `MEMORY.md`, `README.md`,
+  `docs/architecture.md`, and `scripts/check_public_files.py` by preserving the
+  completed FastAPI implementation and layering the hosted pilot onto it.
+- Preserved SQLite as ADR 0002 and assigned the BigQuery pilot ADR 0003.
+- The replayed hosted-pilot commit is `9a6caa5`.
