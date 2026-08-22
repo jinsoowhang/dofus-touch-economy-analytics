@@ -1,8 +1,11 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from math import ceil, floor, log10
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlencode
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -32,6 +35,7 @@ from dofus_touch_economy.services.pricing import (
     PriceService,
 )
 from dofus_touch_economy.services.sales import (
+    DailySalesTotal,
     SaleItemNotFound,
     SaleListingConflict,
     SaleListingNotFound,
@@ -42,6 +46,42 @@ from dofus_touch_economy.services.sales import (
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
+PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
+
+
+def _pacific_time(value: datetime) -> datetime:
+    return value.astimezone(PACIFIC_TIME)
+
+
+templates.env.filters["pacific_time"] = _pacific_time
+
+
+@dataclass(frozen=True)
+class SalesSortState:
+    active_sort: SaleSortField = "started"
+    active_direction: SaleSortDirection = "desc"
+    sold_sort: SaleSortField = "sold"
+    sold_direction: SaleSortDirection = "desc"
+
+    def parameters(self) -> dict[str, str]:
+        return {
+            "active_sort": self.active_sort,
+            "active_direction": self.active_direction,
+            "sold_sort": self.sold_sort,
+            "sold_direction": self.sold_direction,
+        }
+
+
+DEFAULT_SALES_SORT_STATE = SalesSortState()
+
+
+def _sales_sort_state(
+    active_sort: Annotated[SaleSortField, Query()] = "started",
+    active_direction: Annotated[SaleSortDirection, Query()] = "desc",
+    sold_sort: Annotated[SaleSortField, Query()] = "sold",
+    sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
+) -> SalesSortState:
+    return SalesSortState(active_sort, active_direction, sold_sort, sold_direction)
 
 
 def _is_htmx(request: Request) -> bool:
@@ -145,37 +185,134 @@ def _error_response(request: Request, message: str, status_code: int) -> HTMLRes
 def _sales_context(
     service: SalesService,
     *,
-    active_sort: SaleSortField = "started",
-    active_direction: SaleSortDirection = "desc",
-    sold_sort: SaleSortField = "sold",
-    sold_direction: SaleSortDirection = "desc",
+    sort_state: SalesSortState = DEFAULT_SALES_SORT_STATE,
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
+    item_choices = service.item_choices()
+    category_labels: dict[str, str] = {}
+    for item in item_choices:
+        if item.category_key:
+            category_labels.setdefault(item.category_key, (item.category or "").title())
+    daily_totals = service.daily_totals(PACIFIC_TIME)
     return {
         "active_tab": "sales",
-        "item_choices": service.item_choices(),
-        "active_sales": service.active(active_sort, active_direction),
-        "sold_sales": service.sold(sold_sort, sold_direction),
+        "item_choices": item_choices,
+        "category_choices": [
+            {"key": key, "label": label}
+            for key, label in sorted(
+                category_labels.items(),
+                key=lambda entry: entry[1].casefold(),
+            )
+        ],
+        "active_sales": service.active(
+            sort_state.active_sort,
+            sort_state.active_direction,
+        ),
+        "sold_sales": service.sold(sort_state.sold_sort, sort_state.sold_direction),
         "active_sort_columns": _sales_sort_columns(
             "active",
-            active_sort,
-            active_direction,
-            sold_sort,
-            sold_direction,
+            sort_state.active_sort,
+            sort_state.active_direction,
+            sort_state.sold_sort,
+            sort_state.sold_direction,
         ),
         "sold_sort_columns": _sales_sort_columns(
             "sold",
-            sold_sort,
-            sold_direction,
-            active_sort,
-            active_direction,
+            sort_state.sold_sort,
+            sort_state.sold_direction,
+            sort_state.active_sort,
+            sort_state.active_direction,
         ),
+        "sales_sort_query": urlencode(sort_state.parameters()),
+        "sales_chart": _sales_chart(daily_totals),
         "notification": notification,
         "errors": errors or [],
         "form_values": form_values or {},
     }
+
+
+def _sales_redirect_url(sort_state: SalesSortState, notice: str) -> str:
+    parameters = {**sort_state.parameters(), "notice": notice}
+    return f"/sales?{urlencode(parameters)}"
+
+
+def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | None:
+    if not daily_totals:
+        return None
+    width = 900
+    height = 320
+    left = 78
+    right = 24
+    top = 24
+    bottom = 58
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    tick_step = _nice_tick_step(max(point.total_price for point in daily_totals))
+    chart_max = tick_step * 4
+    points: list[dict[str, object]] = []
+    for index, total in enumerate(daily_totals):
+        x = (
+            left + plot_width / 2
+            if len(daily_totals) == 1
+            else left + (plot_width * index / (len(daily_totals) - 1))
+        )
+        y = top + plot_height * (1 - total.total_price / chart_max)
+        points.append(
+            {
+                "x": round(x, 2),
+                "y": round(y, 2),
+                "date": total.sold_on.isoformat(),
+                "total_price": total.total_price,
+                "total_price_label": f"{total.total_price:,}",
+                "sold_count": total.sold_count,
+            }
+        )
+    label_indexes = _chart_label_indexes(len(points))
+    total_price = sum(point.total_price for point in daily_totals)
+    sold_count = sum(point.sold_count for point in daily_totals)
+    priced_count = sum(point.priced_count for point in daily_totals)
+    average_price = None if not priced_count else round(total_price / priced_count)
+    return {
+        "width": width,
+        "height": height,
+        "left": left,
+        "right_x": width - right,
+        "top": top,
+        "bottom_y": height - bottom,
+        "polyline": " ".join(f"{point['x']},{point['y']}" for point in points),
+        "points": points,
+        "x_labels": [points[index] for index in label_indexes],
+        "y_ticks": [
+            {
+                "value": value,
+                "label": f"{value:,}",
+                "y": round(top + plot_height * (1 - value / chart_max), 2),
+            }
+            for value in range(0, chart_max + 1, tick_step)
+        ],
+        "total_price_label": f"{total_price:,}",
+        "sold_count": sold_count,
+        "average_price_label": "—" if average_price is None else f"{average_price:,}",
+        "daily_totals": daily_totals,
+    }
+
+
+def _nice_tick_step(maximum: int) -> int:
+    if maximum <= 4:
+        return 1
+    rough_step = maximum / 4
+    magnitude = 10 ** floor(log10(rough_step))
+    normalized = rough_step / magnitude
+    factor = next(candidate for candidate in (1, 2, 5, 10) if candidate >= normalized)
+    return ceil(factor * magnitude)
+
+
+def _chart_label_indexes(point_count: int) -> list[int]:
+    if point_count <= 7:
+        return list(range(point_count))
+    return sorted({round(index * (point_count - 1) / 6) for index in range(7)})
 
 
 def _sales_sort_columns(
@@ -276,11 +413,8 @@ def sales_page(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
     notice: str | None = Query(default=None),
-    active_sort: Annotated[SaleSortField, Query()] = "started",
-    active_direction: Annotated[SaleSortDirection, Query()] = "desc",
-    sold_sort: Annotated[SaleSortField, Query()] = "sold",
-    sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
 ) -> HTMLResponse:
     notifications = {
         "listing-added": "Sale listing has been added.",
@@ -291,10 +425,7 @@ def sales_page(
     }
     context = _sales_context(
         SalesService(session, settings.market_context),
-        active_sort=active_sort,
-        active_direction=active_direction,
-        sold_sort=sold_sort,
-        sold_direction=sold_direction,
+        sort_state=sort_state,
         notification=notifications.get(notice),
     )
     return templates.TemplateResponse(request, "sales.html", context=context)
@@ -305,9 +436,10 @@ async def start_sale(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
-    values = _form_values(form, ("item_uuid", "asking_price"))
+    values = _form_values(form, ("category", "item_uuid", "asking_price"))
     service = SalesService(session, settings.market_context)
     try:
         command = SaleListingCreate.model_validate(values)
@@ -317,6 +449,7 @@ async def start_sale(
             "sales.html",
             context=_sales_context(
                 service,
+                sort_state=sort_state,
                 errors=_validation_messages(error),
                 form_values=values,
             ),
@@ -330,12 +463,16 @@ async def start_sale(
             "sales.html",
             context=_sales_context(
                 service,
+                sort_state=sort_state,
                 errors=["Item not found."],
                 form_values=values,
             ),
             status_code=404,
         )
-    return RedirectResponse(url="/sales?notice=listing-added", status_code=303)
+    return RedirectResponse(
+        url=_sales_redirect_url(sort_state, "listing-added"),
+        status_code=303,
+    )
 
 
 @router.post(
@@ -348,6 +485,7 @@ def duplicate_sale(
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -356,10 +494,17 @@ def duplicate_sale(
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=["Sale listing not found."]),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Sale listing not found."],
+            ),
             status_code=404,
         )
-    return RedirectResponse(url="/sales?notice=listing-duplicated", status_code=303)
+    return RedirectResponse(
+        url=_sales_redirect_url(sort_state, "listing-duplicated"),
+        status_code=303,
+    )
 
 
 @router.post(
@@ -372,6 +517,7 @@ def delete_sale(
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -380,10 +526,17 @@ def delete_sale(
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=["Sale listing not found."]),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Sale listing not found."],
+            ),
             status_code=404,
         )
-    return RedirectResponse(url="/sales?notice=listing-deleted", status_code=303)
+    return RedirectResponse(
+        url=_sales_redirect_url(sort_state, "listing-deleted"),
+        status_code=303,
+    )
 
 
 @router.post(
@@ -396,6 +549,7 @@ async def update_sale_price(
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     values = _form_values(form, ("asking_price",))
@@ -406,7 +560,11 @@ async def update_sale_price(
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=_validation_messages(error)),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=_validation_messages(error),
+            ),
             status_code=422,
         )
     try:
@@ -415,17 +573,28 @@ async def update_sale_price(
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=["Sale listing not found."]),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Sale listing not found."],
+            ),
             status_code=404,
         )
     except SaleListingConflict:
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=["A sold listing cannot be repriced."]),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["A sold listing cannot be repriced."],
+            ),
             status_code=409,
         )
-    return RedirectResponse(url="/sales?notice=listing-price-updated", status_code=303)
+    return RedirectResponse(
+        url=_sales_redirect_url(sort_state, "listing-price-updated"),
+        status_code=303,
+    )
 
 
 @router.post(
@@ -438,6 +607,7 @@ def mark_sale_sold(
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -446,17 +616,28 @@ def mark_sale_sold(
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=["Sale listing not found."]),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Sale listing not found."],
+            ),
             status_code=404,
         )
     except SaleListingConflict:
         return templates.TemplateResponse(
             request,
             "sales.html",
-            context=_sales_context(service, errors=["Item has already been marked as sold."]),
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Item has already been marked as sold."],
+            ),
             status_code=409,
         )
-    return RedirectResponse(url="/sales?notice=listing-sold", status_code=303)
+    return RedirectResponse(
+        url=_sales_redirect_url(sort_state, "listing-sold"),
+        status_code=303,
+    )
 
 
 @router.get("/items", response_class=HTMLResponse)

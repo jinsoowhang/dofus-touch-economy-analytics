@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, tzinfo
 from typing import Literal
 from uuid import UUID
 
@@ -6,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dofus_touch_economy.models import Item, PriceObservation, SaleListing
+from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.repositories.sales import SalesRepository
 from dofus_touch_economy.schemas import (
@@ -31,6 +33,14 @@ class SaleListingConflict(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class DailySalesTotal:
+    sold_on: date
+    total_price: int
+    sold_count: int
+    priced_count: int
+
+
 class SalesService:
     def __init__(self, session: Session, market_context: str) -> None:
         self._session = session
@@ -44,6 +54,7 @@ class SalesService:
                 uuid=item.uuid,
                 display_name=item.display_name,
                 category=item.category,
+                category_key=("" if item.category is None else normalize_item_name(item.category)),
                 icon_url=_icon_url(item),
             )
             for item in self._catalog.search("", limit=None)
@@ -64,6 +75,27 @@ class SalesService:
     ) -> list[SaleListingResponse]:
         listings = [_response(listing) for listing in self._sales.sold()]
         return _sort_listings(listings, sort_field, sort_direction)
+
+    def daily_totals(self, display_timezone: tzinfo) -> list[DailySalesTotal]:
+        totals: dict[date, list[int]] = {}
+        for listing in self.sold("sold", "asc"):
+            if listing.date_sold is None:  # pragma: no cover - sold query guarantees a date
+                continue
+            sold_on = listing.date_sold.astimezone(display_timezone).date()
+            daily = totals.setdefault(sold_on, [0, 0, 0])
+            daily[1] += 1
+            if listing.asking_price is not None:
+                daily[0] += listing.asking_price
+                daily[2] += 1
+        return [
+            DailySalesTotal(
+                sold_on=sold_on,
+                total_price=values[0],
+                sold_count=values[1],
+                priced_count=values[2],
+            )
+            for sold_on, values in sorted(totals.items())
+        ]
 
     def start(self, command: SaleListingCreate) -> SaleListingResponse:
         item_id = self._session.scalar(select(Item.id).where(Item.uuid == command.item_uuid))

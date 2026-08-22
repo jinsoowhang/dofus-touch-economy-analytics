@@ -76,6 +76,7 @@ class SaleItemChoiceResponse(BaseModel):
     uuid: UUID
     display_name: str
     category: str | None
+    category_key: str
     icon_url: str | None
 
 

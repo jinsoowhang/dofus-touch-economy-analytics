@@ -9,6 +9,8 @@ from dofus_touch_economy.schemas import PriceObservationCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
 
+DEFAULT_SALES_QUERY = "active_sort=started&active_direction=desc&sold_sort=sold&sold_direction=desc"
+
 
 def test_root_redirects_to_items(client) -> None:
     response = client.get("/", follow_redirects=False)
@@ -69,6 +71,42 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
 
 
+def test_sales_category_filter_marks_item_options_and_loads_local_script(
+    client,
+    session_factory,
+) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Item(
+                    display_name="Alpha Ring",
+                    normalized_name="alpha ring",
+                    category="Ring",
+                    identity_category="ring",
+                ),
+                Item(
+                    display_name="Zeta Hat",
+                    normalized_name="zeta hat",
+                    category="Hat",
+                    identity_category="hat",
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/sales")
+    script = client.get("/static/sales.js")
+
+    assert response.status_code == 200
+    assert '<label for="sale-category">Category (optional)</label>' in response.text
+    assert 'value="ring"' in response.text
+    assert 'data-category="ring"' in response.text
+    assert 'data-category="hat"' in response.text
+    assert '<script src="/static/sales.js" defer></script>' in response.text
+    assert script.status_code == 200
+    assert 'categorySelect.addEventListener("change", filterItems)' in script.text
+
+
 def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:
     created = client.post(
         "/sales",
@@ -80,7 +118,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     )
 
     assert created.status_code == 303
-    assert created.headers["location"] == "/sales?notice=listing-added"
+    assert created.headers["location"] == f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-added"
     active_page = client.get(created.headers["location"])
     assert "Sale listing has been added." in active_page.text
     assert catalog_item.display_name in active_page.text
@@ -108,7 +146,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     )
 
     assert completed.status_code == 303
-    assert completed.headers["location"] == "/sales?notice=listing-sold"
+    assert completed.headers["location"] == f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-sold"
     sold_page = client.get(completed.headers["location"])
     assert "Item has been marked as sold." in sold_page.text
     assert "0 active" in sold_page.text
@@ -155,7 +193,9 @@ def test_sales_page_duplicates_and_reprices_a_listing(
     )
 
     assert duplicated.status_code == 303
-    assert duplicated.headers["location"] == "/sales?notice=listing-duplicated"
+    assert duplicated.headers["location"] == (
+        f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-duplicated"
+    )
     with session_factory() as session:
         listings = list(session.scalars(select(SaleListing).order_by(SaleListing.id)))
     assert len(listings) == 2
@@ -169,7 +209,9 @@ def test_sales_page_duplicates_and_reprices_a_listing(
     )
 
     assert repriced.status_code == 303
-    assert repriced.headers["location"] == "/sales?notice=listing-price-updated"
+    assert repriced.headers["location"] == (
+        f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-price-updated"
+    )
     page = client.get(repriced.headers["location"])
     assert "Sale price has been updated." in page.text
     assert 'value="50000"' in page.text
@@ -210,7 +252,8 @@ def test_sales_page_deletes_a_listing_after_confirmation(
         listing_uuid = session.scalar(select(SaleListing.uuid))
 
     page = client.get("/sales")
-    assert f'action="/sales/{listing_uuid}/delete"' in page.text
+    escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
+    assert f'action="/sales/{listing_uuid}/delete?{escaped_query}"' in page.text
     assert "return window.confirm('Delete this sales row? This cannot be undone.')" in page.text
 
     response = client.post(
@@ -219,7 +262,7 @@ def test_sales_page_deletes_a_listing_after_confirmation(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/sales?notice=listing-deleted"
+    assert response.headers["location"] == f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-deleted"
     deleted_page = client.get(response.headers["location"])
     assert "Sale listing has been deleted." in deleted_page.text
     assert "0 active" in deleted_page.text
@@ -298,6 +341,71 @@ def test_sales_tables_sort_independently_and_show_directions(
     active_section = active_section.split("<h2>Currently selling</h2>", maxsplit=1)[1]
     assert active_section.index("Alpha Hat") < active_section.index(catalog_item.display_name)
     assert sold_section.index("Alpha Hat") < sold_section.index(catalog_item.display_name)
+
+
+def test_sales_actions_preserve_both_table_sort_settings(client, catalog_item) -> None:
+    sort_parameters = {
+        "active_sort": "price",
+        "active_direction": "asc",
+        "sold_sort": "name",
+        "sold_direction": "desc",
+    }
+
+    response = client.post(
+        "/sales",
+        params=sort_parameters,
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": "1000"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/sales?active_sort=price&active_direction=asc&sold_sort=name&"
+        "sold_direction=desc&notice=listing-added"
+    )
+    page = client.get(response.headers["location"])
+    assert (
+        "active_sort=price&amp;active_direction=asc&amp;sold_sort=name&amp;sold_direction=desc"
+    ) in page.text
+    assert 'aria-sort="ascending"' in page.text
+
+
+def test_sales_dates_and_daily_chart_use_pacific_time(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=100,
+                    selling_started_at=datetime(2026, 8, 22, 1, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 22, 2, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=200,
+                    selling_started_at=datetime(2026, 8, 23, 7, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, 8, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/sales")
+
+    assert response.status_code == 200
+    assert 'datetime="2026-08-21T19:00:00-07:00"' in response.text
+    assert "2026-08-21: 100 total across 1 item" in response.text
+    assert "2026-08-23: 200 total across 1 item" in response.text
+    assert "Daily sales totals by date sold" in response.text
+    assert "Date sold (Pacific time)" in response.text
+    assert "<strong>300</strong>" in response.text
+    assert "<strong>2</strong>" in response.text
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:

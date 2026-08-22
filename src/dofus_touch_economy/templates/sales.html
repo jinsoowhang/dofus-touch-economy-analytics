@@ -13,13 +13,24 @@
 
   <section>
     <h2>Add an item to sell</h2>
-    <form method="post" action="/sales" class="sales-form">
+    <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
+      <label for="sale-category">Category (optional)</label>
+      <select id="sale-category" name="category">
+        <option value="">All categories</option>
+        {% for category in category_choices %}
+          <option
+            value="{{ category.key }}"
+            {% if form_values.get('category') == category.key %}selected{% endif %}
+          >{{ category.label }}</option>
+        {% endfor %}
+      </select>
       <label for="sale-item">Item</label>
       <select id="sale-item" name="item_uuid" required>
         <option value="">Choose an item</option>
         {% for item in item_choices %}
           <option
             value="{{ item.uuid }}"
+            data-category="{{ item.category_key }}"
             {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
           >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
         {% endfor %}
@@ -67,6 +78,7 @@
           </thead>
           <tbody>
             {% for sale in active_sales %}
+              {% set selling_started_at = sale.selling_started_at | pacific_time %}
               <tr>
                 <td>
                   <a href="/items/{{ sale.item_uuid }}" class="item-label">
@@ -78,7 +90,7 @@
                 </td>
                 <td>{{ (sale.category or "Uncategorized") | title }}</td>
                 <td>
-                  <form method="post" action="/sales/{{ sale.uuid }}/price" class="price-edit-form">
+                  <form method="post" action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}" class="price-edit-form">
                     <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
                       Sale price for {{ sale.display_name }}
                     </label>
@@ -93,21 +105,21 @@
                   </form>
                 </td>
                 <td>
-                  <time datetime="{{ sale.selling_started_at.isoformat() }}">
-                    {{ sale.selling_started_at.strftime("%Y-%m-%d") }}
+                  <time datetime="{{ selling_started_at.isoformat() }}">
+                    {{ selling_started_at.strftime("%Y-%m-%d") }}
                   </time>
                 </td>
                 <td>
                   <div class="row-actions">
-                    <form method="post" action="/sales/{{ sale.uuid }}/duplicate" class="inline-form">
+                    <form method="post" action="/sales/{{ sale.uuid }}/duplicate?{{ sales_sort_query }}" class="inline-form">
                       <button type="submit" class="secondary-button">Duplicate</button>
                     </form>
-                    <form method="post" action="/sales/{{ sale.uuid }}/sold" class="inline-form">
+                    <form method="post" action="/sales/{{ sale.uuid }}/sold?{{ sales_sort_query }}" class="inline-form">
                       <button type="submit">Mark sold</button>
                     </form>
                     <form
                       method="post"
-                      action="/sales/{{ sale.uuid }}/delete"
+                      action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
                       class="inline-form"
                       onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
                     >
@@ -162,6 +174,8 @@
           </thead>
           <tbody>
             {% for sale in sold_sales %}
+              {% set selling_started_at = sale.selling_started_at | pacific_time %}
+              {% set date_sold = sale.date_sold | pacific_time %}
               <tr>
                 <td>
                   <a href="/items/{{ sale.item_uuid }}" class="item-label">
@@ -173,19 +187,19 @@
                 </td>
                 <td class="numeric">{{ sale.asking_price or "—" }}</td>
                 <td>
-                  <time datetime="{{ sale.selling_started_at.isoformat() }}">
-                    {{ sale.selling_started_at.strftime("%Y-%m-%d") }}
+                  <time datetime="{{ selling_started_at.isoformat() }}">
+                    {{ selling_started_at.strftime("%Y-%m-%d") }}
                   </time>
                 </td>
                 <td>
-                  <time datetime="{{ sale.date_sold.isoformat() }}">
-                    {{ sale.date_sold.strftime("%Y-%m-%d") }}
+                  <time datetime="{{ date_sold.isoformat() }}">
+                    {{ date_sold.strftime("%Y-%m-%d") }}
                   </time>
                 </td>
                 <td>
                   <form
                     method="post"
-                    action="/sales/{{ sale.uuid }}/delete"
+                    action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
                     class="inline-form"
                     onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
                   >
@@ -206,4 +220,91 @@
       <p>No completed sales yet.</p>
     {% endif %}
   </section>
+
+  <section aria-labelledby="sales-trend-heading">
+    <div class="item-list-heading">
+      <h2 id="sales-trend-heading">Sales over time</h2>
+      <span>Pacific time</span>
+    </div>
+    {% if sales_chart %}
+      <div class="sales-metrics" aria-label="Sales summary">
+        <div><span>Total sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Items sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
+        <div><span>Average priced sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
+      </div>
+      <div class="sales-chart-wrap">
+        <svg
+          class="sales-chart"
+          viewBox="0 0 {{ sales_chart.width }} {{ sales_chart.height }}"
+          role="img"
+          aria-labelledby="sales-chart-title sales-chart-description"
+        >
+          <title id="sales-chart-title">Daily sales totals by date sold</title>
+          <desc id="sales-chart-description">
+            A line chart of the summed sale prices for sold items on each Pacific calendar date.
+          </desc>
+          {% for tick in sales_chart.y_ticks %}
+            <line
+              class="chart-grid-line"
+              x1="{{ sales_chart.left }}"
+              x2="{{ sales_chart.right_x }}"
+              y1="{{ tick.y }}"
+              y2="{{ tick.y }}"
+            ></line>
+            <text class="chart-axis-label" x="{{ sales_chart.left - 10 }}" y="{{ tick.y + 4 }}" text-anchor="end">
+              {{ tick.label }}
+            </text>
+          {% endfor %}
+          <line
+            class="chart-axis-line"
+            x1="{{ sales_chart.left }}"
+            x2="{{ sales_chart.right_x }}"
+            y1="{{ sales_chart.bottom_y }}"
+            y2="{{ sales_chart.bottom_y }}"
+          ></line>
+          <polyline class="chart-series" points="{{ sales_chart.polyline }}"></polyline>
+          {% for point in sales_chart.points %}
+            <circle class="chart-point" cx="{{ point.x }}" cy="{{ point.y }}" r="5">
+              <title>
+                {{ point.date }}: {{ point.total_price_label }} total across {{ point.sold_count }} {{ "item" if point.sold_count == 1 else "items" }}
+              </title>
+            </circle>
+          {% endfor %}
+          {% for label in sales_chart.x_labels %}
+            <text class="chart-axis-label" x="{{ label.x }}" y="{{ sales_chart.bottom_y + 24 }}" text-anchor="middle">
+              {{ label.date }}
+            </text>
+          {% endfor %}
+          <text class="chart-axis-title" x="{{ (sales_chart.left + sales_chart.right_x) / 2 }}" y="{{ sales_chart.height - 6 }}" text-anchor="middle">
+            Date sold (Pacific time)
+          </text>
+          <text
+            class="chart-axis-title"
+            x="16"
+            y="{{ (sales_chart.top + sales_chart.bottom_y) / 2 }}"
+            text-anchor="middle"
+            transform="rotate(-90 16 {{ (sales_chart.top + sales_chart.bottom_y) / 2 }})"
+          >Sales total</text>
+        </svg>
+      </div>
+      <details class="sales-data-details">
+        <summary>View daily totals</summary>
+        <table class="sales-data-table">
+          <thead><tr><th>Date sold</th><th class="numeric">Sales total</th><th class="numeric">Items sold</th></tr></thead>
+          <tbody>
+            {% for day in sales_chart.daily_totals %}
+              <tr>
+                <td>{{ day.sold_on.isoformat() }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_price) }}</td>
+                <td class="numeric">{{ day.sold_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    {% else %}
+      <p>Mark an item as sold to start the daily sales chart.</p>
+    {% endif %}
+  </section>
 {% endblock %}
+{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}

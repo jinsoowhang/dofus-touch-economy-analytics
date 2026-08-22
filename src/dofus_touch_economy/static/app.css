@@ -331,6 +331,109 @@ button {
   background: color-mix(in srgb, var(--danger) 12%, var(--surface));
 }
 
+.sales-metrics {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-block: 1rem;
+}
+
+.sales-metrics div {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+}
+
+.sales-metrics span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sales-metrics strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sales-chart-wrap {
+  overflow-x: auto;
+}
+
+.sales-chart {
+  color: var(--muted);
+  display: block;
+  min-width: 46rem;
+  width: 100%;
+}
+
+.chart-grid-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-axis-line {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.chart-series {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.chart-point {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.chart-axis-label,
+.chart-axis-title {
+  fill: currentColor;
+  font-family: inherit;
+}
+
+.chart-axis-label {
+  font-size: 12px;
+}
+
+.chart-axis-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sales-data-details {
+  margin-block-start: 0.75rem;
+}
+
+.sales-data-details summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.sales-data-table {
+  border-collapse: collapse;
+  margin-block-start: 0.75rem;
+  width: 100%;
+}
+
+.sales-data-table th,
+.sales-data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem;
+  text-align: left;
+}
+
+.sales-data-table .numeric {
+  text-align: right;
+}
+
 .visually-hidden {
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
@@ -405,5 +508,9 @@ button {
     border-radius: 0.5rem;
     margin-block: 0.75rem;
     padding: 0.5rem;
+  }
+
+  .sales-metrics {
+    grid-template-columns: 1fr;
   }
 }
