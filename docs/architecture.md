@@ -17,10 +17,10 @@ ignored item_cost.csv + item_recipes.csv
       manual item command -> FastAPI services -> Jinja + HTMX / JSON API
                                 |
                                 v
-                 deferred immutable operational extract
+                    immutable snapshot extract
                                 |
                                 v
-                     ignored DuckDB raw schemas
+                   private BigQuery raw schemas
                                 |
                                 v
                   dbt staging -> intermediate -> marts
@@ -28,17 +28,19 @@ ignored item_cost.csv + item_recipes.csv
 
 `item_sales.csv` does not enter either implemented import path because its abbreviated dates and source-row grain are not deterministic.
 
-Hosted pilot flow:
+Hosted analytical flow:
 
 ```text
-synthetic or contract-approved source tables
-    -> BigQuery
+normalized SQLite state
+    -> content-addressed raw BigQuery snapshots
+    -> latest manifested snapshot
     -> dbt Developer staging / intermediate / marts
 ```
 
-The hosted pilot does not authorize manual upload of the private raw exports. A
-future secure loader must preserve the same validation, metadata, rejection, and
-immutability guarantees as the local flow.
+The hosted flow does not authorize manual upload of private raw exports. The loader
+publishes the application's contract-approved normalized state, including provenance,
+invalidations, stable IDs, timestamps, and extraction metadata. It never reads the
+ambiguous sales CSV.
 
 ## Operational boundary
 
@@ -67,7 +69,16 @@ existing observations are preserved.
 
 ## Analytical boundary
 
-DuckDB and dbt remain responsible for analytical state and governed transformations. A future milestone will extract immutable SQLite observations, identifiers, timestamps, market context, and provenance into DuckDB before building staging, intermediate, and mart models. The operational application must not be coupled to analytical model availability.
+BigQuery and dbt own hosted analytical state and governed transformations. The
+snapshot loader reads SQLite in one consistent transaction, validates an exact table
+contract, derives a content hash, and appends partitioned raw rows to both base
+datasets. A manifest is written last; dbt filters every source to the newest complete
+manifested snapshot. The operational application is not coupled to analytical model
+availability.
+
+DuckDB and dbt Core remain the reproducible local profile and CI parse path during
+the pilot. The operational dbt models require hosted raw tables until an equivalent
+local SQLite-to-DuckDB bridge is implemented.
 
 Transformation SQL should remain portable where practical. DuckDB-specific behavior belongs in focused ingestion code or macros.
 
@@ -84,17 +95,18 @@ Imported cost values and spreadsheet-derived totals, profit, and ROI remain reco
 ## Deferred boundaries
 
 - `item_sales.csv` ingestion until its dates and grain are deterministic;
-- SQLite-to-DuckDB extraction and dbt domain models;
+- SQLite-to-DuckDB extraction for local execution parity;
 - public hosting, authentication, authorization, and multi-user behavior;
 - scraping, game-client automation, alerts, and dashboards.
 
 ## Hosted analytical pilot
 
-A dbt Developer and BigQuery pilot may execute the same dbt project against
-synthetic or contract-approved hosted data. Local dbt Core and DuckDB remain the
-canonical reproducible analytical path until hosted model parity is demonstrated.
+A dbt Developer and BigQuery pilot executes the dbt project against private,
+contract-approved operational snapshots. Local dbt Core and DuckDB remain the
+canonical reproducible parse path until hosted model parity is demonstrated.
 
-The pilot is limited to connection, Git, parse, and compile verification until a
-deterministic operational extraction exists. See
+See
 [the setup guide](dbt-cloud-bigquery-setup.md) and
-[ADR 0003](adr/0003-pilot-dbt-platform-and-bigquery.md).
+[the ingestion guide](operational-bigquery-ingestion.md), plus
+[ADR 0003](adr/0003-pilot-dbt-platform-and-bigquery.md) and
+[ADR 0004](adr/0004-publish-operational-snapshots-to-bigquery.md).

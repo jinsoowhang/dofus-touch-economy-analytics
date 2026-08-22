@@ -8,7 +8,11 @@
 - Local stack: Python 3.12, uv, FastAPI, Jinja, vendored HTMX, SQLAlchemy, Alembic, SQLite, dbt Core, dbt-duckdb, and DuckDB.
 - Implemented application: a loopback-only FastAPI/Jinja/vendored-HTMX website with versioned JSON endpoints. SQLite owns operational state while DuckDB and dbt remain the downstream analytical layer.
 - Application prices are append-only observations with audit-preserving invalidation. Item Search records total price with implicit quantity one; each new `item_cost.csv` checksum now seeds idempotent, lot-one current-price observations, using the last file occurrence for duplicate identities without creating Sales listings.
-- dbt layers: staging, intermediate, marts.
+- Hosted dbt models consume the latest fully manifested BigQuery snapshot: nine
+  operational staging models, latest-valid-price and latest-recipe intermediate
+  models, and item, price-observation, Sales, and recipe-ingredient marts. Tests
+  enforce identifiers, relationships, positive amounts, recipe-position uniqueness,
+  and ordered Sales dates.
 - Raw CSVs, SQLite and DuckDB databases, import reports, secrets, task-observer files, and worktrees stay local and ignored.
 - Canonical local sources: `item_sales.csv`, `item_recipes.csv`, and `item_cost.csv` under `data/raw`.
 - Only synthetic samples may be committed until redistribution rights are established.
@@ -29,7 +33,18 @@
 - The application importer validates both file contracts before writes, is idempotent by dataset checksum, preserves accepted and rejected raw-row provenance locally, and reports how many unique cost prices were seeded.
 - Additive SQLite migrations for referenced tables should use supported direct `ALTER TABLE` operations rather than batch table rebuilds while foreign-key enforcement is active; populated upgrade tests must include dependent rows.
 - Operational schema, Alembic migration, import CLI, repositories and services, HTML/HTMX interface, JSON API, local security boundary, and documentation are complete on `feature/fastapi-price-tracking`.
-- Next milestone: design immutable SQLite-to-DuckDB ingestion and dbt models for operational observations. Sales ingestion still requires deterministic dates and confirmed row grain.
+- A repository-owned loader now extracts eight exact-schema operational SQLite
+  tables in one read-only transaction and publishes content-addressed, partitioned,
+  clustered raw snapshots to both BigQuery base datasets. The manifest is appended
+  last so dbt cannot select an interrupted partial upload; reruns are idempotent by
+  SHA-256 content hash. The loader uses user Application Default Credentials and
+  never writes source rows to tracked intermediate files.
+- The ambiguous `item_sales.csv` still requires deterministic dates and confirmed
+  row grain. Hosted Sales analytics instead use normalized application
+  `sale_listings`, whose stable IDs and timestamps satisfy the operational contract.
+- Local DuckDB remains the dbt Core profile for parsing and CI. The new operational
+  models require BigQuery raw tables until a local SQLite-to-DuckDB bridge provides
+  equivalent sources.
 - Hosted pilot: use a free single-user dbt Developer project with BigQuery while
   retaining dbt Core and DuckDB locally until model parity is demonstrated.
 - Hosted pilot environments use `dofus_dev` and `dofus_prod` base datasets in a
@@ -38,8 +53,9 @@
 - The free dbt Developer plan requires service-account JSON authentication for
   BigQuery. Credential files never enter Git; `.secrets/` is ignored and rejected by
   the public-file policy.
-- Hosted data remains limited to synthetic or contract-approved sources. Do not
-  schedule production jobs or manually upload private CSVs before deterministic
-  ingestion exists.
-- Account-side BigQuery and dbt configuration remains to be completed and verified
-  using `docs/dbt-cloud-bigquery-setup.md`.
+- Hosted data remains limited to synthetic sources or normalized private SQLite
+  state published through the contracted snapshot loader. Never upload private CSVs
+  manually.
+- Account-side BigQuery and dbt connection, GitHub, development, and production
+  environment setup is complete. The first operational snapshot upload is pending a
+  local Google ADC browser sign-in; WSL currently has no Google Cloud CLI or ADC.

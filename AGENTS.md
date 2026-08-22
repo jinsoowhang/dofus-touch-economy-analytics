@@ -2,7 +2,7 @@
 
 ## What This Is
 
-This repository is a public, reproducible analytics project with a local FastAPI application for player-observed Dofus Touch economy data. SQLite owns operational catalog and price state; DuckDB and dbt remain the deferred downstream analytical layer.
+This repository is a public, reproducible analytics project with a local FastAPI application for player-observed Dofus Touch economy data. SQLite owns operational catalog and price state; immutable normalized snapshots feed hosted BigQuery and dbt models, while DuckDB remains the local dbt profile during the pilot.
 
 ## Session Workflow
 
@@ -36,6 +36,7 @@ This repository is a public, reproducible analytics project with a local FastAPI
 - Migrate a local app database: `DOFUS_APP_DATABASE_PATH=data/app/dofus_touch.sqlite3 uv run alembic upgrade head`
 - Import the ignored cost and recipe exports: `uv run dofus-import`
 - Start the loopback-only website: `uv run dofus-web`
+- Preview the operational BigQuery snapshot: `uv run dofus-load-bigquery --dry-run`
 - Run the full local check sequence: `./scripts/check.sh`
 - Run Python lint: `uv run ruff check .`
 - Check Python formatting: `uv run ruff format --check .`
@@ -93,7 +94,9 @@ This repository is a public, reproducible analytics project with a local FastAPI
 - [docs/adr/0001-use-dbt-and-duckdb.md](docs/adr/0001-use-dbt-and-duckdb.md) for the stack decision.
 - [docs/adr/0002-use-sqlite-for-operational-state.md](docs/adr/0002-use-sqlite-for-operational-state.md) for operational and analytical database ownership.
 - [docs/adr/0003-pilot-dbt-platform-and-bigquery.md](docs/adr/0003-pilot-dbt-platform-and-bigquery.md) for the hosted analytical pilot decision.
+- [docs/adr/0004-publish-operational-snapshots-to-bigquery.md](docs/adr/0004-publish-operational-snapshots-to-bigquery.md) for the hosted ingestion contract.
 - [docs/dbt-cloud-bigquery-setup.md](docs/dbt-cloud-bigquery-setup.md) for the hosted pilot setup and security checklist.
+- [docs/operational-bigquery-ingestion.md](docs/operational-bigquery-ingestion.md) for loading snapshots and verifying them in BigQuery and dbt.
 - `notes/FastAPI Item Search and Price Tracking Design.md` for the approved application design.
 - `notes/FastAPI Item Search and Price Tracking Implementation Plan.md` for the current task map.
 - `notes/Dofus Touch Economy Analytics Scaffold Design.md` for the approved scaffold design.

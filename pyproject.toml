@@ -8,6 +8,7 @@ dependencies = [
   "dbt-core==1.12.0",
   "dbt-duckdb==1.10.1",
   "fastapi==0.141.1",
+  "google-cloud-bigquery==3.43.0",
   "jinja2==3.1.6",
   "python-multipart==0.0.32",
   "sqlalchemy==2.0.51",
@@ -16,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 dofus-import = "dofus_touch_economy.cli:import_main"
+dofus-load-bigquery = "dofus_touch_economy.cli:load_bigquery_main"
 dofus-fetch-icons = "dofus_touch_economy.cli:fetch_icons_main"
 dofus-sync-catalog = "dofus_touch_economy.cli:sync_catalog_main"
 dofus-sync-recipes = "dofus_touch_economy.cli:sync_recipes_main"

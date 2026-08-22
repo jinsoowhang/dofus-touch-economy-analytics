@@ -86,6 +86,22 @@ ROI = profit / recipe cost
 
 Recipe cost is incomplete when an ingredient is unresolved or lacks a current valid price. Profit requires a complete recipe and a current crafted-item price. ROI is absent when recipe cost is zero. Missing values are never treated as zero.
 
-## Future analytical metadata
+## Hosted analytical snapshot
 
-The deferred SQLite-to-DuckDB bridge must preserve source identifiers, source filename and row, import checksum, recorded and observed timestamps, market context, invalidation state, and load metadata. Analytical ingestion will be immutable and separate from request-time application writes.
+The BigQuery loader reads the normalized SQLite tables, not the source CSV files. Its
+contract preserves:
+
+- stable UUIDs and internal relationship identifiers;
+- source filename, row number, raw payload, validation messages, and import checksum;
+- recorded, observed, listing-started, sold, and invalidation timestamps;
+- market context, invalidation state, and Sales status;
+- a stable content-derived snapshot ID and UTC extraction timestamp.
+
+All contracted tables are read inside one SQLite transaction. Any missing or
+unexpected column, required null, or invalid timestamp fails extraction. BigQuery
+raw rows become eligible for dbt only after the loader writes the snapshot manifest.
+This immutable analytical ingestion remains separate from request-time application
+writes.
+
+The loader does not resolve the deferred `item_sales.csv` contract. Hosted Sales data
+comes from the normalized `sale_listings` application table only.

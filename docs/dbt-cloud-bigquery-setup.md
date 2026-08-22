@@ -1,8 +1,9 @@
 # dbt Developer and BigQuery setup
 
 This guide creates a hosted dbt pilot without removing the reproducible local
-dbt Core and DuckDB workflow. The hosted environment must use synthetic data until
-a secure analytical loader for contract-approved private data is approved.
+dbt Core and DuckDB workflow. Contract-approved normalized private data is published
+only through the immutable snapshot loader described in
+[the ingestion guide](operational-bigquery-ingestion.md).
 
 ## Assumptions
 
@@ -131,7 +132,7 @@ Use the same service account for both environments during the solo pilot. Separa
 development and deployment identities before the project becomes multi-user or
 production-sensitive.
 
-## 5. Verify the pilot
+## 5. Verify the project
 
 In the Studio IDE:
 
@@ -140,25 +141,24 @@ In the Studio IDE:
 3. Run `dbt compile`.
 4. Confirm the project name is `dofus_touch_economy_analytics` and no private local
    paths or files appear in the IDE.
+5. Publish a normalized snapshot using the ingestion guide, then run `dbt build` in
+   development.
+6. Confirm the catalog, recipe, price, and Sales marts appear in
+   `dofus_dev_marts`.
 
-The repository intentionally has no domain models yet, so a successful connection,
-parse, and compile are the complete hosted verification for this milestone. Do not
-add a placeholder model solely to make a job build a relation.
-
-After the first real model and synthetic source fixture exist, create a manual
-deployment job named `Production build` with `dbt build`. Keep scheduling disabled
-until there is a deterministic ingestion process that lands data before the job.
+After the development build passes, create a manual deployment job named
+`Production build` with `dbt build`. Keep scheduling disabled until several manual
+runs demonstrate predictable runtime and cost.
 
 ## 6. Cost and data boundaries
 
 - Keep the per-query maximum in dbt and configure a small BigQuery daily custom query
   quota as a second guardrail.
-- Do not upload the private CSV exports manually to make the Cloud connection appear
-  complete.
-- The future loader must validate contracts, preserve load metadata, report rejected
-  rows, and authenticate without placing credentials in Git.
-- Only contract-approved private tables or documented synthetic fixtures may feed
-  hosted dbt models.
+- Do not upload private CSV exports manually. Publish only normalized SQLite state
+  through the contracted loader.
+- The loader uses user Application Default Credentials locally; dbt Cloud continues
+  using its stored service-account credential. Neither belongs in Git.
+- Keep production jobs manual until costs and transformed row counts are verified.
 
 ## Completion checklist
 
@@ -169,9 +169,11 @@ until there is a deterministic ingestion process that lands data before the job.
 - [ ] GitHub `main` is connected through the native integration.
 - [ ] Development uses `dofus_dev`; deployment uses `dofus_prod`.
 - [ ] `dbt parse` and `dbt compile` pass in the Studio IDE.
+- [ ] A dry run and BigQuery snapshot load report the expected table counts.
+- [ ] `dbt build` passes in development and creates the four marts.
 - [ ] No service-account JSON file, raw CSV, or private database is tracked.
-- [ ] No scheduled production job exists before deterministic ingestion and real
-      models exist.
+- [ ] The production build remains manual until repeated runs establish cost and
+      model parity.
 
 ## References
 

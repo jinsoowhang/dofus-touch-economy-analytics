@@ -73,3 +73,58 @@ dataset location, then confirm the dbt connection test plus hosted `dbt parse` a
   completed FastAPI implementation and layering the hosted pilot onto it.
 - Preserved SQLite as ADR 0002 and assigned the BigQuery pilot ADR 0003.
 - The replayed hosted-pilot commit is `9a6caa5`.
+
+## Operational BigQuery Ingestion
+
+### Work Completed
+
+- Located the latest normalized operational SQLite state in an ignored stale
+  worktree and copied it through SQLite's backup API to the canonical ignored
+  `data/app/dofus_touch.sqlite3` path without modifying the source database.
+- Added an exact-schema snapshot extractor for import batches, source records, items,
+  source-name resolutions, recipes, recipe ingredients, price observations, and
+  application Sales listings.
+- Added a BigQuery loader that content-addresses snapshots, creates partitioned and
+  clustered raw tables, makes partial retries safe, and publishes the manifest last.
+- Added BigQuery-backed dbt sources, nine staging models, two intermediate models,
+  four marts, generic schema tests, and three domain invariant tests.
+- Added an operator guide with local dry run, ADC authentication, upload commands,
+  Google Cloud sidebar verification, dbt Studio build steps, and cost-control notes.
+- Accepted ADR 0004 and updated the public architecture, data contract, setup guide,
+  README, agent guidance, and memory.
+
+### Decisions
+
+- Load normalized operational SQLite state instead of manually uploading raw CSVs.
+- Continue excluding ambiguous `item_sales.csv`; application `sale_listings` are the
+  only hosted Sales source because they have stable IDs and deterministic timestamps.
+- Load `dofus_dev` and `dofus_prod` by default so each dbt environment has an
+  identical immutable source snapshot.
+- Authenticate the local loader with user Application Default Credentials. Do not
+  create or download another service-account key; dbt Cloud keeps its existing key.
+- Keep production dbt execution manual until development builds and costs are
+  verified repeatedly.
+
+### Verification
+
+- The canonical database dry run produced snapshot
+  `afc1d6b429721529f3468ae8f395f0541cc817c71f54e75537a58512af3113ea`, schema
+  version `0005`, and 67,266 normalized rows across the eight contracted tables.
+- Five focused extractor and loader tests passed, including hash stability, schema
+  drift rejection, no-credential dry run, manifest-last publication, and idempotent
+  reruns.
+- `dbt parse`, `dbt compile`, and SQLFluff passed for 15 models, 81 data tests, and
+  nine sources.
+- The first full check exposed and then received a fix for the documented entry-point
+  expectation. The final `./scripts/check.sh` passed: Ruff lint and formatting, 177
+  Python tests, package compilation, dbt debug and parse, SQLFluff, and the
+  public-file policy.
+- The actual BigQuery command stopped before changes because Google Application
+  Default Credentials were unavailable. WSL has neither `gcloud` nor an existing ADC
+  credential.
+
+### Next Step
+
+Install the Google Cloud CLI, run `gcloud auth application-default login` through the
+user's browser, rerun `dofus-load-bigquery`, push the dbt project, and execute
+`dbt build` in Studio development.

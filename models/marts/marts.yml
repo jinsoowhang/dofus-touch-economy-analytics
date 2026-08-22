@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: dim_items
+    description: "Grain: one canonical catalog item."
+    columns:
+      - name: item_id
+        data_tests: [not_null, unique]
+      - name: display_name
+        data_tests: [not_null]
+
+  - name: fct_price_observations
+    description: "Grain: one valid or invalidated observed item price."
+    columns:
+      - name: price_observation_id
+        data_tests: [not_null, unique]
+      - name: item_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_items')
+                field: item_id
+
+  - name: fct_sales
+    description: "Grain: one active or completed Sales listing."
+    columns:
+      - name: sale_listing_id
+        data_tests: [not_null, unique]
+      - name: item_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_items')
+                field: item_id
+      - name: listing_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'sold']
+
+  - name: fct_recipe_ingredients
+    description: >-
+      Grain: one ordered ingredient position in the latest recipe for each crafted item.
+      Unresolved ingredients remain explicit through a null ingredient_item_id.
+    columns:
+      - name: recipe_id
+        data_tests: [not_null]
+      - name: crafted_item_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_items')
+                field: item_id
+      - name: ingredient_position
+        data_tests: [not_null]
+      - name: ingredient_item_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_items')
+                field: item_id

@@ -10,6 +10,7 @@ def test_documented_entry_points_exist() -> None:
     assert scripts == {
         "dofus-fetch-icons": "dofus_touch_economy.cli:fetch_icons_main",
         "dofus-import": "dofus_touch_economy.cli:import_main",
+        "dofus-load-bigquery": "dofus_touch_economy.cli:load_bigquery_main",
         "dofus-sync-catalog": "dofus_touch_economy.cli:sync_catalog_main",
         "dofus-sync-recipes": "dofus_touch_economy.cli:sync_recipes_main",
         "dofus-web": "dofus_touch_economy.cli:web_main",
@@ -24,6 +25,7 @@ def test_readme_uses_installed_application_commands() -> None:
         "DOFUS_APP_DATABASE_PATH=data/app/dofus_touch.sqlite3 uv run alembic upgrade head"
     ) in readme
     assert "uv run dofus-import" in readme
+    assert "uv run dofus-load-bigquery --dry-run" in readme
     assert "uv run dofus-web" in readme
 
 

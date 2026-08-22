@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: int_latest_valid_price_observations
+    description: >-
+      Grain: one latest valid price observation per catalog item and market context,
+      ordered by observed time, recorded time, and internal sequence.
+    columns:
+      - name: price_observation_id
+        data_tests: [not_null, unique]
+      - name: item_row_id
+        data_tests: [not_null]
+      - name: market_context
+        data_tests: [not_null]
+
+  - name: int_latest_recipes
+    description: >-
+      Grain: one latest recipe version per crafted catalog item, preserving its source
+      and stable recipe identifiers.
+    columns:
+      - name: recipe_id
+        data_tests: [not_null, unique]
+      - name: crafted_item_row_id
+        data_tests: [not_null, unique]

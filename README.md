@@ -4,10 +4,11 @@ Local-first item search, market-price tracking, and analytics engineering for a 
 
 This is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Ankama. Dofus Touch and related names belong to their respective owners.
 
-The current application milestone provides a loopback-only FastAPI website backed by SQLite. It imports catalog and recipe structure from local CSV exports, records append-only market observations, and calculates crafting cost, profit, and ROI. DuckDB and dbt remain the downstream analytical layer; the SQLite-to-DuckDB bridge and analytical models are deferred.
+The current application milestone provides a loopback-only FastAPI website backed by SQLite. It imports catalog and recipe structure from local CSV exports, records append-only market observations, and calculates crafting cost, profit, and ROI. An immutable snapshot loader publishes normalized operational data to BigQuery, where dbt builds documented catalog, recipe, price, and Sales models. DuckDB and dbt Core remain the local parse and CI path during the hosted pilot.
 
-A dbt Developer and BigQuery hosted pilot is documented alongside the local stack;
-it does not yet replace local dbt Core or authorize private-data uploads.
+A dbt Developer and BigQuery hosted pilot is documented alongside the local stack.
+Private normalized snapshots may be uploaded through the contracted loader; raw CSVs,
+SQLite databases, and credentials must never enter Git.
 
 ```text
 ignored item_cost.csv + item_recipes.csv
@@ -19,7 +20,10 @@ ignored item_cost.csv + item_recipes.csv
        ignored SQLite operational database
           |                       |
           v                       v
- FastAPI + Jinja + HTMX    deferred DuckDB ingestion
+ FastAPI + Jinja + HTMX    immutable snapshot loader
+                                  |
+                                  v
+                         BigQuery raw tables
                                   |
                                   v
                      dbt staging / intermediate / marts
@@ -73,10 +77,11 @@ The import command validates both CSV contracts before writing, stores accepted 
 
 ## Data boundary
 
-Private raw exports, operational databases, import reports, DuckDB files, and generated artifacts remain local and Git-ignored. Only invented synthetic fixtures are committed, and CI never requires private data.
+Private raw exports, operational databases, import reports, DuckDB files, and generated artifacts remain local and Git-ignored. Only invented synthetic fixtures are committed, and CI never requires private data. The normalized operational rows may exist privately in BigQuery after the contracted loader publishes an immutable snapshot.
 
 - `item_cost.csv` and `item_recipes.csv` are in application-import scope.
-- `item_sales.csv` remains deferred until dates and row grain are deterministic.
+- `item_sales.csv` remains deferred until dates and row grain are deterministic;
+  BigQuery Sales data comes only from normalized application listings.
 - Imported `item_cost.price` values are preserved as reconciliation provenance; they are not treated as timestamped current market observations.
 - Current prices come only from valid manual lot observations recorded through the application for its configured market context.
 
@@ -86,7 +91,7 @@ See [docs/data-contract.md](docs/data-contract.md) for exact source and operatio
 
 - `src/dofus_touch_economy/`: FastAPI application, import contracts, services, repositories, templates, and vendored static assets
 - `migrations/`: Alembic operational-database migrations
-- `models/`: deferred dbt staging, intermediate, and marts layers
+- `models/`: dbt staging, intermediate, and marts layers for operational snapshots
 - `analyses/`: dbt analyses and exploratory SQL
 - `tests/dbt/`: dbt singular test SQL
 - `tests/python/`: synthetic application and repository tests
@@ -104,6 +109,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run pytest
 uv run python -m compileall -q src
+uv run dofus-load-bigquery --dry-run
 DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .
 DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
 DO_NOT_TRACK=1 uv run sqlfluff lint models analyses
@@ -116,8 +122,9 @@ Run the complete local and CI-equivalent sequence with `./scripts/check.sh`.
 
 See [docs/dbt-cloud-bigquery-setup.md](docs/dbt-cloud-bigquery-setup.md) for the
 BigQuery IAM, dbt connection, GitHub, environment, verification, and cost-control
-steps. The pilot keeps local DuckDB checks active until hosted model parity is
-demonstrated.
+steps. See [docs/operational-bigquery-ingestion.md](docs/operational-bigquery-ingestion.md)
+for snapshot loading and sidebar-based verification. The pilot keeps local DuckDB
+checks active until hosted model parity is demonstrated.
 
 ## Licensing
 

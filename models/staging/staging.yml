@@ -1,0 +1,156 @@
+version: 2
+
+models:
+  - name: stg_operational__snapshot_manifest
+    description: "Grain: one row per fully published operational SQLite snapshot."
+    columns:
+      - name: snapshot_id
+        description: Stable SHA-256 of the contracted operational content.
+        data_tests: [not_null, unique]
+      - name: extracted_at
+        data_tests: [not_null]
+
+  - name: stg_operational__import_batches
+    description: "Grain: one import batch in the latest published operational snapshot."
+    columns:
+      - name: import_batch_row_id
+        data_tests: [not_null, unique]
+      - name: import_batch_id
+        data_tests: [not_null, unique]
+      - name: ingestion_snapshot_id
+        data_tests: [not_null]
+
+  - name: stg_operational__source_records
+    description: "Grain: one retained source row in the latest published snapshot."
+    columns:
+      - name: source_record_row_id
+        data_tests: [not_null, unique]
+      - name: import_batch_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__import_batches')
+                field: import_batch_row_id
+
+  - name: stg_operational__items
+    description: "Grain: one canonical catalog item in the latest published snapshot."
+    columns:
+      - name: item_row_id
+        data_tests: [not_null, unique]
+      - name: item_id
+        data_tests: [not_null, unique]
+      - name: display_name
+        data_tests: [not_null]
+      - name: identity_category
+        data_tests: [not_null]
+
+  - name: stg_operational__source_item_names
+    description: >-
+      Grain: one source field and position resolved or left unresolved against the catalog
+      in the latest published snapshot.
+    columns:
+      - name: source_item_name_row_id
+        data_tests: [not_null, unique]
+      - name: source_record_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__source_records')
+                field: source_record_row_id
+      - name: item_row_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_operational__items')
+                field: item_row_id
+
+  - name: stg_operational__recipes
+    description: "Grain: one versioned recipe in the latest published snapshot."
+    columns:
+      - name: recipe_row_id
+        data_tests: [not_null, unique]
+      - name: recipe_id
+        data_tests: [not_null, unique]
+      - name: crafted_item_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__items')
+                field: item_row_id
+      - name: source_record_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__source_records')
+                field: source_record_row_id
+
+  - name: stg_operational__recipe_ingredients
+    description: >-
+      Grain: one ordered ingredient position in one recipe version in the latest snapshot.
+    columns:
+      - name: recipe_ingredient_row_id
+        data_tests: [not_null, unique]
+      - name: recipe_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__recipes')
+                field: recipe_row_id
+      - name: ingredient_item_row_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_operational__items')
+                field: item_row_id
+      - name: quantity
+        data_tests: [not_null]
+
+  - name: stg_operational__price_observations
+    description: "Grain: one append-only item-price observation in the latest snapshot."
+    columns:
+      - name: price_observation_row_id
+        data_tests: [not_null, unique]
+      - name: price_observation_id
+        data_tests: [not_null, unique]
+      - name: item_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__items')
+                field: item_row_id
+      - name: lot_quantity
+        data_tests: [not_null]
+      - name: total_price
+        data_tests: [not_null]
+
+  - name: stg_operational__sale_listings
+    description: "Grain: one active or completed Sales listing in the latest snapshot."
+    columns:
+      - name: sale_listing_row_id
+        data_tests: [not_null, unique]
+      - name: sale_listing_id
+        data_tests: [not_null, unique]
+      - name: item_row_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_operational__items')
+                field: item_row_id
+      - name: price_observation_row_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_operational__price_observations')
+                field: price_observation_row_id
+      - name: listing_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'sold']

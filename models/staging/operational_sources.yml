@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: operational
+    description: >-
+      Private immutable snapshots extracted from the local operational SQLite database.
+      Raw tables are published only when their snapshot has a manifest row.
+    schema: "{{ target.schema }}"
+    tables:
+      - name: raw_snapshot_manifest
+        description: One row per fully published operational snapshot.
+      - name: raw_import_batches
+        description: Import execution metadata and accepted or rejected counts.
+      - name: raw_source_records
+        description: Accepted and rejected raw-row provenance retained by the importer.
+      - name: raw_items
+        description: Canonical catalog identities from imports, live sync, and manual creation.
+      - name: raw_source_item_names
+        description: Source names and their explicit catalog-resolution status.
+      - name: raw_recipes
+        description: Versioned recipe headers tied to source records.
+      - name: raw_recipe_ingredients
+        description: Ordered ingredient requirements for each recipe version.
+      - name: raw_price_observations
+        description: Append-only observed prices and audit-preserving invalidations.
+      - name: raw_sale_listings
+        description: Active and completed application Sales listings.
