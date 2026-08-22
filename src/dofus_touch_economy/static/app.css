@@ -9,6 +9,9 @@
   --accent-contrast: #ffffff;
   --warning: #9a5a00;
   --danger: #a12d2d;
+  --chart-sales: #28645a;
+  --chart-cost: #b06400;
+  --chart-profit: #7651a8;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -23,6 +26,9 @@
     --accent-contrast: #10221f;
     --warning: #f0b35f;
     --danger: #ff8b8b;
+    --chart-sales: #75c8b8;
+    --chart-cost: #f0b35f;
+    --chart-profit: #c7a8f3;
   }
 }
 
@@ -446,6 +452,46 @@ button {
   overflow-x: auto;
 }
 
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin-block: 0.75rem;
+}
+
+.chart-legend > span {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 0.4rem;
+}
+
+.chart-legend-swatch {
+  background: currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.25rem;
+  width: 1.5rem;
+}
+
+.chart-legend-swatch--sales {
+  color: var(--chart-sales);
+}
+
+.chart-legend-swatch--cost {
+  color: var(--chart-cost);
+}
+
+.chart-legend-swatch--profit {
+  color: var(--chart-profit);
+}
+
+.chart-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-block: 0 0.75rem;
+}
+
 .sales-chart {
   color: var(--muted);
   display: block;
@@ -465,7 +511,6 @@ button {
 
 .chart-series {
   fill: none;
-  stroke: var(--accent);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 4;
@@ -473,8 +518,22 @@ button {
 
 .chart-point {
   fill: var(--surface);
-  stroke: var(--accent);
   stroke-width: 4;
+}
+
+.chart-series--sales,
+.chart-point--sales {
+  stroke: var(--chart-sales);
+}
+
+.chart-series--cost,
+.chart-point--cost {
+  stroke: var(--chart-cost);
+}
+
+.chart-series--profit,
+.chart-point--profit {
+  stroke: var(--chart-profit);
 }
 
 .chart-axis-label,

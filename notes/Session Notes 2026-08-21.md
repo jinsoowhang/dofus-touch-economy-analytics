@@ -386,3 +386,13 @@ add optional direct-entry pricing or reporting when requested.
   cards, with a distinct status panel for incomplete recipe costs.
 - The full check passed with 169 tests; a read-only live smoke confirmed the legacy
   fields are absent and a fully priced recipe renders all three metric cards.
+
+## Follow-up: Sales Cost and Profit
+
+- Added sortable, read-only Cost and Profit columns to Currently Selling and Sold
+  History. Cost uses the latest recipe and current ingredient prices; Profit subtracts
+  that cost from the row price, while incomplete costs remain explicit.
+- Expanded Sales Over Time into distinct Sales, Cost, and Profit series with negative
+  profit support, summary totals, cost coverage, and accessible daily values.
+- The full check passed with 170 tests. A live read-only smoke rendered the new columns
+  and correctly reported missing cost coverage without modifying Sales data.

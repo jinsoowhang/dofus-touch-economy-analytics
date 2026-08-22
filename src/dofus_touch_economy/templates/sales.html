@@ -109,6 +109,8 @@
                     >
                   </form>
                 </td>
+                <td class="numeric">{{ "{:,}".format(sale.recipe_cost) if sale.recipe_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.profit) if sale.profit is not none else "—" }}</td>
                 <td>
                   <time datetime="{{ selling_started_at.isoformat() }}">
                     {{ selling_started_at.strftime("%Y-%m-%d") }}
@@ -203,6 +205,8 @@
                   </a>
                 </td>
                 <td class="numeric">{{ "{:,}".format(sale.asking_price) if sale.asking_price is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.recipe_cost) if sale.recipe_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.profit) if sale.profit is not none else "—" }}</td>
                 <td>
                   <time datetime="{{ selling_started_at.isoformat() }}">
                     {{ selling_started_at.strftime("%Y-%m-%d") }}
@@ -258,9 +262,20 @@
     {% if sales_chart %}
       <div class="sales-metrics" aria-label="Sales summary">
         <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Total Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
+        <div><span>Total Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
         <div><span>Items Sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
         <div><span>Average Priced Sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
+        <div><span>Cost Coverage</span><strong>{{ sales_chart.cost_coverage_label }}</strong></div>
       </div>
+      <div class="chart-legend" aria-label="Chart series">
+        {% for series in sales_chart.series %}
+          <span><i class="chart-legend-swatch chart-legend-swatch--{{ series.key }}" aria-hidden="true"></i>{{ series.label }}</span>
+        {% endfor %}
+      </div>
+      <p class="chart-note">
+        Cost and Profit use current recipe ingredient prices. Items with incomplete recipe costs are excluded from those totals.
+      </p>
       <div class="sales-chart-wrap">
         <svg
           class="sales-chart"
@@ -268,9 +283,9 @@
           role="img"
           aria-labelledby="sales-chart-title sales-chart-description"
         >
-          <title id="sales-chart-title">Daily sales totals by date sold</title>
+          <title id="sales-chart-title">Daily sales, cost, and profit by date sold</title>
           <desc id="sales-chart-description">
-            A line chart of the summed sale prices for sold items on each Pacific calendar date.
+            A multi-line chart of summed sale prices, known recipe costs, and known profits for sold items on each Pacific calendar date.
           </desc>
           {% for tick in sales_chart.y_ticks %}
             <line
@@ -291,13 +306,17 @@
             y1="{{ sales_chart.bottom_y }}"
             y2="{{ sales_chart.bottom_y }}"
           ></line>
-          <polyline class="chart-series" points="{{ sales_chart.polyline }}"></polyline>
-          {% for point in sales_chart.points %}
-            <circle class="chart-point" cx="{{ point.x }}" cy="{{ point.y }}" r="5">
-              <title>
-                {{ point.date }}: {{ point.total_price_label }} total across {{ point.sold_count }} {{ "item" if point.sold_count == 1 else "items" }}
-              </title>
-            </circle>
+          {% for series in sales_chart.series %}
+            {% for segment in series.segments %}
+              <polyline class="chart-series chart-series--{{ series.key }}" points="{{ segment }}"></polyline>
+            {% endfor %}
+            {% for point in series.points %}
+              <circle class="chart-point chart-point--{{ series.key }}" cx="{{ point.x }}" cy="{{ point.y }}" r="5">
+                <title>
+                  {{ series.label }} on {{ point.date }}: {{ point.value_label }} across {{ point.item_count }} {{ "item" if point.item_count == 1 else "items" }}
+                </title>
+              </circle>
+            {% endfor %}
           {% endfor %}
           {% for label in sales_chart.x_labels %}
             <text class="chart-axis-label" x="{{ label.x }}" y="{{ sales_chart.bottom_y + 24 }}" text-anchor="middle">
@@ -313,19 +332,31 @@
             y="{{ (sales_chart.top + sales_chart.bottom_y) / 2 }}"
             text-anchor="middle"
             transform="rotate(-90 16 {{ (sales_chart.top + sales_chart.bottom_y) / 2 }})"
-          >Sales Total</text>
+          >Amount</text>
         </svg>
       </div>
       <details class="sales-data-details">
         <summary>View Daily Totals</summary>
         <table class="sales-data-table">
-          <thead><tr><th>Date Sold</th><th class="numeric">Sales Total</th><th class="numeric">Items Sold</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Date Sold</th>
+              <th class="numeric">Sales</th>
+              <th class="numeric">Cost</th>
+              <th class="numeric">Profit</th>
+              <th class="numeric">Items Sold</th>
+              <th class="numeric">Costed Items</th>
+            </tr>
+          </thead>
           <tbody>
             {% for day in sales_chart.daily_totals %}
               <tr>
                 <td>{{ day.sold_on.isoformat() }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_price) }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_cost) if day.total_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_profit) if day.total_profit is not none else "—" }}</td>
                 <td class="numeric">{{ day.sold_count }}</td>
+                <td class="numeric">{{ day.costed_count }}</td>
               </tr>
             {% endfor %}
           </tbody>

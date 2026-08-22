@@ -128,6 +128,8 @@ class SaleListingResponse(BaseModel):
     category: str | None
     icon_url: str | None
     asking_price: int | None
+    recipe_cost: DecimalString | None
+    profit: DecimalString | None
     selling_started_at: datetime
     date_sold: datetime | None
 

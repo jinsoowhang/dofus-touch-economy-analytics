@@ -445,12 +445,89 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
 
     assert response.status_code == 200
     assert 'datetime="2026-08-21T19:00:00-07:00"' in response.text
-    assert "2026-08-21: 100 total across 1 item" in response.text
-    assert "2026-08-23: 200 total across 1 item" in response.text
-    assert "Daily sales totals by date sold" in response.text
+    assert "Sales on 2026-08-21: 100 across 1 item" in response.text
+    assert "Sales on 2026-08-23: 200 across 1 item" in response.text
+    assert "Daily sales, cost, and profit by date sold" in response.text
     assert "Date Sold (Pacific Time)" in response.text
     assert "<strong>300</strong>" in response.text
     assert "<strong>2</strong>" in response.text
+    assert "<strong>0 of 2</strong>" in response.text
+
+
+def test_sales_show_recipe_cost_profit_and_three_chart_series(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        widget = session.scalar(select(Item).where(Item.normalized_name == "synthetic widget"))
+        assert widget is not None
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=4_000,
+                    selling_started_at=datetime(2026, 8, 21, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=5_000,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=4_500,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, 8, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=3_000,
+                    selling_started_at=datetime(2026, 8, 23, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 24, 8, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get(
+        "/sales",
+        params={"active_sort": "profit", "active_direction": "desc"},
+    )
+
+    assert response.status_code == 200
+    assert 'aria-label="Sort currently selling by Cost, ascending"' in response.text
+    assert 'aria-label="Sort currently selling by Profit, ascending"' in response.text
+    assert 'aria-label="Sort sold history by Cost, ascending"' in response.text
+    assert 'aria-label="Sort sold history by Profit, ascending"' in response.text
+    assert 'name="recipe_cost"' not in response.text
+    assert 'name="profit"' not in response.text
+    active_section, sold_section = response.text.split("<h2>Sold History</h2>")
+    active_section = active_section.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
+    assert active_section.index('value="5,000"') < active_section.index('value="4,000"')
+    assert active_section.count(">3,500</td>") == 2
+    assert ">1,500</td>" in active_section
+    assert ">500</td>" in active_section
+    assert ">3,500</td>" in sold_section
+    assert ">1,000</td>" in sold_section
+    for series in ("sales", "cost", "profit"):
+        assert f'class="chart-series chart-series--{series}"' in response.text
+        assert f'class="chart-point chart-point--{series}"' in response.text
+    assert "Sales on 2026-08-23: 4,500 across 1 item" in response.text
+    assert "Cost on 2026-08-23: 3,500 across 1 item" in response.text
+    assert "Profit on 2026-08-23: 1,000 across 1 item" in response.text
+    assert "Profit on 2026-08-24: -500 across 1 item" in response.text
+    assert "<span>Total Cost</span><strong>7,000</strong>" in response.text
+    assert "<span>Total Profit</span><strong>500</strong>" in response.text
+    assert "<span>Cost Coverage</span><strong>2 of 2</strong>" in response.text
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:

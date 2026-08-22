@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from math import ceil, floor, log10
 from pathlib import Path
 from typing import Annotated, Literal
@@ -227,11 +228,12 @@ def _sales_context(
         sort_state.active_sort,
         sort_state.active_direction,
     )
+    sold_sales = service.sold(sort_state.sold_sort, sort_state.sold_direction)
     category_labels: dict[str, str] = {}
     for item in item_choices:
         if item.category_key:
             category_labels.setdefault(item.category_key, (item.category or "").title())
-    daily_totals = service.daily_totals(PACIFIC_TIME)
+    daily_totals = service.daily_totals(PACIFIC_TIME, sold_sales)
     return {
         "active_tab": "sales",
         "item_choices": item_choices,
@@ -244,7 +246,7 @@ def _sales_context(
         ],
         "active_sales": active_sales,
         "active_total_price": sum(sale.asking_price or 0 for sale in active_sales),
-        "sold_sales": service.sold(sort_state.sold_sort, sort_state.sold_direction),
+        "sold_sales": sold_sales,
         "active_sort_columns": _sales_sort_columns(
             "active",
             sort_state.active_sort,
@@ -283,30 +285,92 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
     bottom = 58
     plot_width = width - left - right
     plot_height = height - top - bottom
-    tick_step = _nice_tick_step(max(point.total_price for point in daily_totals))
-    chart_max = tick_step * 4
-    points: list[dict[str, object]] = []
+    chart_values = [Decimal(point.total_price) for point in daily_totals]
+    chart_values.extend(
+        value
+        for point in daily_totals
+        for value in (point.total_cost, point.total_profit)
+        if value is not None
+    )
+    minimum = min([Decimal(0), *chart_values])
+    maximum = max([Decimal(0), *chart_values])
+    tick_step = _nice_tick_step(max(1, ceil(maximum - minimum)))
+    chart_min = floor(minimum / tick_step) * tick_step
+    chart_max = ceil(maximum / tick_step) * tick_step
+    if chart_min == chart_max:
+        chart_max = chart_min + tick_step * 4
+    chart_span = chart_max - chart_min
+
+    base_points: list[dict[str, object]] = []
     for index, total in enumerate(daily_totals):
         x = (
             left + plot_width / 2
             if len(daily_totals) == 1
             else left + (plot_width * index / (len(daily_totals) - 1))
         )
-        y = top + plot_height * (1 - total.total_price / chart_max)
-        points.append(
+        base_points.append(
             {
                 "x": round(x, 2),
-                "y": round(y, 2),
                 "date": total.sold_on.isoformat(),
-                "total_price": total.total_price,
-                "total_price_label": f"{total.total_price:,}",
-                "sold_count": total.sold_count,
+                "daily_total": total,
             }
         )
-    label_indexes = _chart_label_indexes(len(points))
+
+    series: list[dict[str, object]] = []
+    for key, label, attribute, count_attribute in (
+        ("sales", "Sales", "total_price", "sold_count"),
+        ("cost", "Cost", "total_cost", "costed_count"),
+        ("profit", "Profit", "total_profit", "profit_count"),
+    ):
+        points: list[dict[str, object]] = []
+        segments: list[str] = []
+        current_segment: list[str] = []
+        for base_point in base_points:
+            daily_total = base_point["daily_total"]
+            value = getattr(daily_total, attribute)
+            if value is None:
+                if current_segment:
+                    segments.append(" ".join(current_segment))
+                    current_segment = []
+                continue
+            decimal_value = Decimal(value)
+            y = top + plot_height * float(
+                (Decimal(chart_max) - decimal_value) / Decimal(chart_span)
+            )
+            point = {
+                "x": base_point["x"],
+                "y": round(y, 2),
+                "date": base_point["date"],
+                "value_label": f"{decimal_value:,}",
+                "item_count": getattr(daily_total, count_attribute),
+            }
+            points.append(point)
+            current_segment.append(f"{point['x']},{point['y']}")
+        if current_segment:
+            segments.append(" ".join(current_segment))
+        series.append(
+            {
+                "key": key,
+                "label": label,
+                "segments": segments,
+                "points": points,
+            }
+        )
+
+    label_indexes = _chart_label_indexes(len(base_points))
     total_price = sum(point.total_price for point in daily_totals)
+    total_cost = sum(
+        (point.total_cost for point in daily_totals if point.total_cost is not None),
+        start=Decimal(0),
+    )
+    total_profit = sum(
+        (point.total_profit for point in daily_totals if point.total_profit is not None),
+        start=Decimal(0),
+    )
     sold_count = sum(point.sold_count for point in daily_totals)
     priced_count = sum(point.priced_count for point in daily_totals)
+    costed_count = sum(point.costed_count for point in daily_totals)
+    profit_count = sum(point.profit_count for point in daily_totals)
     average_price = None if not priced_count else round(total_price / priced_count)
     return {
         "width": width,
@@ -315,19 +379,24 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         "right_x": width - right,
         "top": top,
         "bottom_y": height - bottom,
-        "polyline": " ".join(f"{point['x']},{point['y']}" for point in points),
-        "points": points,
-        "x_labels": [points[index] for index in label_indexes],
+        "series": series,
+        "x_labels": [base_points[index] for index in label_indexes],
         "y_ticks": [
             {
                 "value": value,
                 "label": f"{value:,}",
-                "y": round(top + plot_height * (1 - value / chart_max), 2),
+                "y": round(
+                    top + plot_height * ((chart_max - value) / chart_span),
+                    2,
+                ),
             }
-            for value in range(0, chart_max + 1, tick_step)
+            for value in range(chart_min, chart_max + 1, tick_step)
         ],
         "total_price_label": f"{total_price:,}",
+        "total_cost_label": "—" if not costed_count else f"{total_cost:,}",
+        "total_profit_label": "—" if not profit_count else f"{total_profit:,}",
         "sold_count": sold_count,
+        "cost_coverage_label": f"{costed_count} of {sold_count}",
         "average_price_label": "—" if average_price is None else f"{average_price:,}",
         "daily_totals": daily_totals,
     }
@@ -361,12 +430,16 @@ def _sales_sort_columns(
             ("name", "Item", False),
             ("category", "Category", False),
             ("price", "Price", True),
+            ("cost", "Cost", True),
+            ("profit", "Profit", True),
             ("started", "Selling Since", False),
         )
         if table == "active"
         else (
             ("name", "Item", False),
             ("price", "Price", True),
+            ("cost", "Cost", True),
+            ("profit", "Profit", True),
             ("started", "Selling Started", False),
             ("sold", "Date Sold", False),
         )
