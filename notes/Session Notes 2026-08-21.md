@@ -253,3 +253,14 @@ add optional direct-entry pricing or reporting when requested.
 - Migration `0005` records icon provenance; cached binaries remain ignored local data.
 - `./scripts/check.sh` passed with 133 tests, and live Item Search and Sales requests
   returned HTTP 200 with their icon routes serving PNG files.
+
+## Follow-up: Seed Current Prices from Raw Costs
+
+- Superseded the earlier provenance-only decision for `item_cost.csv`: each new file
+  checksum now seeds idempotent, lot-one current-price observations.
+- The last file occurrence wins for 37 duplicate identity groups; raw source rows remain
+  preserved, and cost imports do not create Sales listings.
+- Applied 984 unique raw prices to the live database. Together with 13 retained manual
+  prices, all 997 catalog items now have a current price; Sales remains at 19 listings.
+- `./scripts/check.sh` passed with 135 tests, and live duplicate examples displayed the
+  expected final-file prices with HTTP 200.

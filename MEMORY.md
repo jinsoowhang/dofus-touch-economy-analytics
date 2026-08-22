@@ -7,7 +7,7 @@
 - Public identity: analytics engineering for player-observed Dofus Touch item prices, crafting economics, sales behavior.
 - Local stack: Python 3.12, uv, FastAPI, Jinja, vendored HTMX, SQLAlchemy, Alembic, SQLite, dbt Core, dbt-duckdb, and DuckDB.
 - Implemented application: a loopback-only FastAPI/Jinja/vendored-HTMX website with versioned JSON endpoints. SQLite owns operational state while DuckDB and dbt remain the downstream analytical layer.
-- Application prices are append-only observations with audit-preserving invalidation; Item Search records total price with implicit quantity one, while imported cost values remain provenance rather than current market observations.
+- Application prices are append-only observations with audit-preserving invalidation. Item Search records total price with implicit quantity one; each new `item_cost.csv` checksum now seeds idempotent, lot-one current-price observations, using the last file occurrence for duplicate identities without creating Sales listings.
 - dbt layers: staging, intermediate, marts.
 - Raw CSVs, SQLite and DuckDB databases, import reports, secrets, task-observer files, and worktrees stay local and ignored.
 - Canonical local sources: `item_sales.csv`, `item_recipes.csv`, and `item_cost.csv` under `data/raw`.
@@ -24,7 +24,7 @@
 - Sales listings record item, lot quantity, editable asking price, `selling_started_at`, and nullable `date_sold`. Recording a price automatically creates a linked active listing; direct Sales entries support arbitrary lot quantities and optional prices. Duplicate creates an independent listing with the same item, quantity, and price, while marking one sold moves it into history.
 - For small application iterations, avoid broad README/design-document edits unless a public contract changes or the user asks; still maintain the required `MEMORY.md` and dated session note at session end.
 - A later cost import may enrich a sole uncategorized manual item with its category while preserving the stable UUID, manual creation provenance, recipes, and price observations.
-- The application importer validates both file contracts before writes, is idempotent by dataset checksum, preserves accepted and rejected raw-row provenance locally, and never promotes imported cost values into current price observations.
+- The application importer validates both file contracts before writes, is idempotent by dataset checksum, preserves accepted and rejected raw-row provenance locally, and reports how many unique cost prices were seeded.
 - Additive SQLite migrations for referenced tables should use supported direct `ALTER TABLE` operations rather than batch table rebuilds while foreign-key enforcement is active; populated upgrade tests must include dependent rows.
 - Operational schema, Alembic migration, import CLI, repositories and services, HTML/HTMX interface, JSON API, local security boundary, and documentation are complete on `feature/fastapi-price-tracking`.
 - Next milestone: design immutable SQLite-to-DuckDB ingestion and dbt models for operational observations. Sales ingestion still requires deterministic dates and confirmed row grain.
