@@ -405,3 +405,12 @@ add optional direct-entry pricing or reporting when requested.
   invalidation; deleting the current observation restores the previous valid price.
 - The full check passed with 171 tests. A read-only live smoke confirmed the table and
   delete controls without changing live price history.
+
+## Follow-up: Explicit Sales and Suggested Prices
+
+- Stopped item Current Price, Recipe ingredient, HTML, and API observations from
+  automatically creating Currently Selling rows; Sales actions remain the only entry.
+- Added an editable suggested Sale Price using the integer median of the selected
+  item's completed sales, excluding active listings and showing the sample count.
+- The full check passed with 172 tests. A read-only live smoke confirmed real Sold
+  History suggestions render without submitting or changing live data.

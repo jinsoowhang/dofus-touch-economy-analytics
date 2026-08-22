@@ -147,6 +147,13 @@ form .htmx-indicator {
   grid-column: 1 / -1;
 }
 
+.sale-price-suggestion {
+  color: var(--accent);
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 input,
 textarea,
 select,

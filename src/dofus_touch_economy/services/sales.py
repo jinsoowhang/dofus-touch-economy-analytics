@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, tzinfo
 from decimal import Decimal
@@ -70,6 +71,9 @@ class SalesService:
         self._sales = SalesRepository(session)
 
     def item_choices(self) -> list[SaleItemChoiceResponse]:
+        sold_prices: dict[int, list[int]] = defaultdict(list)
+        for item_id, asking_price in self._sales.sold_prices():
+            sold_prices[item_id].append(asking_price)
         return [
             SaleItemChoiceResponse(
                 uuid=item.uuid,
@@ -77,6 +81,8 @@ class SalesService:
                 category=item.category,
                 category_key=("" if item.category is None else normalize_item_name(item.category)),
                 icon_url=_icon_url(item),
+                suggested_price=_median_price(sold_prices[item.id]),
+                sold_count=len(sold_prices[item.id]),
             )
             for item in self._catalog.search("", limit=None)
         ]
@@ -325,6 +331,16 @@ def _as_utc(value: datetime) -> datetime:
 
 def _icon_url(item: Item) -> str | None:
     return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"
+
+
+def _median_price(prices: list[int]) -> int | None:
+    if not prices:
+        return None
+    prices = sorted(prices)
+    midpoint = len(prices) // 2
+    if len(prices) % 2:
+        return prices[midpoint]
+    return (prices[midpoint - 1] + prices[midpoint]) // 2
 
 
 def _sort_listings(

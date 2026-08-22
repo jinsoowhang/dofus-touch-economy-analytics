@@ -77,7 +77,7 @@ def test_priced_sale_updates_current_price_and_preserves_history(session, catalo
     assert stored_listing.price_observation_id is not None
 
 
-def test_price_record_automatically_starts_a_sale(session, catalog_item) -> None:
+def test_price_record_does_not_start_a_sale(session, catalog_item) -> None:
     observation = PriceService(session, "Dodge").record(
         catalog_item.uuid,
         PriceObservationCreate(
@@ -87,11 +87,11 @@ def test_price_record_automatically_starts_a_sale(session, catalog_item) -> None
         ),
     )
 
-    sales = SalesService(session, "Dodge").active()
+    current = PriceService(session, "Dodge").current_for_item(catalog_item.id)
 
-    assert len(sales) == 1
-    assert sales[0].item_uuid == catalog_item.uuid
-    assert sales[0].asking_price == observation.total_price
+    assert SalesService(session, "Dodge").active() == []
+    assert current is not None
+    assert current.observation_uuid == observation.observation_uuid
 
 
 def test_sales_reject_unknown_items_and_invalid_transitions(session) -> None:
@@ -305,18 +305,15 @@ def test_active_or_sold_sale_can_be_deleted(session, catalog_item) -> None:
 
 
 def test_deleting_sale_keeps_linked_price_observation(session, catalog_item) -> None:
-    observation = PriceService(session, "Dodge").record(
-        catalog_item.uuid,
-        PriceObservationCreate(
-            lot_quantity=10,
-            total_price=125_000,
-            observed_at=datetime(2026, 8, 21, tzinfo=UTC),
-        ),
-    )
-    listing = SalesService(session, "Dodge").active()[0]
+    service = SalesService(session, "Dodge")
+    listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=125_000))
+    stored_listing = session.scalar(select(SaleListing).where(SaleListing.uuid == listing.uuid))
+    assert stored_listing is not None
+    assert stored_listing.price_observation is not None
+    observation_uuid = stored_listing.price_observation.uuid
 
-    SalesService(session, "Dodge").delete(listing.uuid)
+    service.delete(listing.uuid)
 
     current = PriceService(session, "Dodge").current_for_item(catalog_item.id)
     assert current is not None
-    assert current.observation_uuid == observation.observation_uuid
+    assert current.observation_uuid == observation_uuid

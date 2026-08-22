@@ -119,6 +119,8 @@ class SaleItemChoiceResponse(BaseModel):
     category: str | None
     category_key: str
     icon_url: str | None
+    suggested_price: int | None
+    sold_count: int
 
 
 class SaleListingResponse(BaseModel):

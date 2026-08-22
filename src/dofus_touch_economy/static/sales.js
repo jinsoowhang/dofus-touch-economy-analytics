@@ -2,6 +2,8 @@
 
 const categorySelect = document.querySelector("#sale-category");
 const itemSelect = document.querySelector("#sale-item");
+const salePriceInput = document.querySelector("#sale-asking-price");
+const salePriceSuggestion = document.querySelector("#sale-price-suggestion");
 
 if (categorySelect && itemSelect) {
   const placeholder = itemSelect.options[0];
@@ -9,10 +11,44 @@ if (categorySelect && itemSelect) {
   let typeaheadQuery = "";
   let lastTypeaheadAt = 0;
 
+  const updateSalePriceSuggestion = (prefillPrice) => {
+    if (!salePriceSuggestion) {
+      return;
+    }
+    const selectedItem = itemSelect.selectedOptions[0];
+    if (!selectedItem || selectedItem === placeholder) {
+      salePriceSuggestion.hidden = true;
+      salePriceSuggestion.textContent = "";
+      if (prefillPrice && salePriceInput) {
+        salePriceInput.value = "";
+      }
+      return;
+    }
+
+    salePriceSuggestion.hidden = false;
+    const suggestedPrice = selectedItem.dataset.suggestedPrice || "";
+    const soldCount = Number(selectedItem.dataset.soldCount || 0);
+    if (!suggestedPrice) {
+      salePriceSuggestion.textContent = "No completed sales for this item yet.";
+      if (prefillPrice && salePriceInput) {
+        salePriceInput.value = "";
+      }
+      return;
+    }
+
+    const saleLabel = soldCount === 1 ? "sale" : "sales";
+    salePriceSuggestion.textContent =
+      `Suggested Price: ${suggestedPrice} · Median of ${soldCount} completed ${saleLabel}.`;
+    if (prefillPrice && salePriceInput) {
+      salePriceInput.value = suggestedPrice;
+    }
+  };
+
   const moveItemToTop = (option) => {
     itemSelect.insertBefore(option, placeholder.nextElementSibling);
     option.selected = true;
     itemSelect.scrollTop = 0;
+    updateSalePriceSuggestion(true);
   };
 
   const filterItems = () => {
@@ -26,6 +62,7 @@ if (categorySelect && itemSelect) {
     const selectedItem = itemSelect.selectedOptions[0];
     if (selectedItem && selectedItem.disabled) {
       itemSelect.value = "";
+      updateSalePriceSuggestion(true);
     }
 
     const categoryLabel = categorySelect.selectedOptions[0]?.textContent?.trim();
@@ -39,6 +76,8 @@ if (categorySelect && itemSelect) {
     const selectedItem = itemSelect.selectedOptions[0];
     if (selectedItem && selectedItem !== placeholder) {
       moveItemToTop(selectedItem);
+    } else {
+      updateSalePriceSuggestion(true);
     }
   });
   itemSelect.addEventListener("keydown", (event) => {
@@ -78,6 +117,7 @@ if (categorySelect && itemSelect) {
     typeaheadQuery = "";
   });
   filterItems();
+  updateSalePriceSuggestion(false);
 }
 
 for (const form of document.querySelectorAll(".price-edit-form")) {

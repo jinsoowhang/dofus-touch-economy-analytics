@@ -107,7 +107,53 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     assert script.status_code == 200
     assert 'categorySelect.addEventListener("change", filterItems)' in script.text
     assert "moveItemToTop(matchingItem)" in script.text
+    assert "updateSalePriceSuggestion(true)" in script.text
+    assert "salePriceInput.value = suggestedPrice" in script.text
+    assert "No completed sales for this item yet." in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
+
+
+def test_sales_item_choice_suggests_median_completed_sale_price(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=100_000,
+                    selling_started_at=datetime(2026, 8, 18, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 19, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=300_000,
+                    selling_started_at=datetime(2026, 8, 20, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 21, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=999_000,
+                    selling_started_at=datetime(2026, 8, 21, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/sales")
+
+    assert response.status_code == 200
+    assert f'value="{catalog_item.uuid}"' in response.text
+    assert 'data-suggested-price="200,000"' in response.text
+    assert 'data-sold-count="2"' in response.text
+    assert (
+        '<p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>'
+    ) in response.text
 
 
 def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:
@@ -199,7 +245,7 @@ def test_sales_page_requires_an_asking_price(client, catalog_item) -> None:
     assert "required" in response.text
 
 
-def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> None:
+def test_recorded_item_price_does_not_appear_as_an_active_sale(client, catalog_item) -> None:
     response = client.post(
         f"/items/{catalog_item.uuid}/price-observations",
         data={
@@ -212,9 +258,8 @@ def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> 
 
     assert response.status_code == 303
     sales = client.get("/sales")
-    assert catalog_item.display_name in sales.text
-    assert 'value="125,000"' in sales.text
-    assert "1 active" in sales.text
+    assert 'value="125,000"' not in sales.text
+    assert "0 active" in sales.text
 
 
 def test_sales_page_duplicates_and_reprices_a_listing(
@@ -841,7 +886,7 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
         assert re.search(rf'<td class="numeric">\s*{value}\s*</td>', response.text)
 
 
-def test_recipe_unit_price_edit_updates_history_sales_and_recipe_total(
+def test_recipe_unit_price_edit_updates_history_without_starting_sale(
     client, session_factory, fixture_dir
 ) -> None:
     ImportService(session_factory).import_files(
@@ -873,9 +918,7 @@ def test_recipe_unit_price_edit_updates_history_sales_and_recipe_total(
     assert detail.recipe.ingredients[0].current_price is not None
     assert detail.recipe.ingredients[0].current_price.total_price == 1_250
     assert detail.recipe.ingredients[0].extended_cost == 2_500
-    assert listing is not None
-    assert listing.item_id == items["synthetic ore"].id
-    assert listing.asking_price == 1_250
+    assert listing is None
 
 
 def test_recipe_price_edit_rejects_item_outside_current_recipe(
@@ -1000,8 +1043,7 @@ def test_item_current_price_edit_appends_history_and_returns_to_item(
     with session_factory() as session:
         listing = session.scalar(select(SaleListing))
         detail = CatalogService(session, "Dodge").detail(catalog_item.uuid)
-    assert listing is not None
-    assert listing.asking_price == 245_000
+    assert listing is None
     assert detail.current_price is not None
     assert detail.current_price.total_price == 245_000
     assert len(detail.price_history) == 1

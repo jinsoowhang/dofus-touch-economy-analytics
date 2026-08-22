@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from dofus_touch_economy.models import Item, PriceObservation, SaleListing
+from dofus_touch_economy.models import Item, PriceObservation
 from dofus_touch_economy.repositories.prices import PriceRepository
 from dofus_touch_economy.schemas import (
     CurrentPriceResponse,
@@ -87,16 +87,6 @@ class PriceService:
             note=note,
         )
         self._session.add(observation)
-        self._session.flush()
-        self._session.add(
-            SaleListing(
-                item_id=item_id,
-                price_observation_id=observation.id,
-                lot_quantity=1,
-                asking_price=command.total_price,
-                selling_started_at=observation.recorded_at,
-            )
-        )
         self._session.commit()
         return _observation_response(observation)
 

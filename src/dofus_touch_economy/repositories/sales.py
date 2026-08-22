@@ -29,6 +29,21 @@ class SalesRepository:
         )
         return list(self._session.scalars(statement))
 
+    def sold_prices(self) -> list[tuple[int, int]]:
+        statement = (
+            select(SaleListing.item_id, SaleListing.asking_price)
+            .where(
+                SaleListing.date_sold.is_not(None),
+                SaleListing.asking_price.is_not(None),
+            )
+            .order_by(SaleListing.item_id, SaleListing.asking_price)
+        )
+        return [
+            (item_id, asking_price)
+            for item_id, asking_price in self._session.execute(statement)
+            if asking_price is not None
+        ]
+
     def get_by_uuid(self, listing_uuid: UUID) -> SaleListing | None:
         statement = (
             select(SaleListing)
