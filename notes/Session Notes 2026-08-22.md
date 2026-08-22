@@ -123,8 +123,33 @@ dataset location, then confirm the dbt connection test plus hosted `dbt parse` a
   Default Credentials were unavailable. WSL has neither `gcloud` nor an existing ADC
   credential.
 
+### Cloud Completion
+
+- Installed the official Linux x86_64 Google Cloud CLI 581.0.0 under the WSL user
+  directory after verifying Google's published SHA-256 checksum. The installation
+  did not modify the repository or shell configuration.
+- Completed browser-based user ADC authentication without putting a verification
+  code or credential in chat, then assigned `claude-projects-489306` as the ADC quota
+  project.
+- Loaded snapshot
+  `afc1d6b429721529f3468ae8f395f0541cc817c71f54e75537a58512af3113ea`
+  into both `dofus_dev` and `dofus_prod`. Each manifest reports 67,266 source rows.
+- Queried both datasets to verify `US` location, one manifest row, and exact per-table
+  counts. An immediate loader rerun reported `already-loaded` for both datasets.
+- The first guarded BigQuery `dbt build` exposed that BigQuery rejects parameterized
+  decimal types inside `CAST`. Added an adapter-dispatched whole-amount division macro
+  that retains `decimal(38, 9)` on DuckDB and uses unparameterized `numeric` on
+  BigQuery.
+- Reran the guarded BigQuery development build with dbt Core 1.12.0 and
+  dbt-bigquery 1.12.0. All 15 models and 81 tests passed: 96/96 nodes, with no warnings,
+  errors, or skips.
+- Queried the development marts after the green build: 11,400 item rows, 1,138
+  price-observation rows, 181 Sales rows, and 18,943 latest-recipe ingredient rows.
+  Production raw data is loaded; production marts remain intentionally unbuilt
+  pending a manual deployment job.
+
 ### Next Step
 
-Install the Google Cloud CLI, run `gcloud auth application-default login` through the
-user's browser, rerun `dofus-load-bigquery`, push the dbt project, and execute
-`dbt build` in Studio development.
+Refresh dbt Studio so it sees the pushed model commit, run `dbt build` there to verify
+the dbt Cloud execution path, then create a manual production deployment job only
+after reviewing development lineage and costs.

@@ -13,8 +13,7 @@ select
     invalidation_reason,
     _snapshot_id as ingestion_snapshot_id,
     _extracted_at as warehouse_extracted_at,
-    cast(total_price as decimal(38, 9))
-    / nullif(cast(lot_quantity as decimal(38, 9)), 0) as unit_price,
+    {{ divide_whole_amount('total_price', 'lot_quantity') }} as unit_price,
     invalidated_at is not null as is_invalidated
 from {{ source('operational', 'raw_price_observations') }}
 where _snapshot_id = {{ latest_operational_snapshot_id() }}
