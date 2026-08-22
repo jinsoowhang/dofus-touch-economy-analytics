@@ -273,3 +273,15 @@ add optional direct-entry pricing or reporting when requested.
   missing values remain at the bottom in both directions.
 - `./scripts/check.sh` passed with 140 tests; live price-descending order and indicators
   returned correctly with HTTP 200.
+
+## Follow-up: Sales Row Management and Sorting
+
+- Removed lot quantity from Sales entry and both Sales tables; new and duplicated rows
+  use one-item semantics.
+- Added an X action to active and sold rows with browser confirmation before deletion;
+  deleting a linked Sales row preserves its price observation.
+- Made every displayed data header sortable in both Sales tables, with independent
+  ascending/descending arrows and retained sorting for the other table.
+- `./scripts/check.sh` passed with 151 tests. A read-only live check confirmed all 26
+  existing active rows remained intact, sorted prices correctly, and exposed confirmed
+  delete controls without showing lot quantity.
