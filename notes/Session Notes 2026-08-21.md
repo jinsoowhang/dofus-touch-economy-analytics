@@ -264,3 +264,12 @@ add optional direct-entry pricing or reporting when requested.
   prices, all 997 catalog items now have a current price; Sales remains at 19 listings.
 - `./scripts/check.sh` passed with 135 tests, and live duplicate examples displayed the
   expected final-file prices with HTTP 200.
+
+## Follow-up: Sortable Item Search
+
+- Made Item Name, Category, Current Price, and Last Observed headers clickable, with a
+  visible ascending or descending arrow on the active field.
+- Repeated clicks toggle direction, active search text and sorting are preserved, and
+  missing values remain at the bottom in both directions.
+- `./scripts/check.sh` passed with 140 tests; live price-descending order and indicators
+  returned correctly with HTTP 200.
