@@ -297,3 +297,22 @@ add optional direct-entry pricing or reporting when requested.
   was submitted during the server restart.
 - `./scripts/check.sh` passed with 153 tests; the live item pages showed the expected
   current prices and history.
+
+## Follow-up: Sales Filtering, Trends, and Full Catalog
+
+- Added an optional Category filter above the Sales item selector; it narrows the item
+  choices in the browser without changing the submitted listing data.
+- Preserved both Sales table sort selections after add, duplicate, reprice, sell, and
+  delete actions.
+- Displayed Sales dates in `America/Los_Angeles` time and added a daily sold-price line
+  chart with total revenue, item count, average priced sale, and accessible daily totals.
+- Added an idempotent live-client catalog sync and imported every unique exchangeable
+  item/category identity while preserving existing UUIDs, prices, sales, and history.
+- The live database now contains 11,400 items across 183 local category labels and
+  11,390 cached icons. Ten official catalog entries have unavailable Ankama PNG URLs
+  and intentionally retain the existing missing-image state instead of incorrect art.
+- Saved a pre-sync local database backup at
+  `data/app/verification-before-touch-catalog-20260821.sqlite3`.
+- The full check passed with 158 tests, dbt validation, SQLFluff, and public-file policy;
+  live Item Search, item icons, Sales filtering, sorting state, Pacific dates, and the
+  chart all returned successfully.
