@@ -59,10 +59,11 @@
 - Account-side BigQuery and dbt connection, GitHub, development, and production
   environment setup is complete. Snapshot
   `afc1d6b429721529f3468ae8f395f0541cc817c71f54e75537a58512af3113ea`
-  is verified in both US base datasets with 67,266 normalized rows each. The
-  development BigQuery dbt build passed all 96 model and test nodes; production raw
-  tables are loaded, but production marts remain intentionally unbuilt until a
-  manual deployment job is approved.
+  is verified in both US base datasets with 67,266 normalized rows each. Guarded
+  development and production BigQuery dbt builds each passed all 96 model and test
+  nodes. Both marts datasets contain 11,400 items, 1,138 price observations, 181
+  Sales listings, and 18,943 latest-recipe ingredient rows. No scheduled deployment
+  job exists.
 - Google Cloud CLI 581.0.0 is installed outside the repository under the WSL user
   directory, and user ADC is configured with `claude-projects-489306` as its quota
   project. ADC remains outside Git and can be revoked separately from dbt Cloud's

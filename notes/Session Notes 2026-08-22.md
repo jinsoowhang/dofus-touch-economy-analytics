@@ -145,8 +145,13 @@ dataset location, then confirm the dbt connection test plus hosted `dbt parse` a
   errors, or skips.
 - Queried the development marts after the green build: 11,400 item rows, 1,138
   price-observation rows, 181 Sales rows, and 18,943 latest-recipe ingredient rows.
-  Production raw data is loaded; production marts remain intentionally unbuilt
-  pending a manual deployment job.
+- Ran one guarded production build after the development result and cost check. All
+  96 production nodes passed with no warnings, errors, or skips, and production mart
+  counts exactly match development.
+- The complete session used 4,660 MiB of billed query bytes across 306 recent query
+  jobs, below the 0.01 TiB daily project quota. All raw and mart tables together use
+  about 42.01 MiB of logical storage. The $10 budget remains alert-only, and no
+  recurring job was scheduled.
 
 ### Next Step
 
