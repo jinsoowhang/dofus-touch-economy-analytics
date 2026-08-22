@@ -18,6 +18,7 @@ dependencies = [
 dofus-import = "dofus_touch_economy.cli:import_main"
 dofus-fetch-icons = "dofus_touch_economy.cli:fetch_icons_main"
 dofus-sync-catalog = "dofus_touch_economy.cli:sync_catalog_main"
+dofus-sync-recipes = "dofus_touch_economy.cli:sync_recipes_main"
 dofus-web = "dofus_touch_economy.cli:web_main"
 
 [dependency-groups]

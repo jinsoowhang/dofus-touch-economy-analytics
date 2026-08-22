@@ -337,3 +337,17 @@ add optional direct-entry pricing or reporting when requested.
   values in Item Search and Sales price inputs.
 - The full check passed with 163 tests; live read-only checks confirmed all three
   features while counts remained at 79 Sales rows and 1,038 price observations.
+
+## Follow-up: Complete Live Recipe Catalog
+
+- Added an idempotent command that validates and imports the live English Dofus Touch
+  recipe graph from Ankama with source-record and item-name provenance.
+- Required every crafted item and ingredient to resolve to the local catalog before
+  committing the batch; the sync appends recipe versions and does not replace prices,
+  Sales listings, catalog rows, or earlier CSV recipes.
+- Imported all 4,306 recipes for exchangeable craftable items with 19,333 fully linked
+  ingredient rows. A repeated sync created no additional database rows.
+- Confirmed the live Abyss Necklace page shows the Jeweller recipe with all eight
+  ingredient icons and quantities from the official source.
+- The full check passed with 165 tests, application compilation, dbt validation,
+  SQLFluff, and public-file policy.

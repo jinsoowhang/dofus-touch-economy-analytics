@@ -137,6 +137,29 @@ def sync_catalog_main(argv: Sequence[str] | None = None) -> int:
     return 1 if summary.failed_names else 0
 
 
+def sync_recipes_main(argv: Sequence[str] | None = None) -> int:
+    from dofus_touch_economy.recipe_sync import sync_touch_recipes
+
+    parser = argparse.ArgumentParser(
+        description="Sync recipes from the live Dofus Touch client data"
+    )
+    parser.parse_args(argv)
+
+    settings = Settings.from_env()
+    engine = create_engine_for_url(settings.database_url)
+    try:
+        summary = sync_touch_recipes(create_session_factory(engine))
+    finally:
+        engine.dispose()
+
+    print(
+        f"source={summary.source_count} recipes={summary.recipe_count} "
+        f"ingredients={summary.ingredient_count} created_batch={summary.created_batch} "
+        f"checksum={summary.checksum}"
+    )
+    return 0
+
+
 def _is_loopback(host: str) -> bool:
     if host.casefold() == "localhost":
         return True
