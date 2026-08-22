@@ -63,6 +63,17 @@ uv run dofus-web
 
 The website binds to `127.0.0.1:8000` by default. Public or non-loopback binding is rejected because it requires a separate authentication, authorization, CSRF, HTTPS, secrets, and production-database design.
 
+Item icons are an ignored local cache and are not stored inside the SQLite database.
+If the database was copied or restored without `data/app/item_icons/`, rebuild the
+cache before refreshing the website:
+
+```bash
+uv run dofus-fetch-icons
+```
+
+The command may report catalog entries whose public upstream image is unavailable;
+successfully downloaded icons remain usable.
+
 Search is normalized and case-insensitive. When no catalog item matches, the page shows
 advisory spelling suggestions and an **Add item** form. Manually added items can receive
 price observations immediately. A later import reuses the same normalized

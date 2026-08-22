@@ -177,3 +177,23 @@ after reviewing development lineage and costs.
   dbt debug and parse, SQLFluff, and the public-file policy.
 - `git diff --check` passed in both repositories, and the profile entry appears
   exactly once in second position after `skills`.
+
+## Local Item Icon Cache Recovery
+
+### Cause and Repair
+
+- The canonical SQLite database contained `icon_source_url` metadata for 11,390
+  items, but the ignored `data/app/item_icons/` directory was absent. The UI therefore
+  rendered local icon routes whose files returned 404.
+- Ran `uv run dofus-fetch-icons --workers=8` to reconstruct the cache from the
+  configured public sources. It restored 11,390 valid PNG files totaling 93 MB.
+- Ten catalog entries have no downloadable upstream image and remain intentionally
+  without an icon.
+- Added the recovery command to the README because the cache is independent of the
+  SQLite database and is not transferred with it.
+
+### Verification
+
+- Confirmed a cached file begins with the PNG signature.
+- Confirmed the running FastAPI application serves a cached icon with HTTP 200,
+  `image/png`, and a nonzero response body.
