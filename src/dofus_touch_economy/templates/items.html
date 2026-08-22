@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Item search · Dofus Touch Economy{% endblock %}
+{% block title %}Item Search · Dofus Touch Economy{% endblock %}
 {% block content %}
-  <h1>Item search</h1>
+  <h1>Item Search</h1>
   <p>Market: {{ market_context }}</p>
   {% if notification %}
     <p class="notification" role="status">{{ notification }}</p>
   {% endif %}
   <form method="get" action="/items" class="search-form">
-    <label for="item-query">Item name</label>
+    <label for="item-query">Item Name</label>
     <input type="hidden" name="sort" value="{{ sort_field }}">
     <input type="hidden" name="direction" value="{{ sort_direction }}">
     <input
@@ -23,7 +23,7 @@
     <button type="submit">Search</button>
     <span id="search-indicator" class="htmx-indicator" role="status">Searching…</span>
   </form>
-  <section id="item-results">
+  <div id="item-results">
     {% include "fragments/item_results.html" %}
-  </section>
+  </div>
 {% endblock %}

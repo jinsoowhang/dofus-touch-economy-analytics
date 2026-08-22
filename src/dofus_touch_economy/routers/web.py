@@ -149,10 +149,10 @@ def _sort_columns(
     sort_direction: SortDirection,
 ) -> list[dict[str, object]]:
     columns = (
-        ("name", "Item name", False),
+        ("name", "Item Name", False),
         ("category", "Category", False),
-        ("price", "Current price", True),
-        ("observed", "Last observed", False),
+        ("price", "Current Price", True),
+        ("observed", "Last Observed", False),
     )
     result: list[dict[str, object]] = []
     for field, label, numeric in columns:
@@ -327,14 +327,14 @@ def _sales_sort_columns(
             ("name", "Item", False),
             ("category", "Category", False),
             ("price", "Price", True),
-            ("started", "Selling since", False),
+            ("started", "Selling Since", False),
         )
         if table == "active"
         else (
             ("name", "Item", False),
             ("price", "Price", True),
-            ("started", "Selling started", False),
-            ("sold", "Date sold", False),
+            ("started", "Selling Started", False),
+            ("sold", "Date Sold", False),
         )
     )
     result: list[dict[str, object]] = []

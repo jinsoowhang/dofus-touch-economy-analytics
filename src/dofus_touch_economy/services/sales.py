@@ -109,7 +109,7 @@ class SalesService:
         )
         listing = SaleListing(
             item_id=item_id,
-            price_observation_id=None if observation is None else observation.id,
+            price_observation_id=observation.id,
             lot_quantity=1,
             asking_price=command.asking_price,
             selling_started_at=selling_started_at,
@@ -154,8 +154,6 @@ class SalesService:
             command.asking_price,
             datetime.now(UTC),
         )
-        if observation is None:  # pragma: no cover - update prices are always present
-            raise ValueError("sale price is required")
         if not self._sales.update_price(
             listing_uuid,
             command.asking_price,
@@ -172,11 +170,9 @@ class SalesService:
     def _new_price_observation(
         self,
         item_id: int,
-        total_price: int | None,
+        total_price: int,
         observed_at: datetime,
-    ) -> PriceObservation | None:
-        if total_price is None:
-            return None
+    ) -> PriceObservation:
         observation = PriceObservation(
             item_id=item_id,
             lot_quantity=1,

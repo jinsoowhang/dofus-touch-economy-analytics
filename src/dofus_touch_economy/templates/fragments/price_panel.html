@@ -1,8 +1,8 @@
-<section id="price-panel">
-  <h2>Price observations</h2>
+<details id="price-panel" class="collapsible-section" open>
+  <summary><h2>Price Observations</h2></summary>
   <p>Market: {{ detail.market_context }}</p>
   {% if detail.current_price %}
-    <p class="numeric">Current price: {{ detail.current_price.total_price }} kama</p>
+    <p class="numeric">Current Price: {{ detail.current_price.total_price }} kama</p>
   {% else %}
     <p>No current price has been recorded.</p>
   {% endif %}
@@ -21,9 +21,9 @@
     hx-target="#price-panel"
     hx-swap="outerHTML"
   >
-    <label for="total-price">Total price</label>
+    <label for="total-price">Total Price</label>
     <input id="total-price" name="total_price" inputmode="numeric" value="{{ form_values.get('total_price', '') }}" required>
-    <label for="observed-at">Observed at (ISO 8601 with timezone)</label>
+    <label for="observed-at">Observed At (ISO 8601 With Timezone)</label>
     <input id="observed-at" name="observed_at" value="{{ form_values.get('observed_at', default_observed_at) }}" required>
     <label for="price-note">Note</label>
     <textarea id="price-note" name="note" maxlength="500">{{ form_values.get('note', '') }}</textarea>
@@ -46,7 +46,7 @@
               hx-target="#price-panel"
               hx-swap="outerHTML"
             >
-              <label for="reason-{{ observation.observation_uuid }}">Invalidation reason</label>
+              <label for="reason-{{ observation.observation_uuid }}">Invalidation Reason</label>
               <input id="reason-{{ observation.observation_uuid }}" name="reason" maxlength="500" required>
               <button type="submit">Invalidate</button>
             </form>
@@ -57,7 +57,7 @@
   {% else %}
     <p>No price history yet.</p>
   {% endif %}
-</section>
+</details>
 {% if include_metrics_oob %}
   {% set oob = true %}
   {% include "fragments/recipe_metrics.html" %}

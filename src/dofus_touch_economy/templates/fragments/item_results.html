@@ -6,12 +6,15 @@
   </div>
 {% endif %}
 {% if items %}
-  <div class="item-list-heading">
-    <h2>Items</h2>
-    <span>{{ items | length }} shown</span>
-  </div>
-  <div class="item-table-wrap">
-    <table class="item-table">
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Items</h2>
+        <span>{{ items | length }} shown</span>
+      </span>
+    </summary>
+    <div class="item-table-wrap">
+      <table class="item-table">
       <thead>
         <tr>
           {% for column in sort_columns %}
@@ -75,55 +78,63 @@
             </td>
           {% endif %}
           <td class="item-action">
-            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">Update price</a>
+            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">Update Price</a>
           </td>
         </tr>
     {% endfor %}
       </tbody>
-    </table>
-  </div>
+      </table>
+    </div>
+  </details>
 {% elif query %}
-  <p>No items found.</p>
   {% if suggestions %}
-    <h2>Similar items</h2>
-    <p>Check these before adding a new catalog item:</p>
-    <ul>
-      {% for item in suggestions %}
-        <li>
-          <a href="/items/{{ item.uuid }}" class="item-label">
-            {% if item.icon_url %}
-              <img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">
-            {% endif %}
-            <span>{{ item.display_name }}</span>
-          </a>
-          <span>{{ (item.category or "Uncategorized") | title }}</span>
-        </li>
-      {% endfor %}
-    </ul>
+    <details class="collapsible-section" open>
+      <summary><h2>Similar Items</h2></summary>
+      <p>Check these before adding a new catalog item:</p>
+      <ul>
+        {% for item in suggestions %}
+          <li>
+            <a href="/items/{{ item.uuid }}" class="item-label">
+              {% if item.icon_url %}
+                <img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">
+              {% endif %}
+              <span>{{ item.display_name }}</span>
+            </a>
+            <span>{{ (item.category or "Uncategorized") | title }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </details>
   {% endif %}
-  <h2>Add a new item</h2>
-  <p>
-    The name is title-cased automatically. A recognized equipment suffix supplies the
-    category; you can override it when needed.
-  </p>
-  <form method="post" action="/items" class="add-item-form">
-    <label for="new-item-name">Item name</label>
-    <input
-      id="new-item-name"
-      name="display_name"
-      value="{{ form_values.get('display_name', proposed_display_name) }}"
-      maxlength="200"
-      required
-    >
-    <label for="new-item-category">Category (automatic; optional override)</label>
-    <input
-      id="new-item-category"
-      name="category"
-      value="{{ form_values.get('category', recognized_category or '') }}"
-      maxlength="200"
-    >
-    <button type="submit">Add item</button>
-  </form>
+  <details class="collapsible-section" open>
+    <summary><h2>Add a New Item</h2></summary>
+    <p>No items found.</p>
+    <p>
+      The name is title-cased automatically. A recognized equipment suffix supplies the
+      category; you can override it when needed.
+    </p>
+    <form method="post" action="/items" class="add-item-form">
+      <label for="new-item-name">Item Name</label>
+      <input
+        id="new-item-name"
+        name="display_name"
+        value="{{ form_values.get('display_name', proposed_display_name) }}"
+        maxlength="200"
+        required
+      >
+      <label for="new-item-category">Category (Automatic; Optional Override)</label>
+      <input
+        id="new-item-category"
+        name="category"
+        value="{{ form_values.get('category', recognized_category or '') }}"
+        maxlength="200"
+      >
+      <button type="submit">Add item</button>
+    </form>
+  </details>
 {% else %}
-  <p>No items are in the catalog yet. Search for a name to add the first one.</p>
+  <details class="collapsible-section" open>
+    <summary><h2>Items</h2></summary>
+    <p>No items are in the catalog yet. Search for a name to add the first one.</p>
+  </details>
 {% endif %}

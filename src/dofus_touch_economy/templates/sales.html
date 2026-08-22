@@ -11,10 +11,10 @@
     </div>
   {% endif %}
 
-  <section>
-    <h2>Add an item to sell</h2>
+  <details class="collapsible-section" open>
+    <summary><h2>Add an Item to Sell</h2></summary>
     <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
-      <label for="sale-category">Category (optional)</label>
+      <label for="sale-category">Category (Optional)</label>
       <select id="sale-category" name="category">
         <option value="">All categories</option>
         {% for category in category_choices %}
@@ -31,26 +31,30 @@
           <option
             value="{{ item.uuid }}"
             data-category="{{ item.category_key }}"
+            data-name="{{ item.display_name }}"
             {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
           >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
         {% endfor %}
       </select>
-      <label for="sale-asking-price">Sale price (optional)</label>
+      <label for="sale-asking-price">Sale Price</label>
       <input
         id="sale-asking-price"
         name="asking_price"
         inputmode="numeric"
         value="{{ form_values.get('asking_price', '') }}"
+        required
       >
       <button type="submit">Add listing</button>
     </form>
-  </section>
+  </details>
 
-  <section>
-    <div class="item-list-heading">
-      <h2>Currently selling</h2>
-      <span>{{ active_sales | length }} active</span>
-    </div>
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Currently Selling</h2>
+        <span>{{ active_sales | length }} active</span>
+      </span>
+    </summary>
     {% if active_sales %}
       <div class="sales-table-wrap">
         <table class="sales-table">
@@ -92,16 +96,17 @@
                 <td>
                   <form method="post" action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}" class="price-edit-form">
                     <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
-                      Sale price for {{ sale.display_name }}
+                      Sale Price for {{ sale.display_name }}
                     </label>
                     <input
                       id="sale-price-{{ sale.uuid }}"
                       name="asking_price"
                       inputmode="numeric"
                       value="{{ sale.asking_price or '' }}"
+                      data-initial-value="{{ sale.asking_price or '' }}"
+                      title="Click to edit. Press Enter or leave the field to save."
                       required
                     >
-                    <button type="submit">Update</button>
                   </form>
                 </td>
                 <td>
@@ -140,13 +145,15 @@
     {% else %}
       <p>No items are currently being sold.</p>
     {% endif %}
-  </section>
+  </details>
 
-  <section>
-    <div class="item-list-heading">
-      <h2>Sold history</h2>
-      <span>{{ sold_sales | length }} sold</span>
-    </div>
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Sold History</h2>
+        <span>{{ sold_sales | length }} sold</span>
+      </span>
+    </summary>
     {% if sold_sales %}
       <div class="sales-table-wrap">
         <table class="sales-table">
@@ -219,18 +226,20 @@
     {% else %}
       <p>No completed sales yet.</p>
     {% endif %}
-  </section>
+  </details>
 
-  <section aria-labelledby="sales-trend-heading">
-    <div class="item-list-heading">
-      <h2 id="sales-trend-heading">Sales over time</h2>
-      <span>Pacific time</span>
-    </div>
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Sales Over Time</h2>
+        <span>Pacific Time</span>
+      </span>
+    </summary>
     {% if sales_chart %}
       <div class="sales-metrics" aria-label="Sales summary">
-        <div><span>Total sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
-        <div><span>Items sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
-        <div><span>Average priced sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
+        <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Items Sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
+        <div><span>Average Priced Sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
       </div>
       <div class="sales-chart-wrap">
         <svg
@@ -276,7 +285,7 @@
             </text>
           {% endfor %}
           <text class="chart-axis-title" x="{{ (sales_chart.left + sales_chart.right_x) / 2 }}" y="{{ sales_chart.height - 6 }}" text-anchor="middle">
-            Date sold (Pacific time)
+            Date Sold (Pacific Time)
           </text>
           <text
             class="chart-axis-title"
@@ -284,13 +293,13 @@
             y="{{ (sales_chart.top + sales_chart.bottom_y) / 2 }}"
             text-anchor="middle"
             transform="rotate(-90 16 {{ (sales_chart.top + sales_chart.bottom_y) / 2 }})"
-          >Sales total</text>
+          >Sales Total</text>
         </svg>
       </div>
       <details class="sales-data-details">
-        <summary>View daily totals</summary>
+        <summary>View Daily Totals</summary>
         <table class="sales-data-table">
-          <thead><tr><th>Date sold</th><th class="numeric">Sales total</th><th class="numeric">Items sold</th></tr></thead>
+          <thead><tr><th>Date Sold</th><th class="numeric">Sales Total</th><th class="numeric">Items Sold</th></tr></thead>
           <tbody>
             {% for day in sales_chart.daily_totals %}
               <tr>
@@ -305,6 +314,6 @@
     {% else %}
       <p>Mark an item as sold to start the daily sales chart.</p>
     {% endif %}
-  </section>
+  </details>
 {% endblock %}
 {% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}

@@ -71,12 +71,6 @@ def test_priced_sale_updates_current_price_and_preserves_history(session, catalo
     assert stored_listing.price_observation_id is not None
 
 
-def test_unpriced_sale_does_not_create_price_history(session, catalog_item) -> None:
-    SalesService(session, "Dodge").start(SaleListingCreate(item_uuid=catalog_item.uuid))
-
-    assert PriceService(session, "Dodge").history_for_item(catalog_item.id) == []
-
-
 def test_price_record_automatically_starts_a_sale(session, catalog_item) -> None:
     observation = PriceService(session, "Dodge").record(
         catalog_item.uuid,
@@ -98,14 +92,14 @@ def test_sales_reject_unknown_items_and_invalid_transitions(session) -> None:
     service = SalesService(session, "Dodge")
 
     with pytest.raises(SaleItemNotFound):
-        service.start(SaleListingCreate(item_uuid=uuid4()))
+        service.start(SaleListingCreate(item_uuid=uuid4(), asking_price=100))
     with pytest.raises(SaleListingNotFound):
         service.mark_sold(uuid4())
 
 
 def test_sale_cannot_be_marked_sold_twice(session, catalog_item) -> None:
     service = SalesService(session, "Dodge")
-    listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
+    listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
     service.mark_sold(listing.uuid)
 
     with pytest.raises(SaleListingConflict):
@@ -141,7 +135,7 @@ def test_sale_can_be_duplicated_and_repriced_independently(session, catalog_item
 
 def test_sold_sale_price_cannot_be_changed(session, catalog_item) -> None:
     service = SalesService(session, "Dodge")
-    listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
+    listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
     service.mark_sold(listing.uuid)
 
     with pytest.raises(SaleListingConflict):
@@ -283,8 +277,8 @@ def test_sold_sales_sort_by_each_displayed_field(
 
 def test_active_or_sold_sale_can_be_deleted(session, catalog_item) -> None:
     service = SalesService(session, "Dodge")
-    active = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
-    sold = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
+    active = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
+    sold = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=200))
     service.mark_sold(sold.uuid)
 
     assert service.delete(active.uuid).uuid == active.uuid

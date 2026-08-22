@@ -1,8 +1,8 @@
-<section id="recipe-metrics"{% if oob|default(false) %} hx-swap-oob="true"{% endif %}>
-  <h2>Crafting metrics</h2>
+<details id="recipe-metrics" class="collapsible-section" open{% if oob|default(false) %} hx-swap-oob="true"{% endif %}>
+  <summary><h2>Crafting Metrics</h2></summary>
   {% if detail.recipe %}
     {% if detail.metrics.is_complete %}
-      <p class="numeric">Recipe cost: {{ detail.metrics.recipe_cost }} kama</p>
+      <p class="numeric">Recipe Cost: {{ detail.metrics.recipe_cost }} kama</p>
       {% if detail.metrics.profit is not none %}<p class="numeric">Profit: {{ detail.metrics.profit }} kama</p>{% endif %}
       {% if detail.metrics.roi is not none %}<p class="numeric">ROI: {{ detail.metrics.roi }}</p>{% endif %}
     {% else %}
@@ -11,4 +11,4 @@
   {% else %}
     <p>No recipe is available for this item.</p>
   {% endif %}
-</section>
+</details>

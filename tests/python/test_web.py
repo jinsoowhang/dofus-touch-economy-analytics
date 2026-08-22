@@ -65,8 +65,8 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert ">Sales</a>" in response.text
     assert 'class="site-tab is-active"' in response.text
     assert 'aria-current="page"' in response.text
-    assert "Currently selling" in response.text
-    assert "Sold history" in response.text
+    assert "Currently Selling" in response.text
+    assert "Sold History" in response.text
     assert "Alpha Item — Hat" in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
 
@@ -98,13 +98,15 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     script = client.get("/static/sales.js")
 
     assert response.status_code == 200
-    assert '<label for="sale-category">Category (optional)</label>' in response.text
+    assert '<label for="sale-category">Category (Optional)</label>' in response.text
     assert 'value="ring"' in response.text
     assert 'data-category="ring"' in response.text
     assert 'data-category="hat"' in response.text
     assert '<script src="/static/sales.js" defer></script>' in response.text
     assert script.status_code == 200
     assert 'categorySelect.addEventListener("change", filterItems)' in script.text
+    assert "moveItemToTop(matchingItem)" in script.text
+    assert 'input.addEventListener("blur", savePrice)' in script.text
 
 
 def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:
@@ -125,6 +127,10 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert 'value="50000"' in active_page.text
     assert "Mark sold" in active_page.text
     assert "Duplicate" in active_page.text
+    assert active_page.text.count('class="collapsible-section" open') == 4
+    assert '<button type="submit">Update</button>' not in active_page.text
+    assert 'data-initial-value="50000"' in active_page.text
+    assert "Press Enter or leave the field to save." in active_page.text
     assert "Lot quantity" not in active_page.text
     assert 'name="lot_quantity"' not in active_page.text
     assert "Delete this sales row? This cannot be undone." in active_page.text
@@ -138,7 +144,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         assert listing.price_observation.market_context == "Dodge"
         listing_uuid = listing.uuid
     item_page = client.get(f"/items/{catalog_item.uuid}")
-    assert "Current price: 50000 kama" in item_page.text
+    assert "Current Price: 50000 kama" in item_page.text
     assert "· 50000 kama" in item_page.text
     completed = client.post(
         f"/sales/{listing_uuid}/sold",
@@ -151,7 +157,20 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert "Item has been marked as sold." in sold_page.text
     assert "0 active" in sold_page.text
     assert "1 sold" in sold_page.text
-    assert "Date sold" in sold_page.text
+    assert "Date Sold" in sold_page.text
+
+
+def test_sales_page_requires_an_asking_price(client, catalog_item) -> None:
+    response = client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": ""},
+    )
+
+    assert response.status_code == 422
+    assert "Input should be a valid integer" in response.text
+    assert '<label for="sale-asking-price">Sale Price</label>' in response.text
+    assert 'name="asking_price"' in response.text
+    assert "required" in response.text
 
 
 def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> None:
@@ -337,8 +356,8 @@ def test_sales_tables_sort_independently_and_show_directions(
     assert (
         "active_sort=price&amp;active_direction=desc&amp;sold_sort=sold&amp;sold_direction=asc"
     ) in response.text
-    active_section, sold_section = response.text.split("<h2>Sold history</h2>")
-    active_section = active_section.split("<h2>Currently selling</h2>", maxsplit=1)[1]
+    active_section, sold_section = response.text.split("<h2>Sold History</h2>")
+    active_section = active_section.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
     assert active_section.index("Alpha Hat") < active_section.index(catalog_item.display_name)
     assert sold_section.index("Alpha Hat") < sold_section.index(catalog_item.display_name)
 
@@ -403,7 +422,7 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
     assert "2026-08-21: 100 total across 1 item" in response.text
     assert "2026-08-23: 200 total across 1 item" in response.text
     assert "Daily sales totals by date sold" in response.text
-    assert "Date sold (Pacific time)" in response.text
+    assert "Date Sold (Pacific Time)" in response.text
     assert "<strong>300</strong>" in response.text
     assert "<strong>2</strong>" in response.text
 
@@ -426,11 +445,12 @@ def test_blank_search_lists_catalog_alphabetically(client, session_factory, cata
     response = client.get("/items")
 
     assert response.status_code == 200
-    assert "Item name" in response.text
-    assert "Current price" in response.text
+    assert "Item Name" in response.text
+    assert "Current Price" in response.text
     assert "Observed lot" not in response.text
-    assert "Last observed" in response.text
+    assert "Last Observed" in response.text
     assert "Hat" in response.text
+    assert '<details class="collapsible-section" open>' in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
     assert response.text.index(catalog_item.display_name) < response.text.index("Zeta Item")
 
@@ -480,8 +500,13 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert ">\n                120\n" in response.text
     assert "2026-08-20" in response.text
     assert "2026-08-20 00:00 UTC" not in response.text
-    assert "Update price" in response.text
+    assert "Update Price" in response.text
     assert response.text.count(f'href="{item_url}"') == 5
+
+    detail = client.get(item_url)
+    assert detail.status_code == 200
+    assert "<summary><h2>Price Observations</h2></summary>" in detail.text
+    assert "<summary><h2>Crafting Metrics</h2></summary>" in detail.text
 
 
 def test_catalog_and_static_route_show_cached_item_icon(
@@ -530,7 +555,7 @@ def test_no_results_offers_typo_suggestion_and_manual_add_form(client, catalog_i
 
     assert response.status_code == 200
     assert "No items found" in response.text
-    assert "Similar items" in response.text
+    assert "Similar Items" in response.text
     assert catalog_item.display_name in response.text
     assert 'action="/items"' in response.text
     assert 'value="Syntheic Ore"' in response.text
@@ -546,6 +571,14 @@ def test_no_results_previews_title_case_and_recognized_category(client) -> None:
     assert 'value="Belt"' in response.text
 
 
+def test_no_results_title_case_does_not_capitalize_after_apostrophe(client) -> None:
+    response = client.get("/items", params={"q": "daggero's red necklace"})
+
+    assert response.status_code == 200
+    assert 'value="Daggero&#39;s Red Necklace"' in response.text
+    assert "Daggero'S Red Necklace" not in response.text
+
+
 def test_html_creates_manual_item_and_redirects_to_detail(client) -> None:
     response = client.post(
         "/items",
@@ -559,7 +592,7 @@ def test_html_creates_manual_item_and_redirects_to_detail(client) -> None:
     assert detail.status_code == 200
     assert "Chouquish Belt" in detail.text
     assert "Belt · Market: Dodge" in detail.text
-    assert "Catalog source: Manual" in detail.text
+    assert "Catalog Source: Manual" in detail.text
 
 
 def test_html_duplicate_manual_item_redirects_to_existing_item(client, catalog_item) -> None:
@@ -695,5 +728,5 @@ def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
     )
 
     assert response.status_code == 200
-    assert "Current price: 100" in response.text
+    assert "Current Price: 100" in response.text
     assert 'hx-swap-oob="true"' in response.text

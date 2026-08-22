@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if detail %}{{ detail.display_name }}{% else %}Item not found{% endif %} · Dofus Touch Economy{% endblock %}
+{% block title %}{% if detail %}{{ detail.display_name }}{% else %}Item Not Found{% endif %} · Dofus Touch Economy{% endblock %}
 {% block content %}
   {% if error %}
     <h1>{{ error }}</h1>
@@ -11,13 +11,13 @@
     </h1>
     <p>
       {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
-      Catalog source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
+      Catalog Source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
     </p>
     {% include "fragments/price_panel.html" %}
 
     {% if detail.recipe %}
-      <section>
-        <h2>Recipe · {{ detail.recipe.profession }}</h2>
+      <details class="collapsible-section" open>
+        <summary><h2>Recipe · {{ detail.recipe.profession }}</h2></summary>
         <div class="recipe-table-wrap">
         <table class="recipe-table">
           <thead>
@@ -44,7 +44,7 @@
           </tbody>
         </table>
         </div>
-      </section>
+      </details>
     {% endif %}
     {% include "fragments/recipe_metrics.html" %}
   {% endif %}
