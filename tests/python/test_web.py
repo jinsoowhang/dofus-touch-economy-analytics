@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -73,7 +74,6 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         "/sales",
         data={
             "item_uuid": str(catalog_item.uuid),
-            "lot_quantity": "10",
             "asking_price": "50000",
         },
         follow_redirects=False,
@@ -87,6 +87,10 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert 'value="50000"' in active_page.text
     assert "Mark sold" in active_page.text
     assert "Duplicate" in active_page.text
+    assert "Lot quantity" not in active_page.text
+    assert 'name="lot_quantity"' not in active_page.text
+    assert "Delete this sales row? This cannot be undone." in active_page.text
+    assert f'aria-label="Delete sale row for {catalog_item.display_name}"' in active_page.text
 
     with session_factory() as session:
         listing_uuid = session.scalar(select(SaleListing.uuid))
@@ -102,21 +106,6 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert "0 active" in sold_page.text
     assert "1 sold" in sold_page.text
     assert "Date sold" in sold_page.text
-
-
-def test_sales_page_validates_lot_quantity_inline(client, catalog_item) -> None:
-    response = client.post(
-        "/sales",
-        data={
-            "item_uuid": str(catalog_item.uuid),
-            "lot_quantity": "0",
-            "asking_price": "",
-        },
-    )
-
-    assert response.status_code == 422
-    assert "Input should be greater than 0" in response.text
-    assert 'value="0"' in response.text
 
 
 def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> None:
@@ -146,7 +135,6 @@ def test_sales_page_duplicates_and_reprices_a_listing(
         "/sales",
         data={
             "item_uuid": str(catalog_item.uuid),
-            "lot_quantity": "10",
             "asking_price": "50000",
         },
     )
@@ -164,7 +152,7 @@ def test_sales_page_duplicates_and_reprices_a_listing(
         listings = list(session.scalars(select(SaleListing).order_by(SaleListing.id)))
     assert len(listings) == 2
     assert listings[0].asking_price == listings[1].asking_price == 50_000
-    assert listings[0].lot_quantity == listings[1].lot_quantity == 10
+    assert listings[0].lot_quantity == listings[1].lot_quantity == 1
 
     repriced = client.post(
         f"/sales/{listings[1].uuid}/price",
@@ -186,7 +174,6 @@ def test_sales_page_validates_repriced_value(client, session_factory, catalog_it
         "/sales",
         data={
             "item_uuid": str(catalog_item.uuid),
-            "lot_quantity": "1",
             "asking_price": "1000",
         },
     )
@@ -200,6 +187,109 @@ def test_sales_page_validates_repriced_value(client, session_factory, catalog_it
 
     assert response.status_code == 422
     assert "Input should be greater than 0" in response.text
+
+
+def test_sales_page_deletes_a_listing_after_confirmation(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": "1000"},
+    )
+    with session_factory() as session:
+        listing_uuid = session.scalar(select(SaleListing.uuid))
+
+    page = client.get("/sales")
+    assert f'action="/sales/{listing_uuid}/delete"' in page.text
+    assert "return window.confirm('Delete this sales row? This cannot be undone.')" in page.text
+
+    response = client.post(
+        f"/sales/{listing_uuid}/delete",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/sales?notice=listing-deleted"
+    deleted_page = client.get(response.headers["location"])
+    assert "Sale listing has been deleted." in deleted_page.text
+    assert "0 active" in deleted_page.text
+    with session_factory() as session:
+        assert session.scalar(select(SaleListing.id)) is None
+
+
+def test_sales_tables_sort_independently_and_show_directions(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    with session_factory() as session:
+        alpha = Item(
+            display_name="Alpha Hat",
+            normalized_name="alpha hat",
+            category="Hat",
+            identity_category="hat",
+        )
+        session.add(alpha)
+        session.flush()
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=100,
+                    selling_started_at=datetime(2026, 8, 20, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=alpha.id,
+                    lot_quantity=1,
+                    asking_price=300,
+                    selling_started_at=datetime(2026, 8, 21, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=400,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=alpha.id,
+                    lot_quantity=1,
+                    asking_price=200,
+                    selling_started_at=datetime(2026, 8, 24, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 25, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get(
+        "/sales",
+        params={
+            "active_sort": "price",
+            "active_direction": "desc",
+            "sold_sort": "name",
+            "sold_direction": "asc",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.text.count('aria-sort="descending"') == 1
+    assert response.text.count('aria-sort="ascending"') == 1
+    assert '<span class="sort-arrow" aria-hidden="true">▼</span>' in response.text
+    assert '<span class="sort-arrow" aria-hidden="true">▲</span>' in response.text
+    assert (
+        "active_sort=price&amp;active_direction=asc&amp;sold_sort=name&amp;sold_direction=asc"
+    ) in response.text
+    assert (
+        "active_sort=price&amp;active_direction=desc&amp;sold_sort=sold&amp;sold_direction=asc"
+    ) in response.text
+    active_section, sold_section = response.text.split("<h2>Sold history</h2>")
+    active_section = active_section.split("<h2>Currently selling</h2>", maxsplit=1)[1]
+    assert active_section.index("Alpha Hat") < active_section.index(catalog_item.display_name)
+    assert sold_section.index("Alpha Hat") < sold_section.index(catalog_item.display_name)
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:

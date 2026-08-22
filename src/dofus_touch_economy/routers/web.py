@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -35,6 +35,8 @@ from dofus_touch_economy.services.sales import (
     SaleItemNotFound,
     SaleListingConflict,
     SaleListingNotFound,
+    SaleSortDirection,
+    SaleSortField,
     SalesService,
 )
 
@@ -143,6 +145,10 @@ def _error_response(request: Request, message: str, status_code: int) -> HTMLRes
 def _sales_context(
     service: SalesService,
     *,
+    active_sort: SaleSortField = "started",
+    active_direction: SaleSortDirection = "desc",
+    sold_sort: SaleSortField = "sold",
+    sold_direction: SaleSortDirection = "desc",
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
@@ -150,12 +156,80 @@ def _sales_context(
     return {
         "active_tab": "sales",
         "item_choices": service.item_choices(),
-        "active_sales": service.active(),
-        "sold_sales": service.sold(),
+        "active_sales": service.active(active_sort, active_direction),
+        "sold_sales": service.sold(sold_sort, sold_direction),
+        "active_sort_columns": _sales_sort_columns(
+            "active",
+            active_sort,
+            active_direction,
+            sold_sort,
+            sold_direction,
+        ),
+        "sold_sort_columns": _sales_sort_columns(
+            "sold",
+            sold_sort,
+            sold_direction,
+            active_sort,
+            active_direction,
+        ),
         "notification": notification,
         "errors": errors or [],
         "form_values": form_values or {},
     }
+
+
+def _sales_sort_columns(
+    table: Literal["active", "sold"],
+    sort_field: SaleSortField,
+    sort_direction: SaleSortDirection,
+    other_sort: SaleSortField,
+    other_direction: SaleSortDirection,
+) -> list[dict[str, object]]:
+    columns = (
+        (
+            ("name", "Item", False),
+            ("category", "Category", False),
+            ("price", "Price", True),
+            ("started", "Selling since", False),
+        )
+        if table == "active"
+        else (
+            ("name", "Item", False),
+            ("price", "Price", True),
+            ("started", "Selling started", False),
+            ("sold", "Date sold", False),
+        )
+    )
+    result: list[dict[str, object]] = []
+    for field, label, numeric in columns:
+        active = field == sort_field
+        next_direction = "desc" if active and sort_direction == "asc" else "asc"
+        if table == "active":
+            parameters = {
+                "active_sort": field,
+                "active_direction": next_direction,
+                "sold_sort": other_sort,
+                "sold_direction": other_direction,
+            }
+        else:
+            parameters = {
+                "active_sort": other_sort,
+                "active_direction": other_direction,
+                "sold_sort": field,
+                "sold_direction": next_direction,
+            }
+        result.append(
+            {
+                "field": field,
+                "label": label,
+                "numeric": numeric,
+                "active": active,
+                "direction": sort_direction if active else None,
+                "next_direction": next_direction,
+                "url": f"/sales?{urlencode(parameters)}",
+            }
+        )
+    return result
 
 
 def _form_values(form, fields: tuple[str, ...]) -> dict[str, str]:
@@ -202,15 +276,24 @@ def sales_page(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     notice: str | None = Query(default=None),
+    active_sort: Annotated[SaleSortField, Query()] = "started",
+    active_direction: Annotated[SaleSortDirection, Query()] = "desc",
+    sold_sort: Annotated[SaleSortField, Query()] = "sold",
+    sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
 ) -> HTMLResponse:
     notifications = {
         "listing-added": "Sale listing has been added.",
         "listing-duplicated": "Sale listing has been duplicated.",
         "listing-price-updated": "Sale price has been updated.",
         "listing-sold": "Item has been marked as sold.",
+        "listing-deleted": "Sale listing has been deleted.",
     }
     context = _sales_context(
         SalesService(session),
+        active_sort=active_sort,
+        active_direction=active_direction,
+        sold_sort=sold_sort,
+        sold_direction=sold_direction,
         notification=notifications.get(notice),
     )
     return templates.TemplateResponse(request, "sales.html", context=context)
@@ -222,7 +305,7 @@ async def start_sale(
     session: Annotated[Session, Depends(get_session)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
-    values = _form_values(form, ("item_uuid", "lot_quantity", "asking_price"))
+    values = _form_values(form, ("item_uuid", "asking_price"))
     service = SalesService(session)
     try:
         command = SaleListingCreate.model_validate(values)
@@ -274,6 +357,29 @@ def duplicate_sale(
             status_code=404,
         )
     return RedirectResponse(url="/sales?notice=listing-duplicated", status_code=303)
+
+
+@router.post(
+    "/sales/{listing_uuid}/delete",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def delete_sale(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse | RedirectResponse:
+    service = SalesService(session)
+    try:
+        service.delete(listing_uuid)
+    except SaleListingNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(service, errors=["Sale listing not found."]),
+            status_code=404,
+        )
+    return RedirectResponse(url="/sales?notice=listing-deleted", status_code=303)
 
 
 @router.post(

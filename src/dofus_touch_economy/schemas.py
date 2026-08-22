@@ -60,7 +60,6 @@ class InvalidationCreate(BaseModel):
 
 class SaleListingCreate(BaseModel):
     item_uuid: UUID
-    lot_quantity: int = Field(gt=0)
     asking_price: int | None = Field(default=None, gt=0)
 
     @field_validator("asking_price", mode="before")
@@ -86,7 +85,6 @@ class SaleListingResponse(BaseModel):
     display_name: str
     category: str | None
     icon_url: str | None
-    lot_quantity: int
     asking_price: int | None
     selling_started_at: datetime
     date_sold: datetime | None

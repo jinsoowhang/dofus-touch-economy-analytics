@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,6 +14,9 @@ from dofus_touch_economy.schemas import (
     SaleListingResponse,
     SalePriceUpdate,
 )
+
+SaleSortField = Literal["name", "category", "price", "started", "sold"]
+SaleSortDirection = Literal["asc", "desc"]
 
 
 class SaleItemNotFound(LookupError):
@@ -44,11 +48,21 @@ class SalesService:
             for item in self._catalog.search("", limit=None)
         ]
 
-    def active(self) -> list[SaleListingResponse]:
-        return [_response(listing) for listing in self._sales.active()]
+    def active(
+        self,
+        sort_field: SaleSortField = "started",
+        sort_direction: SaleSortDirection = "desc",
+    ) -> list[SaleListingResponse]:
+        listings = [_response(listing) for listing in self._sales.active()]
+        return _sort_listings(listings, sort_field, sort_direction)
 
-    def sold(self) -> list[SaleListingResponse]:
-        return [_response(listing) for listing in self._sales.sold()]
+    def sold(
+        self,
+        sort_field: SaleSortField = "sold",
+        sort_direction: SaleSortDirection = "desc",
+    ) -> list[SaleListingResponse]:
+        listings = [_response(listing) for listing in self._sales.sold()]
+        return _sort_listings(listings, sort_field, sort_direction)
 
     def start(self, command: SaleListingCreate) -> SaleListingResponse:
         item_id = self._session.scalar(select(Item.id).where(Item.uuid == command.item_uuid))
@@ -56,7 +70,7 @@ class SalesService:
             raise SaleItemNotFound(str(command.item_uuid))
         listing = SaleListing(
             item_id=item_id,
-            lot_quantity=command.lot_quantity,
+            lot_quantity=1,
             asking_price=command.asking_price,
             selling_started_at=datetime.now(UTC),
         )
@@ -70,13 +84,22 @@ class SalesService:
             raise SaleListingNotFound(str(listing_uuid))
         duplicate = SaleListing(
             item_id=original.item_id,
-            lot_quantity=original.lot_quantity,
+            lot_quantity=1,
             asking_price=original.asking_price,
             selling_started_at=datetime.now(UTC),
         )
         self._session.add(duplicate)
         self._session.commit()
         return _response(self._sales.get_by_uuid(duplicate.uuid) or duplicate)
+
+    def delete(self, listing_uuid: UUID) -> SaleListingResponse:
+        listing = self._sales.get_by_uuid(listing_uuid)
+        if listing is None:
+            raise SaleListingNotFound(str(listing_uuid))
+        response = _response(listing)
+        self._session.delete(listing)
+        self._session.commit()
+        return response
 
     def update_price(
         self,
@@ -116,7 +139,6 @@ def _response(listing: SaleListing) -> SaleListingResponse:
         display_name=listing.item.display_name,
         category=listing.item.category,
         icon_url=_icon_url(listing.item),
-        lot_quantity=listing.lot_quantity,
         asking_price=listing.asking_price,
         selling_started_at=_as_utc(listing.selling_started_at),
         date_sold=None if listing.date_sold is None else _as_utc(listing.date_sold),
@@ -131,3 +153,27 @@ def _as_utc(value: datetime) -> datetime:
 
 def _icon_url(item: Item) -> str | None:
     return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"
+
+
+def _sort_listings(
+    listings: list[SaleListingResponse],
+    sort_field: SaleSortField,
+    sort_direction: SaleSortDirection,
+) -> list[SaleListingResponse]:
+    def value(listing: SaleListingResponse):
+        if sort_field == "name":
+            return listing.display_name.casefold()
+        if sort_field == "category":
+            return None if listing.category is None else listing.category.casefold()
+        if sort_field == "price":
+            return listing.asking_price
+        if sort_field == "started":
+            return listing.selling_started_at
+        return listing.date_sold
+
+    with_value = [listing for listing in listings if value(listing) is not None]
+    without_value = [listing for listing in listings if value(listing) is None]
+    with_value.sort(key=lambda listing: listing.display_name.casefold())
+    with_value.sort(key=value, reverse=sort_direction == "desc")
+    without_value.sort(key=lambda listing: listing.display_name.casefold())
+    return [*with_value, *without_value]

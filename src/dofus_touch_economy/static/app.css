@@ -317,6 +317,20 @@ button {
   color: var(--accent);
 }
 
+.delete-button {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+  font-size: 1.2rem;
+  line-height: 1;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.delete-button:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+
 .visually-hidden {
   clip: rect(0 0 0 0);
   clip-path: inset(50%);

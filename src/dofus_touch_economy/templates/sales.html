@@ -24,14 +24,6 @@
           >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
         {% endfor %}
       </select>
-      <label for="sale-lot-quantity">Lot quantity</label>
-      <input
-        id="sale-lot-quantity"
-        name="lot_quantity"
-        inputmode="numeric"
-        value="{{ form_values.get('lot_quantity', '1') }}"
-        required
-      >
       <label for="sale-asking-price">Sale price (optional)</label>
       <input
         id="sale-asking-price"
@@ -53,11 +45,23 @@
         <table class="sales-table">
           <thead>
             <tr>
-              <th>Item</th>
-              <th>Category</th>
-              <th class="numeric">Price</th>
-              <th class="numeric">Lot quantity</th>
-              <th>Selling since</th>
+              {% for column in active_sort_columns %}
+                <th
+                  {% if column.numeric %}class="numeric"{% endif %}
+                  aria-sort="{% if column.active %}{{ 'ascending' if column.direction == 'asc' else 'descending' }}{% else %}none{% endif %}"
+                >
+                  <a
+                    class="sort-header"
+                    href="{{ column.url }}"
+                    aria-label="Sort currently selling by {{ column.label }}, {{ 'descending' if column.next_direction == 'desc' else 'ascending' }}"
+                  >
+                    <span>{{ column.label }}</span>
+                    {% if column.active %}
+                      <span class="sort-arrow" aria-hidden="true">{{ '▲' if column.direction == 'asc' else '▼' }}</span>
+                    {% endif %}
+                  </a>
+                </th>
+              {% endfor %}
               <th>Action</th>
             </tr>
           </thead>
@@ -88,7 +92,6 @@
                     <button type="submit">Update</button>
                   </form>
                 </td>
-                <td class="numeric">{{ sale.lot_quantity }}</td>
                 <td>
                   <time datetime="{{ sale.selling_started_at.isoformat() }}">
                     {{ sale.selling_started_at.strftime("%Y-%m-%d") }}
@@ -101,6 +104,19 @@
                     </form>
                     <form method="post" action="/sales/{{ sale.uuid }}/sold" class="inline-form">
                       <button type="submit">Mark sold</button>
+                    </form>
+                    <form
+                      method="post"
+                      action="/sales/{{ sale.uuid }}/delete"
+                      class="inline-form"
+                      onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
+                    >
+                      <button
+                        type="submit"
+                        class="delete-button"
+                        aria-label="Delete sale row for {{ sale.display_name }}"
+                        title="Delete sale row"
+                      >×</button>
                     </form>
                   </div>
                 </td>
@@ -124,11 +140,24 @@
         <table class="sales-table">
           <thead>
             <tr>
-              <th>Item</th>
-              <th class="numeric">Price</th>
-              <th class="numeric">Lot quantity</th>
-              <th>Selling started</th>
-              <th>Date sold</th>
+              {% for column in sold_sort_columns %}
+                <th
+                  {% if column.numeric %}class="numeric"{% endif %}
+                  aria-sort="{% if column.active %}{{ 'ascending' if column.direction == 'asc' else 'descending' }}{% else %}none{% endif %}"
+                >
+                  <a
+                    class="sort-header"
+                    href="{{ column.url }}"
+                    aria-label="Sort sold history by {{ column.label }}, {{ 'descending' if column.next_direction == 'desc' else 'ascending' }}"
+                  >
+                    <span>{{ column.label }}</span>
+                    {% if column.active %}
+                      <span class="sort-arrow" aria-hidden="true">{{ '▲' if column.direction == 'asc' else '▼' }}</span>
+                    {% endif %}
+                  </a>
+                </th>
+              {% endfor %}
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -143,7 +172,6 @@
                   </a>
                 </td>
                 <td class="numeric">{{ sale.asking_price or "—" }}</td>
-                <td class="numeric">{{ sale.lot_quantity }}</td>
                 <td>
                   <time datetime="{{ sale.selling_started_at.isoformat() }}">
                     {{ sale.selling_started_at.strftime("%Y-%m-%d") }}
@@ -153,6 +181,21 @@
                   <time datetime="{{ sale.date_sold.isoformat() }}">
                     {{ sale.date_sold.strftime("%Y-%m-%d") }}
                   </time>
+                </td>
+                <td>
+                  <form
+                    method="post"
+                    action="/sales/{{ sale.uuid }}/delete"
+                    class="inline-form"
+                    onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
+                  >
+                    <button
+                      type="submit"
+                      class="delete-button"
+                      aria-label="Delete sale row for {{ sale.display_name }}"
+                      title="Delete sale row"
+                    >×</button>
+                  </form>
                 </td>
               </tr>
             {% endfor %}
