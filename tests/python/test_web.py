@@ -153,7 +153,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert "<summary><h2>Current Price</h2></summary>" in item_page.text
     assert 'name="current_price"' in item_page.text
     assert 'value="50,000"' in item_page.text
-    assert "· 50,000 kama" in item_page.text
+    assert ">50,000</td>" in item_page.text
     completed = client.post(
         f"/sales/{listing_uuid}/sold",
         follow_redirects=False,
@@ -996,7 +996,7 @@ def test_item_current_price_edit_appends_history_and_returns_to_item(
     updated_page = client.get(response.headers["location"])
     assert f"{catalog_item.display_name} price has been updated." in updated_page.text
     assert 'value="245,000"' in updated_page.text
-    assert "· 245,000 kama" in updated_page.text
+    assert ">245,000</td>" in updated_page.text
     with session_factory() as session:
         listing = session.scalar(select(SaleListing))
         detail = CatalogService(session, "Dodge").detail(catalog_item.uuid)
@@ -1005,6 +1005,55 @@ def test_item_current_price_edit_appends_history_and_returns_to_item(
     assert detail.current_price is not None
     assert detail.current_price.total_price == 245_000
     assert len(detail.price_history) == 1
+
+
+def test_price_history_is_a_table_with_confirmed_audit_safe_deletion(
+    client,
+    session_factory,
+    priced_item,
+) -> None:
+    page = client.get(f"/items/{priced_item.item_uuid}")
+
+    assert page.status_code == 200
+    assert '<table class="price-history-table">' in page.text
+    assert "<th>Date Observed</th>" in page.text
+    assert '<th class="numeric">Price</th>' in page.text
+    assert "<th>Action</th>" in page.text
+    assert f'action="/price-observations/{priced_item.previous_uuid}/delete"' in page.text
+    assert f'action="/price-observations/{priced_item.current_uuid}/delete"' in page.text
+    assert "return window.confirm('Delete this price history row?')" in page.text
+    assert 'title="Delete price history row"' in page.text
+    assert 'name="reason"' not in page.text
+
+    response = client.post(
+        f"/price-observations/{priced_item.current_uuid}/delete",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        f"/items/{priced_item.item_uuid}?notice=price-history-deleted#price-panel"
+    )
+    updated_page = client.get(response.headers["location"])
+    assert "Price history row has been deleted." in updated_page.text
+    assert 'value="100"' in updated_page.text
+    assert ">100</td>" in updated_page.text
+    assert ">120</td>" not in updated_page.text
+    assert f'action="/price-observations/{priced_item.current_uuid}/delete"' not in (
+        updated_page.text
+    )
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(priced_item.item_uuid)
+    observations = {
+        observation.observation_uuid: observation for observation in detail.price_history
+    }
+    assert detail.current_price is not None
+    assert detail.current_price.total_price == 100
+    assert observations[priced_item.current_uuid].invalidated_at is not None
+    assert (
+        observations[priced_item.current_uuid].invalidation_reason
+        == "Deleted from item price history"
+    )
 
 
 def test_non_htmx_price_create_redirects_to_search_with_notification(client, catalog_item) -> None:

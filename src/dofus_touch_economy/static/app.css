@@ -212,8 +212,30 @@ button {
 
 .item-table-wrap,
 .sales-table-wrap,
+.price-history-table-wrap,
 .recipe-table-wrap {
   overflow-x: auto;
+}
+
+.price-history-table {
+  border-collapse: collapse;
+  min-width: 28rem;
+  width: 100%;
+}
+
+.price-history-table th {
+  border-bottom: 2px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.price-history-table th.numeric {
+  text-align: right;
+}
+
+.price-history-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem;
 }
 
 .item-table,

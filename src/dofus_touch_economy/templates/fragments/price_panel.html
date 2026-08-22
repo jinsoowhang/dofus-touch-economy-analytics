@@ -28,17 +28,42 @@
   </form>
 
   <h3>Price History</h3>
-  {% if detail.price_history %}
-    <ul>
-      {% for observation in detail.price_history %}
-        <li class="numeric">
-          {{ observation.observed_at.strftime("%Y-%m-%d") }} · {{ "{:,}".format(observation.total_price) }} kama
-          {% if observation.invalidated_at %}
-            — invalidated: {{ observation.invalidation_reason }}
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+  {% set visible_price_history = detail.price_history | selectattr('invalidated_at', 'none') | list %}
+  {% if visible_price_history %}
+    <div class="price-history-table-wrap">
+      <table class="price-history-table">
+        <thead>
+          <tr>
+            <th>Date Observed</th>
+            <th class="numeric">Price</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for observation in visible_price_history %}
+            <tr>
+              <td>{{ observation.observed_at.strftime("%Y-%m-%d") }}</td>
+              <td class="numeric">{{ "{:,}".format(observation.total_price) }}</td>
+              <td>
+                <form
+                  method="post"
+                  action="/price-observations/{{ observation.observation_uuid }}/delete"
+                  class="inline-form"
+                  onsubmit="return window.confirm('Delete this price history row?')"
+                >
+                  <button
+                    type="submit"
+                    class="delete-button"
+                    aria-label="Delete {{ observation.observed_at.strftime('%Y-%m-%d') }} price history row for {{ '{:,}'.format(observation.total_price) }}"
+                    title="Delete price history row"
+                  >×</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% else %}
     <p>No price history yet.</p>
   {% endif %}

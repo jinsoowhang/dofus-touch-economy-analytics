@@ -879,14 +879,19 @@ def item_detail(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     updated: Annotated[UUID | None, Query()] = None,
+    notice: str | None = Query(default=None),
 ) -> HTMLResponse:
     catalog = CatalogService(session, settings.market_context)
     try:
         detail = catalog.detail(item_uuid)
     except ItemNotFound:
         return _error_response(request, "Item not found", 404)
-    notification = None
-    if updated is not None:
+    notifications = {
+        "price-history-deleted": "Price history row has been deleted.",
+        "price-history-already-deleted": "Price history row was already deleted.",
+    }
+    notification = notifications.get(notice)
+    if notification is None and updated is not None:
         try:
             updated_item = catalog.detail(updated)
         except ItemNotFound:
@@ -898,6 +903,33 @@ def item_detail(
         "item_detail.html",
         context=_detail_context(detail, notification=notification),
     )
+
+
+@router.post(
+    "/price-observations/{observation_uuid}/delete",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def delete_price_history_row(
+    request: Request,
+    observation_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
+    service = PriceService(session, settings.market_context)
+    try:
+        item_uuid = service.item_uuid_for_observation(observation_uuid)
+    except ObservationNotFound:
+        return _error_response(request, "Price history row not found", 404)
+    notice = "price-history-deleted"
+    try:
+        service.invalidate(observation_uuid, "Deleted from item price history")
+    except ObservationConflict:
+        notice = "price-history-already-deleted"
+    redirect_url = f"/items/{item_uuid}?notice={notice}#price-panel"
+    if _is_htmx(request):
+        return Response(status_code=204, headers={"HX-Redirect": redirect_url})
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 
 @router.post(

@@ -396,3 +396,12 @@ add optional direct-entry pricing or reporting when requested.
   profit support, summary totals, cost coverage, and accessible daily values.
 - The full check passed with 170 tests. A live read-only smoke rendered the new columns
   and correctly reported missing cost coverage without modifying Sales data.
+
+## Follow-up: Price History Table and Deletion
+
+- Replaced the Item detail price-history list with a Date Observed, Price, and Action
+  table using comma-formatted values.
+- Added a confirmed X action that removes a row from the visible table by audit-safe
+  invalidation; deleting the current observation restores the previous valid price.
+- The full check passed with 171 tests. A read-only live smoke confirmed the table and
+  delete controls without changing live price history.
