@@ -55,6 +55,67 @@ def test_blank_search_lists_full_catalog_alphabetically(session_factory) -> None
     assert [result.display_name for result in results] == ["Alpha Item", "Zeta Item"]
 
 
+@pytest.mark.parametrize(
+    ("sort_field", "sort_direction", "expected"),
+    [
+        ("name", "desc", ["Zeta Belt", "Synthetic Ore", "Alpha Hat"]),
+        ("category", "asc", ["Zeta Belt", "Alpha Hat", "Synthetic Ore"]),
+        ("price", "desc", ["Alpha Hat", "Zeta Belt", "Synthetic Ore"]),
+        ("observed", "asc", ["Synthetic Ore", "Zeta Belt", "Alpha Hat"]),
+    ],
+)
+def test_search_sorts_by_each_requested_field(
+    session_factory,
+    catalog_item,
+    sort_field,
+    sort_direction,
+    expected,
+) -> None:
+    with session_factory() as session:
+        alpha = Item(
+            display_name="Alpha Hat",
+            normalized_name="alpha hat",
+            category="Hat",
+            identity_category="hat",
+        )
+        zeta = Item(
+            display_name="Zeta Belt",
+            normalized_name="zeta belt",
+            category="Belt",
+            identity_category="belt",
+        )
+        session.add_all([alpha, zeta])
+        session.commit()
+        price_service = PriceService(session, "Dodge")
+        price_service.record(catalog_item.uuid, price_command(100))
+        price_service.record(
+            zeta.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=200,
+                observed_at=datetime(2026, 8, 21, tzinfo=UTC),
+            ),
+        )
+        price_service.record(
+            alpha.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=300,
+                observed_at=datetime(2026, 8, 22, tzinfo=UTC),
+            ),
+        )
+
+    with session_factory() as session:
+        results = CatalogService(session, "Dodge").search(
+            "",
+            limit=None,
+            sort_field=sort_field,
+            sort_direction=sort_direction,
+        )
+
+    assert [result.display_name for result in results] == expected
+
+
 def test_search_summary_includes_current_price(session_factory, catalog_item) -> None:
     with session_factory() as session:
         PriceService(session, "Dodge").record(catalog_item.uuid, price_command(125))

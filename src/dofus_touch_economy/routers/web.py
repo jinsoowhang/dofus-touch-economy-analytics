@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -18,7 +19,12 @@ from dofus_touch_economy.schemas import (
     SaleListingCreate,
     SalePriceUpdate,
 )
-from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
+from dofus_touch_economy.services.catalog import (
+    CatalogItemConflict,
+    CatalogService,
+    ItemSortField,
+    SortDirection,
+)
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     ObservationConflict,
@@ -63,11 +69,18 @@ def _search_context(
     query: str,
     market_context: str,
     *,
+    sort_field: ItemSortField = "name",
+    sort_direction: SortDirection = "asc",
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    items = catalog.search(query, limit=None)
+    items = catalog.search(
+        query,
+        limit=None,
+        sort_field=sort_field,
+        sort_direction=sort_direction,
+    )
     suggestions = catalog.suggest(query, limit=5) if query.strip() and not items else []
     proposed_display_name = catalog.format_display_name(query) if query.strip() else query
     recognized_category = catalog.infer_category(query) if query.strip() else None
@@ -79,10 +92,43 @@ def _search_context(
         "proposed_display_name": proposed_display_name,
         "recognized_category": recognized_category,
         "market_context": market_context,
+        "sort_field": sort_field,
+        "sort_direction": sort_direction,
+        "sort_columns": _sort_columns(query, sort_field, sort_direction),
         "notification": notification,
         "errors": errors or [],
         "form_values": form_values or {},
     }
+
+
+def _sort_columns(
+    query: str,
+    sort_field: ItemSortField,
+    sort_direction: SortDirection,
+) -> list[dict[str, object]]:
+    columns = (
+        ("name", "Item name", False),
+        ("category", "Category", False),
+        ("price", "Current price", True),
+        ("observed", "Last observed", False),
+    )
+    result: list[dict[str, object]] = []
+    for field, label, numeric in columns:
+        active = field == sort_field
+        next_direction = "desc" if active and sort_direction == "asc" else "asc"
+        parameters = {"q": query, "sort": field, "direction": next_direction}
+        result.append(
+            {
+                "field": field,
+                "label": label,
+                "numeric": numeric,
+                "active": active,
+                "direction": sort_direction if active else None,
+                "next_direction": next_direction,
+                "url": f"/items?{urlencode(parameters)}",
+            }
+        )
+    return result
 
 
 def _error_response(request: Request, message: str, status_code: int) -> HTMLResponse:
@@ -307,6 +353,8 @@ def search_items(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     q: str = Query(default=""),
+    sort: Annotated[ItemSortField, Query()] = "name",
+    direction: Annotated[SortDirection, Query()] = "asc",
     updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
     catalog = CatalogService(session, settings.market_context)
@@ -322,6 +370,8 @@ def search_items(
         catalog,
         q,
         settings.market_context,
+        sort_field=sort,
+        sort_direction=direction,
         notification=notification,
     )
     if _is_htmx(request):

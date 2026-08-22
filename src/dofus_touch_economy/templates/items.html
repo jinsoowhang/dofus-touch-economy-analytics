@@ -8,6 +8,8 @@
   {% endif %}
   <form method="get" action="/items" class="search-form">
     <label for="item-query">Item name</label>
+    <input type="hidden" name="sort" value="{{ sort_field }}">
+    <input type="hidden" name="direction" value="{{ sort_direction }}">
     <input
       id="item-query"
       name="q"

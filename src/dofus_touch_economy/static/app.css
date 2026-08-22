@@ -213,6 +213,27 @@ button {
   text-align: right;
 }
 
+.sort-header {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  gap: 0.35rem;
+  text-decoration: none;
+}
+
+.item-table th.numeric .sort-header {
+  justify-content: flex-end;
+}
+
+.sort-header:hover {
+  color: var(--accent);
+}
+
+.sort-arrow {
+  color: var(--accent);
+  font-size: 0.65em;
+}
+
 .item-table td,
 .sales-table td {
   border-bottom: 1px solid var(--border);

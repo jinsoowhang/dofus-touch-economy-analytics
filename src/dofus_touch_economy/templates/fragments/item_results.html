@@ -14,10 +14,23 @@
     <table class="item-table">
       <thead>
         <tr>
-          <th>Item name</th>
-          <th>Category</th>
-          <th class="numeric">Current price</th>
-          <th>Last observed</th>
+          {% for column in sort_columns %}
+            <th
+              {% if column.numeric %}class="numeric"{% endif %}
+              aria-sort="{% if column.active %}{{ 'ascending' if column.direction == 'asc' else 'descending' }}{% else %}none{% endif %}"
+            >
+              <a
+                class="sort-header"
+                href="{{ column.url }}"
+                aria-label="Sort by {{ column.label }}, {{ 'descending' if column.next_direction == 'desc' else 'ascending' }}"
+              >
+                <span>{{ column.label }}</span>
+                {% if column.active %}
+                  <span class="sort-arrow" aria-hidden="true">{{ '▲' if column.direction == 'asc' else '▼' }}</span>
+                {% endif %}
+              </a>
+            </th>
+          {% endfor %}
           <th>Action</th>
         </tr>
       </thead>

@@ -248,6 +248,22 @@ def test_search_field_reduces_catalog_table(client, session_factory, catalog_ite
     assert "1 shown" in response.text
 
 
+def test_item_headers_toggle_sort_and_show_active_direction(client, catalog_item) -> None:
+    response = client.get(
+        "/items",
+        params={"q": "synthetic", "sort": "price", "direction": "desc"},
+    )
+
+    assert response.status_code == 200
+    assert 'name="sort" value="price"' in response.text
+    assert 'name="direction" value="desc"' in response.text
+    assert 'aria-sort="descending"' in response.text
+    assert '<span class="sort-arrow" aria-hidden="true">▼</span>' in response.text
+    assert "/items?q=synthetic&amp;sort=price&amp;direction=asc" in response.text
+    for field in ("name", "category", "price", "observed"):
+        assert f"sort={field}" in response.text
+
+
 def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_item) -> None:
     response = client.get("/items")
     item_url = f"/items/{priced_item.item_uuid}"

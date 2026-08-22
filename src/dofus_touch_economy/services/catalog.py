@@ -1,5 +1,6 @@
 from decimal import Decimal
 from difflib import SequenceMatcher
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -28,6 +29,9 @@ from dofus_touch_economy.services.pricing import (
     calculate_recipe_metrics,
 )
 
+ItemSortField = Literal["name", "category", "price", "observed"]
+SortDirection = Literal["asc", "desc"]
+
 
 class CatalogItemConflict(RuntimeError):
     def __init__(self, candidates: list[ItemSummaryResponse]) -> None:
@@ -42,10 +46,19 @@ class CatalogService:
         self._prices = PriceService(session, market_context)
         self._market_context = market_context
 
-    def search(self, query: str, limit: int | None = 50) -> list[ItemSummaryResponse]:
-        items = self._catalog.search(query, limit)
+    def search(
+        self,
+        query: str,
+        limit: int | None = 50,
+        sort_field: ItemSortField = "name",
+        sort_direction: SortDirection = "asc",
+    ) -> list[ItemSummaryResponse]:
+        repository_limit = limit if sort_field == "name" and sort_direction == "asc" else None
+        items = self._catalog.search(query, repository_limit)
         current_prices = self._prices.current_for_items([item.id for item in items])
-        return [_item_summary(item, current_prices.get(item.id)) for item in items]
+        summaries = [_item_summary(item, current_prices.get(item.id)) for item in items]
+        ordered = _sort_item_summaries(summaries, sort_field, sort_direction)
+        return ordered if limit is None else ordered[:limit]
 
     def suggest(self, query: str, limit: int = 5) -> list[ItemSummaryResponse]:
         if not query.strip():
@@ -224,3 +237,25 @@ def _item_summary(
 
 def _icon_url(item: Item) -> str | None:
     return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"
+
+
+def _sort_item_summaries(
+    items: list[ItemSummaryResponse],
+    sort_field: ItemSortField,
+    sort_direction: SortDirection,
+) -> list[ItemSummaryResponse]:
+    def value(item: ItemSummaryResponse):
+        if sort_field == "name":
+            return item.display_name.casefold()
+        if sort_field == "category":
+            return None if item.category is None else item.category.casefold()
+        if sort_field == "price":
+            return None if item.current_price is None else item.current_price.total_price
+        return None if item.current_price is None else item.current_price.observed_at
+
+    with_value = [item for item in items if value(item) is not None]
+    without_value = [item for item in items if value(item) is None]
+    with_value.sort(key=lambda item: item.display_name.casefold())
+    with_value.sort(key=value, reverse=sort_direction == "desc")
+    without_value.sort(key=lambda item: item.display_name.casefold())
+    return [*with_value, *without_value]
