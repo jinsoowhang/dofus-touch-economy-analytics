@@ -262,6 +262,31 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert response.text.count(f'href="{item_url}"') == 5
 
 
+def test_catalog_and_static_route_show_cached_item_icon(
+    client,
+    session_factory,
+    catalog_item,
+    tmp_path,
+) -> None:
+    icon_directory = tmp_path / "data" / "app" / "item_icons"
+    icon_directory.mkdir(parents=True)
+    icon_content = b"\x89PNG\r\n\x1a\nsynthetic"
+    (icon_directory / f"{catalog_item.uuid}.png").write_bytes(icon_content)
+    with session_factory() as session:
+        item = session.scalar(select(Item).where(Item.uuid == catalog_item.uuid))
+        item.icon_source_url = "https://example.invalid/item.png"
+        session.commit()
+
+    response = client.get("/items", params={"q": catalog_item.display_name})
+
+    assert response.status_code == 200
+    icon_url = f"/item-icons/{catalog_item.uuid}.png"
+    assert f'src="{icon_url}"' in response.text
+    icon_response = client.get(icon_url)
+    assert icon_response.status_code == 200
+    assert icon_response.content == icon_content
+
+
 def test_htmx_search_returns_only_results_fragment(client, catalog_item) -> None:
     response = client.get("/items?q=ore", headers={"HX-Request": "true"})
 

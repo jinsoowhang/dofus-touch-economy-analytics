@@ -5,7 +5,10 @@
     <h1>{{ error }}</h1>
     <p><a href="/items">Return to item search</a></p>
   {% else %}
-    <h1>{{ detail.display_name }}</h1>
+    <h1 class="item-label">
+      {% if detail.icon_url %}<img class="item-icon item-icon-large" src="{{ detail.icon_url }}" alt="">{% endif %}
+      <span>{{ detail.display_name }}</span>
+    </h1>
     <p>
       {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
       Catalog source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
@@ -24,7 +27,12 @@
           {% for ingredient in detail.recipe.ingredients %}
             <tr>
               <td>
-                {{ ingredient.display_name }}
+                <span class="item-label">
+                  {% if ingredient.icon_url %}
+                    <img class="item-icon" src="{{ ingredient.icon_url }}" alt="" loading="lazy">
+                  {% endif %}
+                  <span>{{ ingredient.display_name }}</span>
+                </span>
                 {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">View item</a>{% endif %}
               </td>
               <td class="numeric">{{ ingredient.quantity }}</td>

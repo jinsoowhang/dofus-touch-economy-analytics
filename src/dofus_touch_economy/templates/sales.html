@@ -64,7 +64,14 @@
           <tbody>
             {% for sale in active_sales %}
               <tr>
-                <td><a href="/items/{{ sale.item_uuid }}">{{ sale.display_name }}</a></td>
+                <td>
+                  <a href="/items/{{ sale.item_uuid }}" class="item-label">
+                    {% if sale.icon_url %}
+                      <img class="item-icon" src="{{ sale.icon_url }}" alt="" loading="lazy">
+                    {% endif %}
+                    <span>{{ sale.display_name }}</span>
+                  </a>
+                </td>
                 <td>{{ (sale.category or "Uncategorized") | title }}</td>
                 <td>
                   <form method="post" action="/sales/{{ sale.uuid }}/price" class="price-edit-form">
@@ -127,7 +134,14 @@
           <tbody>
             {% for sale in sold_sales %}
               <tr>
-                <td><a href="/items/{{ sale.item_uuid }}">{{ sale.display_name }}</a></td>
+                <td>
+                  <a href="/items/{{ sale.item_uuid }}" class="item-label">
+                    {% if sale.icon_url %}
+                      <img class="item-icon" src="{{ sale.icon_url }}" alt="" loading="lazy">
+                    {% endif %}
+                    <span>{{ sale.display_name }}</span>
+                  </a>
+                </td>
                 <td class="numeric">{{ sale.asking_price or "—" }}</td>
                 <td class="numeric">{{ sale.lot_quantity }}</td>
                 <td>

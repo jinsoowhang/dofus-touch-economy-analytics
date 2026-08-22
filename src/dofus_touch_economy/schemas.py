@@ -77,6 +77,7 @@ class SaleItemChoiceResponse(BaseModel):
     uuid: UUID
     display_name: str
     category: str | None
+    icon_url: str | None
 
 
 class SaleListingResponse(BaseModel):
@@ -84,6 +85,7 @@ class SaleListingResponse(BaseModel):
     item_uuid: UUID
     display_name: str
     category: str | None
+    icon_url: str | None
     lot_quantity: int
     asking_price: int | None
     selling_started_at: datetime
@@ -94,6 +96,7 @@ class ItemSummaryResponse(BaseModel):
     uuid: UUID
     display_name: str
     category: str | None
+    icon_url: str | None
     created_source: Literal["imported", "manual"]
     current_price: CurrentPriceResponse | None = None
 
@@ -120,6 +123,7 @@ class RecipeIngredientResponse(BaseModel):
     position: int
     item_uuid: UUID | None
     display_name: str
+    icon_url: str | None
     raw_name: str
     quantity: int
     current_price: CurrentPriceResponse | None
@@ -144,6 +148,7 @@ class ItemDetailResponse(BaseModel):
     uuid: UUID
     display_name: str
     category: str | None
+    icon_url: str | None
     created_source: Literal["imported", "manual"]
     market_context: str
     current_price: CurrentPriceResponse | None

@@ -66,6 +66,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
     item_columns = {column["name"] for column in inspect(engine).get_columns("items")}
     sale_columns = {column["name"] for column in inspect(engine).get_columns("sale_listings")}
     assert "created_source" in item_columns
+    assert "icon_source_url" in item_columns
     assert "asking_price" in sale_columns
     with engine.connect() as connection:
         source = connection.scalar(

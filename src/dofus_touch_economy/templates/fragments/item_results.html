@@ -26,7 +26,14 @@
         {% set item_url = "/items/" ~ item.uuid %}
         <tr class="item-row">
           <td class="item-name">
-            <a class="item-cell-link" href="{{ item_url }}">{{ item.display_name }}</a>
+            <a class="item-cell-link" href="{{ item_url }}">
+              <span class="item-label">
+                {% if item.icon_url %}
+                  <img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">
+                {% endif %}
+                <span>{{ item.display_name }}</span>
+              </span>
+            </a>
           </td>
           <td>
             <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
@@ -70,7 +77,12 @@
     <ul>
       {% for item in suggestions %}
         <li>
-          <a href="/items/{{ item.uuid }}">{{ item.display_name }}</a>
+          <a href="/items/{{ item.uuid }}" class="item-label">
+            {% if item.icon_url %}
+              <img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">
+            {% endif %}
+            <span>{{ item.display_name }}</span>
+          </a>
           <span>{{ (item.category or "Uncategorized") | title }}</span>
         </li>
       {% endfor %}

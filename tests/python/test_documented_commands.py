@@ -8,6 +8,7 @@ def test_documented_entry_points_exist() -> None:
     ]
 
     assert scripts == {
+        "dofus-fetch-icons": "dofus_touch_economy.cli:fetch_icons_main",
         "dofus-import": "dofus_touch_economy.cli:import_main",
         "dofus-web": "dofus_touch_economy.cli:web_main",
     }

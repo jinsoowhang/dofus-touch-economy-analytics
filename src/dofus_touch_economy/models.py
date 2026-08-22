@@ -93,6 +93,7 @@ class Item(Base):
     category: Mapped[str | None] = mapped_column(String)
     identity_category: Mapped[str] = mapped_column(String, nullable=False)
     created_source: Mapped[str] = mapped_column(String(16), default="imported", nullable=False)
+    icon_source_url: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )

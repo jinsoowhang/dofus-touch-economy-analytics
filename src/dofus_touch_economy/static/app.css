@@ -243,6 +243,25 @@ button {
   font-weight: 700;
 }
 
+.item-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.65rem;
+}
+
+.item-icon {
+  flex: 0 0 auto;
+  height: 2.5rem;
+  image-rendering: auto;
+  object-fit: contain;
+  width: 2.5rem;
+}
+
+.item-icon-large {
+  height: 4rem;
+  width: 4rem;
+}
+
 .inline-form {
   display: block;
 }

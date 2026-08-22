@@ -170,6 +170,7 @@ class CatalogService:
                             if ingredient.item is None
                             else ingredient.item.display_name
                         ),
+                        icon_url=(None if ingredient.item is None else _icon_url(ingredient.item)),
                         raw_name=ingredient.raw_name,
                         quantity=ingredient.quantity,
                         current_price=ingredient_current,
@@ -197,6 +198,7 @@ class CatalogService:
             uuid=item.uuid,
             display_name=item.display_name,
             category=item.category,
+            icon_url=_icon_url(item),
             created_source=item.created_source,
             market_context=self._market_context,
             current_price=current_price,
@@ -214,6 +216,11 @@ def _item_summary(
         uuid=item.uuid,
         display_name=item.display_name,
         category=item.category,
+        icon_url=_icon_url(item),
         created_source=item.created_source,
         current_price=current_price,
     )
+
+
+def _icon_url(item: Item) -> str | None:
+    return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"

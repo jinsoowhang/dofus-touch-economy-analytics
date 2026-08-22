@@ -72,6 +72,14 @@ def create_app(
         StaticFiles(directory=static_directory, check_dir=False),
         name="static",
     )
+    application.mount(
+        "/item-icons",
+        StaticFiles(
+            directory=resolved_settings.project_root / "data" / "app" / "item_icons",
+            check_dir=False,
+        ),
+        name="item-icons",
+    )
     application.include_router(web.router)
     application.include_router(api.router, prefix="/api/v1")
     return application

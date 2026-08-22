@@ -63,6 +63,42 @@ def web_main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
+def fetch_icons_main(argv: Sequence[str] | None = None) -> int:
+    from dofus_touch_economy.icon_fetcher import fetch_item_icons
+
+    parser = argparse.ArgumentParser(description="Cache item icons for the local catalog")
+    parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--workers", type=int, default=8)
+    arguments = parser.parse_args(argv)
+    if arguments.workers < 1:
+        parser.error("workers must be positive")
+
+    settings = Settings.from_env()
+    engine = create_engine_for_url(settings.database_url)
+    try:
+        summary = fetch_item_icons(
+            create_session_factory(engine),
+            settings.project_root / "data" / "app" / "item_icons",
+            refresh=arguments.refresh,
+            max_workers=arguments.workers,
+        )
+    finally:
+        engine.dispose()
+
+    print(
+        f"catalog={summary.catalog_count} cached={summary.cached_count} "
+        f"touch={summary.touch_match_count} fallback={summary.fallback_match_count} "
+        f"wiki={summary.wiki_match_count} "
+        f"ambiguous={summary.ambiguous_match_count} downloaded={summary.downloaded_count} "
+        f"missing={len(summary.missing_names)} failed={len(summary.failed_names)}"
+    )
+    for name in summary.missing_names:
+        print(f"missing icon: {name}")
+    for name in summary.failed_names:
+        print(f"failed download: {name}")
+    return 1 if summary.missing_names or summary.failed_names else 0
+
+
 def _is_loopback(host: str) -> bool:
     if host.casefold() == "localhost":
         return True

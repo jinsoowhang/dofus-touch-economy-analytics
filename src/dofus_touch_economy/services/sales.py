@@ -39,6 +39,7 @@ class SalesService:
                 uuid=item.uuid,
                 display_name=item.display_name,
                 category=item.category,
+                icon_url=_icon_url(item),
             )
             for item in self._catalog.search("", limit=None)
         ]
@@ -114,6 +115,7 @@ def _response(listing: SaleListing) -> SaleListingResponse:
         item_uuid=listing.item.uuid,
         display_name=listing.item.display_name,
         category=listing.item.category,
+        icon_url=_icon_url(listing.item),
         lot_quantity=listing.lot_quantity,
         asking_price=listing.asking_price,
         selling_started_at=_as_utc(listing.selling_started_at),
@@ -125,3 +127,7 @@ def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _icon_url(item: Item) -> str | None:
+    return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"
