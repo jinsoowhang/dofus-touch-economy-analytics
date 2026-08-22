@@ -102,6 +102,41 @@ def fetch_icons_main(argv: Sequence[str] | None = None) -> int:
     return 1 if summary.missing_names or summary.failed_names else 0
 
 
+def sync_catalog_main(argv: Sequence[str] | None = None) -> int:
+    from dofus_touch_economy.icon_fetcher import sync_touch_catalog
+
+    parser = argparse.ArgumentParser(
+        description="Sync exchangeable items and icons from the Dofus Touch client"
+    )
+    parser.add_argument("--refresh-icons", action="store_true")
+    parser.add_argument("--workers", type=int, default=8)
+    arguments = parser.parse_args(argv)
+    if arguments.workers < 1:
+        parser.error("workers must be positive")
+
+    settings = Settings.from_env()
+    engine = create_engine_for_url(settings.database_url)
+    try:
+        summary = sync_touch_catalog(
+            create_session_factory(engine),
+            settings.project_root / "data" / "app" / "item_icons",
+            refresh_icons=arguments.refresh_icons,
+            max_workers=arguments.workers,
+        )
+    finally:
+        engine.dispose()
+
+    print(
+        f"source={summary.source_count} matched={summary.matched_count} "
+        f"created={summary.created_count} catalog={summary.catalog_count} "
+        f"cached={summary.cached_count} downloaded={summary.downloaded_count} "
+        f"failed={len(summary.failed_names)}"
+    )
+    for name in summary.failed_names:
+        print(f"failed download: {name}")
+    return 1 if summary.failed_names else 0
+
+
 def _is_loopback(host: str) -> bool:
     if host.casefold() == "localhost":
         return True

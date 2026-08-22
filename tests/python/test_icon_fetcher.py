@@ -1,7 +1,150 @@
 from sqlalchemy import select
 
-from dofus_touch_economy.icon_fetcher import PNG_SIGNATURE, fetch_item_icons
+from dofus_touch_economy.icon_fetcher import (
+    PNG_SIGNATURE,
+    fetch_item_icons,
+    sync_touch_catalog,
+)
 from dofus_touch_economy.models import Item
+
+
+def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
+    session_factory,
+    catalog_item,
+    tmp_path,
+) -> None:
+    items_payload = {
+        "1": {
+            "id": 1,
+            "iconId": 100,
+            "nameId": catalog_item.display_name,
+            "typeId": 10,
+            "exchangeable": True,
+        },
+        "2": {
+            "id": 2,
+            "iconId": 200,
+            "nameId": "Alpha Ring",
+            "typeId": 20,
+            "exchangeable": True,
+        },
+        "3": {
+            "id": 3,
+            "iconId": 300,
+            "nameId": "Alpha Ring",
+            "typeId": 20,
+            "exchangeable": True,
+        },
+        "4": {
+            "id": 4,
+            "iconId": 400,
+            "nameId": "Hidden Ring",
+            "typeId": 20,
+            "exchangeable": False,
+        },
+    }
+    types_payload = {
+        "10": {"id": 10, "nameId": "Ore"},
+        "20": {"id": 20, "nameId": "Ring"},
+    }
+
+    def fetch_json(url, payload):
+        if "config.json" in url:
+            return {
+                "dataUrl": "https://data.ankama-games.com",
+                "assetsUrl": "https://touch.cdn.ankama.com/assets/version",
+            }
+        if payload == {"class": "Items", "lang": "en"}:
+            return items_payload
+        if payload == {"class": "ItemTypes", "lang": "en"}:
+            return types_payload
+        raise AssertionError(f"unexpected request: {url} {payload}")
+
+    downloaded_urls: list[str] = []
+
+    def fetch_bytes(url):
+        downloaded_urls.append(url)
+        return PNG_SIGNATURE + b"synthetic"
+
+    icon_directory = tmp_path / "icons"
+    summary = sync_touch_catalog(
+        session_factory,
+        icon_directory,
+        json_fetcher=fetch_json,
+        bytes_fetcher=fetch_bytes,
+    )
+
+    assert summary.source_count == 2
+    assert summary.matched_count == 1
+    assert summary.created_count == 1
+    assert summary.catalog_count == 2
+    assert summary.cached_count == 0
+    assert summary.downloaded_count == 2
+    assert summary.failed_names == ()
+    assert set(downloaded_urls) == {
+        "https://touch.cdn.ankama.com/assets/version/gfx/items/100.png",
+        "https://touch.cdn.ankama.com/assets/version/gfx/items/200.png",
+    }
+    with session_factory() as session:
+        items = {item.display_name: item for item in session.scalars(select(Item)).all()}
+    assert items["Alpha Ring"].category == "Ring"
+    assert items["Alpha Ring"].created_source == "imported"
+    assert "Hidden Ring" not in items
+    assert (icon_directory / f"{items['Alpha Ring'].uuid}.png").is_file()
+
+    repeated = sync_touch_catalog(
+        session_factory,
+        icon_directory,
+        json_fetcher=fetch_json,
+        bytes_fetcher=lambda _url: (_ for _ in ()).throw(AssertionError("unexpected download")),
+    )
+
+    assert repeated.matched_count == 2
+    assert repeated.created_count == 0
+    assert repeated.catalog_count == 2
+    assert repeated.cached_count == 2
+    assert repeated.downloaded_count == 0
+
+
+def test_sync_preserves_existing_category_for_unique_exact_name(
+    session_factory,
+    catalog_item,
+    tmp_path,
+) -> None:
+    def fetch_json(url, payload):
+        if "config.json" in url:
+            return {
+                "dataUrl": "https://data.ankama-games.com",
+                "assetsUrl": "https://touch.cdn.ankama.com/assets/version",
+            }
+        if payload == {"class": "Items", "lang": "en"}:
+            return {
+                "1": {
+                    "id": 1,
+                    "iconId": 100,
+                    "nameId": catalog_item.display_name,
+                    "typeId": 10,
+                    "exchangeable": True,
+                }
+            }
+        if payload == {"class": "ItemTypes", "lang": "en"}:
+            return {"10": {"id": 10, "nameId": "Resource"}}
+        raise AssertionError(f"unexpected request: {url} {payload}")
+
+    summary = sync_touch_catalog(
+        session_factory,
+        tmp_path / "icons",
+        json_fetcher=fetch_json,
+        bytes_fetcher=lambda _url: PNG_SIGNATURE,
+    )
+
+    assert summary.matched_count == 1
+    assert summary.created_count == 0
+    with session_factory() as session:
+        item = session.scalar(select(Item))
+    assert item is not None
+    assert item.uuid == catalog_item.uuid
+    assert item.category == "Ore"
 
 
 def test_fetches_exact_touch_and_dofusdb_fallback_icons(

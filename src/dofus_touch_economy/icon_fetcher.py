@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -65,6 +65,17 @@ class IconFetchSummary:
 
 
 @dataclass(frozen=True)
+class CatalogSyncSummary:
+    source_count: int
+    matched_count: int
+    created_count: int
+    catalog_count: int
+    cached_count: int
+    downloaded_count: int
+    failed_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class _Target:
     item_id: int
     uuid: UUID
@@ -80,6 +91,95 @@ class _Candidate:
     normalized_name: str
     source_url: str
     source: str
+
+
+@dataclass(frozen=True)
+class _CatalogCandidate:
+    item_id: int
+    icon_id: int
+    display_name: str
+    normalized_name: str
+    category: str
+    identity_category: str
+    source_url: str
+
+
+def sync_touch_catalog(
+    session_factory: sessionmaker[Session],
+    icon_directory: Path,
+    *,
+    refresh_icons: bool = False,
+    max_workers: int = 8,
+    json_fetcher: JsonFetcher | None = None,
+    bytes_fetcher: BytesFetcher | None = None,
+) -> CatalogSyncSummary:
+    if max_workers < 1:
+        raise ValueError("max_workers must be positive")
+    fetch_json = json_fetcher or _fetch_json
+    fetch_bytes = bytes_fetcher or _fetch_bytes
+    config = fetch_json(TOUCH_CONFIG_URL, None)
+    data_url = _trusted_config_url(config, "dataUrl", ".ankama-games.com")
+    assets_url = _trusted_config_url(config, "assetsUrl", ".ankama.com")
+    items_payload = fetch_json(
+        f"{data_url.rstrip('/')}/data/map",
+        {"class": "Items", "lang": "en"},
+    )
+    types_payload = fetch_json(
+        f"{data_url.rstrip('/')}/data/map",
+        {"class": "ItemTypes", "lang": "en"},
+    )
+    candidates = _touch_catalog_candidates(
+        items_payload,
+        types_payload,
+        f"{assets_url.rstrip('/')}/gfx/items",
+    )
+    targets, matched_count, created_count, catalog_count = _sync_catalog_items(
+        session_factory,
+        candidates,
+    )
+    icon_directory.mkdir(parents=True, exist_ok=True)
+    cached_targets = [
+        target
+        for target in targets
+        if not refresh_icons and _icon_path(icon_directory, target.uuid).is_file()
+    ]
+    pending_targets = [target for target in targets if target not in cached_targets]
+    successful_sources = {
+        target.item_id: target.icon_source_url
+        for target in cached_targets
+        if target.icon_source_url is not None
+    }
+    failed_names: list[str] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                _download_icon,
+                fetch_bytes,
+                target.icon_source_url,
+                _icon_path(icon_directory, target.uuid),
+            ): target
+            for target in pending_targets
+            if target.icon_source_url is not None
+        }
+        for future in as_completed(futures):
+            target = futures[future]
+            try:
+                future.result()
+            except (HTTPError, URLError, OSError, ValueError):
+                failed_names.append(target.display_name)
+            else:
+                successful_sources[target.item_id] = target.icon_source_url
+
+    _record_sources(session_factory, successful_sources)
+    return CatalogSyncSummary(
+        source_count=len(candidates),
+        matched_count=matched_count,
+        created_count=created_count,
+        catalog_count=catalog_count,
+        cached_count=len(cached_targets),
+        downloaded_count=len(successful_sources) - len(cached_targets),
+        failed_names=tuple(sorted(failed_names)),
+    )
 
 
 def fetch_item_icons(
@@ -202,6 +302,118 @@ def _load_targets(session_factory: sessionmaker[Session]) -> list[_Target]:
             ).order_by(Item.normalized_name, Item.id)
         )
         return [_Target(*row) for row in rows]
+
+
+def _touch_catalog_candidates(
+    items_payload: Any,
+    types_payload: Any,
+    assets_url: str,
+) -> list[_CatalogCandidate]:
+    if not isinstance(items_payload, dict) or not isinstance(types_payload, dict):
+        raise ValueError("Dofus Touch catalog payloads must be objects")
+    item_types = {
+        value["id"]: value["nameId"]
+        for value in types_payload.values()
+        if isinstance(value, dict)
+        and isinstance(value.get("id"), int)
+        and isinstance(value.get("nameId"), str)
+        and value["nameId"].strip()
+    }
+    by_identity: defaultdict[tuple[str, str], list[_CatalogCandidate]] = defaultdict(list)
+    for value in items_payload.values():
+        if not isinstance(value, dict) or value.get("exchangeable") is not True:
+            continue
+        item_id = value.get("id")
+        icon_id = value.get("iconId")
+        display_name = value.get("nameId")
+        category = item_types.get(value.get("typeId"))
+        if (
+            not isinstance(item_id, int)
+            or not isinstance(icon_id, int)
+            or icon_id <= 0
+            or not isinstance(display_name, str)
+            or not display_name.strip()
+            or category is None
+        ):
+            continue
+        normalized_name = normalize_item_name(display_name)
+        identity_category = normalize_item_name(category)
+        by_identity[(normalized_name, identity_category)].append(
+            _CatalogCandidate(
+                item_id=item_id,
+                icon_id=icon_id,
+                display_name=display_name.strip(),
+                normalized_name=normalized_name,
+                category=category.strip(),
+                identity_category=identity_category,
+                source_url=f"{assets_url.rstrip('/')}/{icon_id}.png",
+            )
+        )
+    return sorted(
+        (
+            min(candidates, key=lambda candidate: (candidate.item_id, candidate.icon_id))
+            for candidates in by_identity.values()
+        ),
+        key=lambda candidate: (
+            candidate.normalized_name,
+            candidate.identity_category,
+            candidate.item_id,
+        ),
+    )
+
+
+def _sync_catalog_items(
+    session_factory: sessionmaker[Session],
+    candidates: list[_CatalogCandidate],
+) -> tuple[list[_Target], int, int, int]:
+    candidate_name_counts = Counter(candidate.normalized_name for candidate in candidates)
+    with session_factory() as session:
+        existing_items = list(session.scalars(select(Item).order_by(Item.id)))
+        by_identity = {
+            (item.normalized_name, item.identity_category): item for item in existing_items
+        }
+        by_name: defaultdict[str, list[Item]] = defaultdict(list)
+        for item in existing_items:
+            by_name[item.normalized_name].append(item)
+
+        matched_count = 0
+        created_count = 0
+        targets: list[_Target] = []
+        for candidate in candidates:
+            identity = (candidate.normalized_name, candidate.identity_category)
+            item = by_identity.get(identity)
+            if (
+                item is None
+                and candidate_name_counts[candidate.normalized_name] == 1
+                and len(by_name[candidate.normalized_name]) == 1
+            ):
+                item = by_name[candidate.normalized_name][0]
+            if item is None:
+                item = Item(
+                    display_name=candidate.display_name,
+                    normalized_name=candidate.normalized_name,
+                    category=candidate.category,
+                    identity_category=candidate.identity_category,
+                    created_source="imported",
+                )
+                session.add(item)
+                session.flush()
+                by_identity[identity] = item
+                by_name[item.normalized_name].append(item)
+                created_count += 1
+            else:
+                matched_count += 1
+            targets.append(
+                _Target(
+                    item_id=item.id,
+                    uuid=item.uuid,
+                    display_name=item.display_name,
+                    normalized_name=item.normalized_name,
+                    icon_source_url=candidate.source_url,
+                )
+            )
+        session.commit()
+        return targets, matched_count, created_count, len(existing_items) + created_count
 
 
 def _touch_candidates(payload: Any, assets_url: str) -> dict[str, list[_Candidate]]:
