@@ -326,3 +326,14 @@ add optional direct-entry pricing or reporting when requested.
   or blur without an Update button.
 - The full check passed with 160 tests; live smoke checks confirmed the new markup and
   scripts, and a missing-price request left all 79 Sales rows unchanged.
+
+## Follow-up: Sales Recovery, Item Categories, and Price Formatting
+
+- Added a ↩ Sold History action that returns the same row to Currently Selling by
+  clearing only `date_sold`, while preserving its price, dates, UUID, history, and sort state.
+- Added an optional Item Search Category filter that combines with the name query and
+  persists through live filtering and column sorting.
+- Displayed prices with comma grouping and accepted correctly grouped comma-formatted
+  values in Item Search and Sales price inputs.
+- The full check passed with 163 tests; live read-only checks confirmed all three
+  features while counts remained at 79 Sales rows and 1,038 price observations.
