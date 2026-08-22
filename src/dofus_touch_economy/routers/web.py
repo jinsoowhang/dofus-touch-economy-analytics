@@ -185,7 +185,7 @@ def _sort_columns(
     result: list[dict[str, object]] = []
     for field, label, numeric in columns:
         active = field == sort_field
-        next_direction = "desc" if active and sort_direction == "asc" else "asc"
+        next_direction = "asc" if active and sort_direction == "desc" else "desc"
         parameters = {
             "q": query,
             "category": category,
@@ -447,7 +447,7 @@ def _sales_sort_columns(
     result: list[dict[str, object]] = []
     for field, label, numeric in columns:
         active = field == sort_field
-        next_direction = "desc" if active and sort_direction == "asc" else "asc"
+        next_direction = "asc" if active and sort_direction == "desc" else "desc"
         if table == "active":
             parameters = {
                 "active_sort": field,
@@ -470,7 +470,10 @@ def _sales_sort_columns(
                 "active": active,
                 "direction": sort_direction if active else None,
                 "next_direction": next_direction,
-                "url": f"/sales?{urlencode(parameters)}",
+                "url": (
+                    f"/sales?{urlencode(parameters)}#"
+                    f"{'currently-selling' if table == 'active' else 'sold-history'}"
+                ),
             }
         )
     return result

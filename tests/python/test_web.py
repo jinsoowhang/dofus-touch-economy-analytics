@@ -422,11 +422,14 @@ def test_sales_tables_sort_independently_and_show_directions(
     assert '<span class="sort-arrow" aria-hidden="true">▼</span>' in response.text
     assert '<span class="sort-arrow" aria-hidden="true">▲</span>' in response.text
     assert (
-        "active_sort=price&amp;active_direction=asc&amp;sold_sort=name&amp;sold_direction=asc"
+        "active_sort=price&amp;active_direction=asc&amp;sold_sort=name&amp;"
+        "sold_direction=asc#currently-selling"
     ) in response.text
     assert (
-        "active_sort=price&amp;active_direction=desc&amp;sold_sort=sold&amp;sold_direction=asc"
+        "active_sort=price&amp;active_direction=desc&amp;sold_sort=sold&amp;"
+        "sold_direction=desc#sold-history"
     ) in response.text
+    assert '<details id="sold-history" class="collapsible-section" open>' in response.text
     active_section, sold_section = response.text.split("<h2>Sold History</h2>")
     active_section = active_section.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
     assert active_section.index("Alpha Hat") < active_section.index(catalog_item.display_name)
@@ -549,10 +552,10 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     )
 
     assert response.status_code == 200
-    assert 'aria-label="Sort currently selling by Cost, ascending"' in response.text
+    assert 'aria-label="Sort currently selling by Cost, descending"' in response.text
     assert 'aria-label="Sort currently selling by Profit, ascending"' in response.text
-    assert 'aria-label="Sort sold history by Cost, ascending"' in response.text
-    assert 'aria-label="Sort sold history by Profit, ascending"' in response.text
+    assert 'aria-label="Sort sold history by Cost, descending"' in response.text
+    assert 'aria-label="Sort sold history by Profit, descending"' in response.text
     assert 'name="recipe_cost"' not in response.text
     assert 'name="profit"' not in response.text
     active_section, sold_section = response.text.split("<h2>Sold History</h2>")
@@ -652,7 +655,8 @@ def test_item_search_category_filter_reduces_results_and_persists_in_sorting(
     assert '<option value="ring" selected>Ring</option>' in response.text
     assert "Alpha Ring" in response.text
     assert "Alpha Hat" not in response.text
-    assert "q=alpha&amp;category=ring&amp;sort=price&amp;direction=asc" in response.text
+    assert "q=alpha&amp;category=ring&amp;sort=price&amp;direction=desc" in response.text
+    assert 'aria-label="Sort by Current Price, descending"' in response.text
 
 
 def test_item_headers_toggle_sort_and_show_active_direction(client, catalog_item) -> None:

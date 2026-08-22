@@ -414,3 +414,12 @@ add optional direct-entry pricing or reporting when requested.
   item's completed sales, excluding active listings and showing the sample count.
 - The full check passed with 172 tests. A read-only live smoke confirmed real Sold
   History suggestions render without submitting or changing live data.
+
+## Follow-up: Descending-First Sorting and Section Anchors
+
+- Made inactive sortable headers start in descending order across Item Search and
+  Sales while active headers continue toggling normally.
+- Added Currently Selling and Sold History anchors so sorting returns to the table
+  section where the action originated.
+- The full check passed with 172 tests. A read-only live smoke confirmed descending
+  labels and Sold History anchor links without modifying live data.
