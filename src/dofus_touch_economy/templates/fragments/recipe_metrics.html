@@ -1,0 +1,29 @@
+<details id="recipe-metrics" class="collapsible-section" open{% if oob|default(false) %} hx-swap-oob="true"{% endif %}>
+  <summary><h2>Crafting Metrics</h2></summary>
+  {% if detail.recipe %}
+    {% if detail.metrics.is_complete %}
+      <div class="crafting-metrics-grid">
+        <div class="crafting-metric">
+          <span>Recipe Cost</span>
+          <strong>{{ "{:,}".format(detail.metrics.recipe_cost) }} kama</strong>
+        </div>
+        {% if detail.metrics.profit is not none %}
+          <div class="crafting-metric">
+            <span>Profit</span>
+            <strong>{{ "{:,}".format(detail.metrics.profit) }} kama</strong>
+          </div>
+        {% endif %}
+        {% if detail.metrics.roi is not none %}
+          <div class="crafting-metric">
+            <span>ROI</span>
+            <strong>{{ "{:.2%}".format(detail.metrics.roi) }}</strong>
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="metric-message">Recipe cost is incomplete.</p>
+    {% endif %}
+  {% else %}
+    <p class="metric-message">No recipe is available for this item.</p>
+  {% endif %}
+</details>

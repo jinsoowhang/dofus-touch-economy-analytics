@@ -2,7 +2,7 @@
 
 ## What This Is
 
-This repository is a public, reproducible analytics project for player-observed Dofus Touch economy data. The current milestone establishes local tooling, public-safe boundaries, and documentation; ingestion and analytical models start only after source contracts are deterministic.
+This repository is a public, reproducible analytics project with a local FastAPI application for player-observed Dofus Touch economy data. SQLite owns operational catalog and price state; DuckDB and dbt remain the deferred downstream analytical layer.
 
 ## Session Workflow
 
@@ -19,8 +19,11 @@ This repository is a public, reproducible analytics project for player-observed 
 - `analyses/` holds dbt analyses.
 - `tests/dbt/` holds singular dbt tests.
 - `tests/python/` holds Python tests.
-- `src/` is reserved for future contract validation and DuckDB loading code.
+- `src/dofus_touch_economy/` contains the FastAPI application, source-contract validation, imports, repositories, services, templates, and vendored assets.
+- `migrations/` contains Alembic revisions for the operational SQLite schema.
 - `data/raw/` is for local raw exports only and is ignored except for its README.
+- `data/app/` is for ignored SQLite operational databases.
+- `data/reports/` is for ignored import validation and conflict reports.
 - `data/samples/` is for synthetic public fixtures with clear provenance.
 - `data/warehouse/` is for ignored local DuckDB artifacts.
 - `docs/` holds architecture, source contracts, and ADRs.
@@ -30,10 +33,14 @@ This repository is a public, reproducible analytics project for player-observed 
 
 - Install Python 3.12 if needed: `uv python install 3.12`
 - Sync the environment: `uv sync --locked --all-groups`
+- Migrate a local app database: `DOFUS_APP_DATABASE_PATH=data/app/dofus_touch.sqlite3 uv run alembic upgrade head`
+- Import the ignored cost and recipe exports: `uv run dofus-import`
+- Start the loopback-only website: `uv run dofus-web`
 - Run the full local check sequence: `./scripts/check.sh`
 - Run Python lint: `uv run ruff check .`
 - Check Python formatting: `uv run ruff format --check .`
 - Run Python tests: `uv run pytest`
+- Compile the application package: `uv run python -m compileall -q src`
 - Validate the dbt profile: `DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .`
 - Parse the dbt project: `DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .`
 - Lint SQL: `DO_NOT_TRACK=1 uv run sqlfluff lint models analyses`
@@ -54,6 +61,10 @@ This repository is a public, reproducible analytics project for player-observed 
 - Prefer portable SQL. If DuckDB-specific logic is necessary, isolate it in focused macros or ingestion code.
 - Use generic schema tests for keys and relationships, and singular dbt tests for invariants that need custom assertions.
 - Preserve raw values as observed. Report parsing issues or validation failures explicitly instead of silently repairing them.
+- Keep routers limited to transport concerns; persistence belongs in repositories and commands/calculations belong in services.
+- Treat price observations as append-only lot totals. Invalidate incorrect observations with a reason instead of editing or deleting them.
+- Keep FastAPI writes in SQLite. Do not add request-time DuckDB writes.
+- Keep the documented web command loopback-only; public binding requires a separate security design.
 - Make the smallest change that satisfies the task, keep commits atomic, and avoid unrelated refactors.
 
 ## Verification
@@ -66,7 +77,7 @@ This repository is a public, reproducible analytics project for player-observed 
 ## Ignore or Avoid
 
 - Keep `data/raw/` private. Put local exports there under the canonical names documented in `data/raw/README.md`.
-- Keep DuckDB files, spreadsheets, credentials, `.env` files, `.user.yml`, task-observer logs, and `.worktrees/` out of Git by using the existing ignored local paths.
+- Keep SQLite and DuckDB files, import reports, spreadsheets, credentials, `.env` files, `.user.yml`, task-observer logs, and `.worktrees/` out of Git by using the existing ignored local paths.
 - Publish only synthetic sample data unless redistribution rights are documented.
 - Preserve source values exactly as collected. If a contract is unclear, stop and document the blocker rather than guessing.
 - Do not automate game-client actions or external collection workflows unless the user gives explicit authorization.
@@ -77,5 +88,8 @@ This repository is a public, reproducible analytics project for player-observed 
 - [docs/architecture.md](docs/architecture.md) for system boundaries and flow.
 - [docs/data-contract.md](docs/data-contract.md) for source requirements and blockers.
 - [docs/adr/0001-use-dbt-and-duckdb.md](docs/adr/0001-use-dbt-and-duckdb.md) for the stack decision.
+- [docs/adr/0002-use-sqlite-for-operational-state.md](docs/adr/0002-use-sqlite-for-operational-state.md) for operational and analytical database ownership.
+- `notes/FastAPI Item Search and Price Tracking Design.md` for the approved application design.
+- `notes/FastAPI Item Search and Price Tracking Implementation Plan.md` for the current task map.
 - `notes/Dofus Touch Economy Analytics Scaffold Design.md` for the approved scaffold design.
 - `notes/Dofus Touch Economy Analytics Scaffold Implementation Plan.md` for the implementation task map.

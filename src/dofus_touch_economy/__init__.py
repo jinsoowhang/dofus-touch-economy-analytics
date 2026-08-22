@@ -1,0 +1,1 @@
+"""Dofus Touch economy application."""

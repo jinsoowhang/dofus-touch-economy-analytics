@@ -1,21 +1,28 @@
 # Dofus Touch Economy Analytics
 
-Analytics engineering for player-observed item prices, crafting economics, and sales behavior in Dofus Touch.
+Local-first item search, market-price tracking, and analytics engineering for a player-observed Dofus Touch economy.
 
 This is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Ankama. Dofus Touch and related names belong to their respective owners.
 
-Status: this repository currently provides a reproducible dbt and DuckDB foundation only. Ingestion waits on deterministic ISO dates or approved source parsing rules, and domain modeling additionally waits on final row-grain and duplicate-cost decisions.
-
-Architecture:
+The current application milestone provides a loopback-only FastAPI website backed by SQLite. It imports catalog and recipe structure from local CSV exports, records append-only market observations, and calculates crafting cost, profit, and ROI. DuckDB and dbt remain the downstream analytical layer; the SQLite-to-DuckDB bridge and analytical models are deferred.
 
 ```text
-private CSV exports
-    -> contract validation and DuckDB loading
-    -> dbt staging / intermediate / marts
-    -> governed metrics / optional semantic layer and BI
+ignored item_cost.csv + item_recipes.csv
+                    |
+                    v
+          validation and import report
+                    |
+                    v
+       ignored SQLite operational database
+          |                       |
+          v                       v
+ FastAPI + Jinja + HTMX    deferred DuckDB ingestion
+                                  |
+                                  v
+                     dbt staging / intermediate / marts
 ```
 
-See [docs/architecture.md](docs/architecture.md) for component boundaries and flow details.
+See [docs/architecture.md](docs/architecture.md) for component ownership and data-flow details.
 
 ## Local setup
 
@@ -25,34 +32,67 @@ Requirements:
 - Git
 - `uv`
 
-Commands:
+Install the locked Python 3.12 environment:
 
 ```bash
 uv python install 3.12
 uv sync --locked --all-groups
-./scripts/check.sh
 ```
+
+Place the private exports at `data/raw/item_cost.csv` and `data/raw/item_recipes.csv`, then migrate, import, and start the application:
+
+```bash
+DOFUS_APP_DATABASE_PATH=data/app/dofus_touch.sqlite3 uv run alembic upgrade head
+uv run dofus-import
+uv run dofus-web
+```
+
+The website binds to `127.0.0.1:8000` by default. Public or non-loopback binding is rejected because it requires a separate authentication, authorization, CSRF, HTTPS, secrets, and production-database design.
+
+Search is normalized and case-insensitive. When no catalog item matches, the page shows
+advisory spelling suggestions and an **Add item** form. Manually added items can receive
+price observations immediately. A later import reuses the same normalized
+name/category identity, or enriches a sole uncategorized manual item without changing
+its UUID or price history.
+
+The top navigation contains an **Item Search** tab and is ready for additional pages.
+The item page lists the full catalog alphabetically beneath the search field, including
+category, latest unit price, observed lot, and observation time. Typing filters the
+table by item name. Clicking any row opens item detail, where a new audited price
+observation can be recorded.
+
+Manual item names are whitespace-normalized and title-cased. The add form recognizes
+common equipment types from a complete final word, so `chouquish belt` previews and
+creates `Chouquish Belt` in category `Belt`. The category remains editable as an
+explicit override.
+
+The import command validates both CSV contracts before writing, stores accepted and rejected source-row provenance in SQLite, and writes an ignored report to `data/reports/latest-import.json`. A repeated dataset checksum is a no-op. A result containing rejected rows returns a nonzero exit code while retaining valid rows from the completed transaction.
 
 ## Data boundary
 
-Private raw exports stay local and Git-ignored under these canonical names:
+Private raw exports, operational databases, import reports, DuckDB files, and generated artifacts remain local and Git-ignored. Only invented synthetic fixtures are committed, and CI never requires private data.
 
-- `data/raw/item_sales.csv`
-- `data/raw/item_recipes.csv`
-- `data/raw/item_cost.csv`
+- `item_cost.csv` and `item_recipes.csv` are in application-import scope.
+- `item_sales.csv` remains deferred until dates and row grain are deterministic.
+- Imported `item_cost.price` values are preserved as reconciliation provenance; they are not treated as timestamped current market observations.
+- Current prices come only from valid manual lot observations recorded through the application for its configured market context.
 
-Only synthetic fixtures with clear provenance belong in `data/samples/`. See [docs/data-contract.md](docs/data-contract.md) for the source contract and current blockers.
+See [docs/data-contract.md](docs/data-contract.md) for exact source and operational contracts.
 
 ## Repository structure
 
-- `models/`: dbt staging, intermediate, and marts layers
+- `src/dofus_touch_economy/`: FastAPI application, import contracts, services, repositories, templates, and vendored static assets
+- `migrations/`: Alembic operational-database migrations
+- `models/`: deferred dbt staging, intermediate, and marts layers
 - `analyses/`: dbt analyses and exploratory SQL
 - `tests/dbt/`: dbt singular test SQL
-- `tests/python/`: Python unit tests
-- `src/`: future ingestion and validation code
-- `data/`: ignored raw data, synthetic samples, and ignored local warehouse files
-- `docs/`: architecture, source contracts, and ADRs
-- `notes/`: design decisions, plans, and session notes
+- `tests/python/`: synthetic application and repository tests
+- `data/raw/`: ignored source exports
+- `data/app/`: ignored SQLite operational state
+- `data/reports/`: ignored import reports
+- `data/warehouse/`: ignored DuckDB analytical state
+- `docs/`: architecture, contracts, and ADRs
+- `notes/`: approved designs, implementation plans, and session notes
 
 ## Development commands
 
@@ -60,14 +100,15 @@ Only synthetic fixtures with clear provenance belong in `data/samples/`. See [do
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
+uv run python -m compileall -q src
 DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .
 DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
 DO_NOT_TRACK=1 uv run sqlfluff lint models analyses
 uv run python scripts/check_public_files.py
 ```
 
-For the full local verification sequence, run `./scripts/check.sh`.
+Run the complete local and CI-equivalent sequence with `./scripts/check.sh`.
 
 ## Licensing
 
-The repository's MIT license covers original code and documentation only. It does not grant rights to source data, game content, names, artwork, or other third-party material. Raw data remains local unless redistribution rights are established.
+The repository's MIT license covers original code and documentation only. It does not grant rights to source data, game content, names, artwork, or other third-party material. Vendored HTMX retains its upstream license. Raw data remains local unless redistribution rights are established.

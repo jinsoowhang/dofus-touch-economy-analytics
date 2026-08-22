@@ -10,7 +10,9 @@ def test_allows_public_repository_files() -> None:
     paths = [
         "README.md",
         ".env.example",
+        "data/app/README.md",
         "data/raw/README.md",
+        "data/reports/README.md",
         "data/samples/example.csv",
         "data/warehouse/README.md",
         "models/staging/stg_source__items.sql",
@@ -39,6 +41,24 @@ def test_rejects_private_or_generated_files() -> None:
         "logs/dbt.log",
         ".user.yml",
         "target/manifest.json",
+    ]
+
+    assert find_forbidden_tracked_paths(paths) == sorted(paths)
+
+
+def test_rejects_application_state() -> None:
+    paths = [
+        "data/app/dofus_touch.sqlite3",
+        "data/app/dofus_touch.sqlite3-wal",
+        "data/app/dofus_touch.sqlite3-shm",
+        "data/app/local.db-journal",
+        "data/app/local.sqlite-journal",
+        "data/app/dofus_touch.sqlite3-journal",
+        "data/reports/import-report.json",
+        "nested/LOCAL.DB",
+        "nested/local.db-journal",
+        "nested/local.sqlite-journal",
+        "nested/LOCAL.SQLITE3-JOURNAL",
     ]
 
     assert find_forbidden_tracked_paths(paths) == sorted(paths)

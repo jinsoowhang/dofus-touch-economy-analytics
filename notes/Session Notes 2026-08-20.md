@@ -38,3 +38,27 @@ Established the public and local analytics foundation for Dofus Touch economy wo
 ## Next Step
 
 Obtain deterministic ISO dates through a source re-export or an explicitly approved parsing rule, then implement test-driven source validation and immutable DuckDB loading before adding dbt models.
+
+## FastAPI Website Implementation Checkpoint
+
+### What was done
+
+1. Approved and committed the FastAPI item-search and price-tracking design and implementation plan.
+2. Created the isolated `feature/fastapi-price-tracking` worktree.
+3. Packaged the Python application and pinned FastAPI, SQLAlchemy, Alembic, Jinja, Uvicorn, and HTTPX dependencies.
+4. Protected SQLite databases, WAL/SHM/rollback journals, and import reports from Git.
+5. Added deterministic application settings and the SQLite engine/session boundary using test-driven development.
+
+### Current state
+
+- Task 1 passed implementation, spec, and quality review.
+- Task 2 has seven focused tests passing and passed spec review.
+- Task 2 quality review identified two portability concerns requiring investigation: threaded in-memory SQLite pooling and database filenames containing `?`.
+- No Task 3 work has started.
+- The feature and main worktrees are clean; the feature remains unmerged and unpushed.
+
+### Next steps
+
+1. Reproduce the two Task 2 quality concerns with failing tests.
+2. Fix confirmed issues and complete quality re-review.
+3. Begin Task 3: SQLAlchemy operational schema and Alembic migration.

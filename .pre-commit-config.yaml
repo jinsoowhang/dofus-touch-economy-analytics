@@ -16,6 +16,11 @@ repos:
         entry: uv run pytest
         language: system
         pass_filenames: false
+      - id: compile-application
+        name: compile application
+        entry: uv run python -m compileall -q src
+        language: system
+        pass_filenames: false
       - id: dbt-parse
         name: dbt parse
         entry: env DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Dofus Touch Economy{% endblock %}</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/htmx.min.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="/items" class="site-brand">Dofus Touch Economy</a>
+        <nav class="site-tabs" aria-label="Primary navigation">
+          <a
+            href="/items"
+            class="site-tab{% if active_tab == 'items' %} is-active{% endif %}"
+            {% if active_tab == "items" %}aria-current="page"{% endif %}
+          >Item Search</a>
+          <a
+            href="/sales"
+            class="site-tab{% if active_tab == 'sales' %} is-active{% endif %}"
+            {% if active_tab == "sales" %}aria-current="page"{% endif %}
+          >Sales</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-shell">
+      {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

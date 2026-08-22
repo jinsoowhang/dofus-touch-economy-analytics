@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Sales · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Sales</h1>
+  {% if notification %}
+    <p class="notification" role="status">{{ notification }}</p>
+  {% endif %}
+  {% if errors %}
+    <div role="alert">
+      <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <details class="collapsible-section" open>
+    <summary><h2>Add an Item to Sell</h2></summary>
+    <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
+      <label for="sale-category">Category (Optional)</label>
+      <select id="sale-category" name="category">
+        <option value="">All categories</option>
+        {% for category in category_choices %}
+          <option
+            value="{{ category.key }}"
+            {% if form_values.get('category') == category.key %}selected{% endif %}
+          >{{ category.label }}</option>
+        {% endfor %}
+      </select>
+      <label for="sale-item">Item</label>
+      <select id="sale-item" name="item_uuid" required>
+        <option value="">Choose an item</option>
+        {% for item in item_choices %}
+          <option
+            value="{{ item.uuid }}"
+            data-category="{{ item.category_key }}"
+            data-name="{{ item.display_name }}"
+            data-suggested-price="{{ '{:,}'.format(item.suggested_price) if item.suggested_price is not none else '' }}"
+            data-sold-count="{{ item.sold_count }}"
+            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
+          >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
+        {% endfor %}
+      </select>
+      <p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>
+      <label for="sale-asking-price">Sale Price</label>
+      <input
+        id="sale-asking-price"
+        name="asking_price"
+        inputmode="numeric"
+        value="{{ form_values.get('asking_price', '') }}"
+        required
+      >
+      <button type="submit">Add listing</button>
+    </form>
+  </details>
+
+  <details id="currently-selling" class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Currently Selling</h2>
+        <span>{{ active_sales | length }} active · Total Price: {{ "{:,}".format(active_total_price) }}</span>
+      </span>
+    </summary>
+    {% if active_sales %}
+      <div class="sales-table-wrap">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              {% for column in active_sort_columns %}
+                <th
+                  {% if column.numeric %}class="numeric"{% endif %}
+                  aria-sort="{% if column.active %}{{ 'ascending' if column.direction == 'asc' else 'descending' }}{% else %}none{% endif %}"
+                >
+                  <a
+                    class="sort-header"
+                    href="{{ column.url }}"
+                    aria-label="Sort currently selling by {{ column.label }}, {{ 'descending' if column.next_direction == 'desc' else 'ascending' }}"
+                  >
+                    <span>{{ column.label }}</span>
+                    {% if column.active %}
+                      <span class="sort-arrow" aria-hidden="true">{{ '▲' if column.direction == 'asc' else '▼' }}</span>
+                    {% endif %}
+                  </a>
+                </th>
+              {% endfor %}
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sale in active_sales %}
+              {% set selling_started_at = sale.selling_started_at | pacific_time %}
+              <tr>
+                <td>
+                  <a href="/items/{{ sale.item_uuid }}" class="item-label">
+                    {% if sale.icon_url %}
+                      <img class="item-icon" src="{{ sale.icon_url }}" alt="" loading="lazy">
+                    {% endif %}
+                    <span>{{ sale.display_name }}</span>
+                  </a>
+                </td>
+                <td>{{ (sale.category or "Uncategorized") | title }}</td>
+                <td>
+                  <form method="post" action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}" class="price-edit-form">
+                    <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
+                      Sale Price for {{ sale.display_name }}
+                    </label>
+                    <input
+                      id="sale-price-{{ sale.uuid }}"
+                      name="asking_price"
+                      inputmode="numeric"
+                      value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
+                      data-initial-value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
+                      title="Click to edit. Press Enter or leave the field to save."
+                      required
+                    >
+                  </form>
+                </td>
+                <td class="numeric">{{ "{:,}".format(sale.recipe_cost) if sale.recipe_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.profit) if sale.profit is not none else "—" }}</td>
+                <td>
+                  <time datetime="{{ selling_started_at.isoformat() }}">
+                    {{ selling_started_at.strftime("%Y-%m-%d") }}
+                  </time>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <form method="post" action="/sales/{{ sale.uuid }}/duplicate?{{ sales_sort_query }}" class="inline-form">
+                      <button
+                        type="submit"
+                        class="action-icon-button secondary-button"
+                        aria-label="Duplicate sale row for {{ sale.display_name }}"
+                        title="Duplicate listing"
+                      ><span aria-hidden="true">⧉</span></button>
+                    </form>
+                    <form method="post" action="/sales/{{ sale.uuid }}/sold?{{ sales_sort_query }}" class="inline-form">
+                      <button
+                        type="submit"
+                        class="action-icon-button"
+                        aria-label="Mark {{ sale.display_name }} as sold"
+                        title="Mark as sold"
+                      ><span aria-hidden="true">✓</span></button>
+                    </form>
+                    <form
+                      method="post"
+                      action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
+                      class="inline-form"
+                      onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
+                    >
+                      <button
+                        type="submit"
+                        class="delete-button"
+                        aria-label="Delete sale row for {{ sale.display_name }}"
+                        title="Delete sale row"
+                      >×</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No items are currently being sold.</p>
+    {% endif %}
+  </details>
+
+  <details id="sold-history" class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Sold History</h2>
+        <span>{{ sold_sales | length }} sold</span>
+      </span>
+    </summary>
+    {% if sold_sales %}
+      <div class="sales-table-wrap">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              {% for column in sold_sort_columns %}
+                <th
+                  {% if column.numeric %}class="numeric"{% endif %}
+                  aria-sort="{% if column.active %}{{ 'ascending' if column.direction == 'asc' else 'descending' }}{% else %}none{% endif %}"
+                >
+                  <a
+                    class="sort-header"
+                    href="{{ column.url }}"
+                    aria-label="Sort sold history by {{ column.label }}, {{ 'descending' if column.next_direction == 'desc' else 'ascending' }}"
+                  >
+                    <span>{{ column.label }}</span>
+                    {% if column.active %}
+                      <span class="sort-arrow" aria-hidden="true">{{ '▲' if column.direction == 'asc' else '▼' }}</span>
+                    {% endif %}
+                  </a>
+                </th>
+              {% endfor %}
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sale in sold_sales %}
+              {% set selling_started_at = sale.selling_started_at | pacific_time %}
+              {% set date_sold = sale.date_sold | pacific_time %}
+              <tr>
+                <td>
+                  <a href="/items/{{ sale.item_uuid }}" class="item-label">
+                    {% if sale.icon_url %}
+                      <img class="item-icon" src="{{ sale.icon_url }}" alt="" loading="lazy">
+                    {% endif %}
+                    <span>{{ sale.display_name }}</span>
+                  </a>
+                </td>
+                <td class="numeric">{{ "{:,}".format(sale.asking_price) if sale.asking_price is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.recipe_cost) if sale.recipe_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.profit) if sale.profit is not none else "—" }}</td>
+                <td>
+                  <time datetime="{{ selling_started_at.isoformat() }}">
+                    {{ selling_started_at.strftime("%Y-%m-%d") }}
+                  </time>
+                </td>
+                <td>
+                  <time datetime="{{ date_sold.isoformat() }}">
+                    {{ date_sold.strftime("%Y-%m-%d") }}
+                  </time>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <form method="post" action="/sales/{{ sale.uuid }}/reopen?{{ sales_sort_query }}" class="inline-form">
+                      <button
+                        type="submit"
+                        class="reopen-button"
+                        aria-label="Return {{ sale.display_name }} to Currently Selling"
+                        title="Return to Currently Selling"
+                      >↩</button>
+                    </form>
+                    <form
+                      method="post"
+                      action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
+                      class="inline-form"
+                      onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
+                    >
+                      <button
+                        type="submit"
+                        class="delete-button"
+                        aria-label="Delete sale row for {{ sale.display_name }}"
+                        title="Delete sale row"
+                      >×</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No completed sales yet.</p>
+    {% endif %}
+  </details>
+
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Sales Over Time</h2>
+        <span>Pacific Time</span>
+      </span>
+    </summary>
+    {% if sales_chart %}
+      <div class="sales-metrics" aria-label="Sales summary">
+        <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Total Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
+        <div><span>Total Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
+        <div><span>Items Sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
+        <div><span>Average Priced Sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
+        <div><span>Cost Coverage</span><strong>{{ sales_chart.cost_coverage_label }}</strong></div>
+      </div>
+      <div class="chart-legend" aria-label="Chart series">
+        {% for series in sales_chart.series %}
+          <span><i class="chart-legend-swatch chart-legend-swatch--{{ series.key }}" aria-hidden="true"></i>{{ series.label }}</span>
+        {% endfor %}
+      </div>
+      <p class="chart-note">
+        Cost and Profit use current recipe ingredient prices. Items with incomplete recipe costs are excluded from those totals.
+      </p>
+      <div class="sales-chart-wrap">
+        <svg
+          class="sales-chart"
+          viewBox="0 0 {{ sales_chart.width }} {{ sales_chart.height }}"
+          role="img"
+          aria-labelledby="sales-chart-title sales-chart-description"
+        >
+          <title id="sales-chart-title">Daily sales, cost, and profit by date sold</title>
+          <desc id="sales-chart-description">
+            A multi-line chart of summed sale prices, known recipe costs, and known profits for sold items on each Pacific calendar date.
+          </desc>
+          {% for tick in sales_chart.y_ticks %}
+            <line
+              class="chart-grid-line"
+              x1="{{ sales_chart.left }}"
+              x2="{{ sales_chart.right_x }}"
+              y1="{{ tick.y }}"
+              y2="{{ tick.y }}"
+            ></line>
+            <text class="chart-axis-label" x="{{ sales_chart.left - 10 }}" y="{{ tick.y + 4 }}" text-anchor="end">
+              {{ tick.label }}
+            </text>
+          {% endfor %}
+          <line
+            class="chart-axis-line"
+            x1="{{ sales_chart.left }}"
+            x2="{{ sales_chart.right_x }}"
+            y1="{{ sales_chart.bottom_y }}"
+            y2="{{ sales_chart.bottom_y }}"
+          ></line>
+          {% for series in sales_chart.series %}
+            {% for segment in series.segments %}
+              <polyline class="chart-series chart-series--{{ series.key }}" points="{{ segment }}"></polyline>
+            {% endfor %}
+            {% for point in series.points %}
+              <circle class="chart-point chart-point--{{ series.key }}" cx="{{ point.x }}" cy="{{ point.y }}" r="5">
+                <title>
+                  {{ series.label }} on {{ point.date }}: {{ point.value_label }} across {{ point.item_count }} {{ "item" if point.item_count == 1 else "items" }}
+                </title>
+              </circle>
+            {% endfor %}
+          {% endfor %}
+          {% for label in sales_chart.x_labels %}
+            <text class="chart-axis-label" x="{{ label.x }}" y="{{ sales_chart.bottom_y + 24 }}" text-anchor="middle">
+              {{ label.date }}
+            </text>
+          {% endfor %}
+          <text class="chart-axis-title" x="{{ (sales_chart.left + sales_chart.right_x) / 2 }}" y="{{ sales_chart.height - 6 }}" text-anchor="middle">
+            Date Sold (Pacific Time)
+          </text>
+          <text
+            class="chart-axis-title"
+            x="16"
+            y="{{ (sales_chart.top + sales_chart.bottom_y) / 2 }}"
+            text-anchor="middle"
+            transform="rotate(-90 16 {{ (sales_chart.top + sales_chart.bottom_y) / 2 }})"
+          >Amount</text>
+        </svg>
+      </div>
+      <details class="sales-data-details">
+        <summary>View Daily Totals</summary>
+        <table class="sales-data-table">
+          <thead>
+            <tr>
+              <th>Date Sold</th>
+              <th class="numeric">Sales</th>
+              <th class="numeric">Cost</th>
+              <th class="numeric">Profit</th>
+              <th class="numeric">Items Sold</th>
+              <th class="numeric">Costed Items</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for day in sales_chart.daily_totals %}
+              <tr>
+                <td>{{ day.sold_on.isoformat() }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_price) }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_cost) if day.total_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_profit) if day.total_profit is not none else "—" }}</td>
+                <td class="numeric">{{ day.sold_count }}</td>
+                <td class="numeric">{{ day.costed_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    {% else %}
+      <p>Mark an item as sold to start the daily sales chart.</p>
+    {% endif %}
+  </details>
+{% endblock %}
+{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}

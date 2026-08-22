@@ -1,0 +1,74 @@
+<details id="price-panel" class="collapsible-section" open>
+  <summary><h2>Current Price</h2></summary>
+
+  {% if errors %}
+    <div role="alert">
+      <p>Could not save the current price:</p>
+      <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  {% set current_price_value = form_values.get('current_price', ("{:,}".format(detail.current_price.total_price) if detail.current_price else '')) %}
+  <form
+    method="post"
+    action="/items/{{ detail.uuid }}/price"
+    class="price-edit-form item-current-price-form"
+  >
+    <label class="visually-hidden" for="item-current-price">Current Price for {{ detail.display_name }}</label>
+    <input
+      id="item-current-price"
+      name="current_price"
+      inputmode="numeric"
+      value="{{ current_price_value }}"
+      data-initial-value="{{ '{:,}'.format(detail.current_price.total_price) if detail.current_price else '' }}"
+      placeholder="—"
+      title="Click to edit. Press Enter or leave the field to save."
+      required
+    >
+  </form>
+
+  <h3>Price History</h3>
+  {% set visible_price_history = detail.price_history | selectattr('invalidated_at', 'none') | list %}
+  {% if visible_price_history %}
+    <div class="price-history-table-wrap">
+      <table class="price-history-table">
+        <thead>
+          <tr>
+            <th>Date Observed</th>
+            <th class="numeric">Price</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for observation in visible_price_history %}
+            <tr>
+              <td>{{ observation.observed_at.strftime("%Y-%m-%d") }}</td>
+              <td class="numeric">{{ "{:,}".format(observation.total_price) }}</td>
+              <td>
+                <form
+                  method="post"
+                  action="/price-observations/{{ observation.observation_uuid }}/delete"
+                  class="inline-form"
+                  onsubmit="return window.confirm('Delete this price history row?')"
+                >
+                  <button
+                    type="submit"
+                    class="delete-button"
+                    aria-label="Delete {{ observation.observed_at.strftime('%Y-%m-%d') }} price history row for {{ '{:,}'.format(observation.total_price) }}"
+                    title="Delete price history row"
+                  >×</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>No price history yet.</p>
+  {% endif %}
+</details>
+{% if include_metrics_oob %}
+  {% set oob = true %}
+  {% include "fragments/recipe_metrics.html" %}
+{% endif %}

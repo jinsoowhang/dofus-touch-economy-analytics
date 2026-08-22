@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{% if detail %}{{ detail.display_name }}{% else %}Item Not Found{% endif %} · Dofus Touch Economy{% endblock %}
+{% block content %}
+  {% if error %}
+    <h1>{{ error }}</h1>
+    <p><a href="/items">Return to item search</a></p>
+  {% else %}
+    {% if notification %}
+      <p class="notification" role="status">{{ notification }}</p>
+    {% endif %}
+    <h1 class="item-label">
+      {% if detail.icon_url %}<img class="item-icon item-icon-large" src="{{ detail.icon_url }}" alt="">{% endif %}
+      <span>{{ detail.display_name }}</span>
+    </h1>
+    <p>
+      {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
+      Catalog Source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
+    </p>
+    {% include "fragments/price_panel.html" %}
+
+    {% if detail.recipe %}
+      <details id="recipe" class="collapsible-section" open>
+        <summary><h2>Recipe · {{ detail.recipe.profession }}</h2></summary>
+        {% if recipe_errors %}
+          <div role="alert">
+            <p>Could not save the ingredient price:</p>
+            <ul>{% for message in recipe_errors %}<li>{{ message }}</li>{% endfor %}</ul>
+          </div>
+        {% endif %}
+        <div class="recipe-table-wrap">
+        <table class="recipe-table">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th class="numeric">Quantity</th>
+              <th class="numeric">Per Unit Price</th>
+              <th class="numeric">Total Cost</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for ingredient in detail.recipe.ingredients %}
+            <tr>
+              <td>
+                <span class="item-label">
+                  {% if ingredient.icon_url %}
+                    <img class="item-icon" src="{{ ingredient.icon_url }}" alt="" loading="lazy">
+                  {% endif %}
+                  {% if ingredient.item_uuid %}
+                    <a class="recipe-item-link" href="/items/{{ ingredient.item_uuid }}">{{ ingredient.display_name }}</a>
+                  {% else %}
+                    <span>{{ ingredient.display_name }}</span>
+                  {% endif %}
+                </span>
+              </td>
+              <td class="numeric">{{ ingredient.quantity }}</td>
+              <td class="numeric">
+                {% if ingredient.item_uuid %}
+                  {% set is_edited_ingredient = recipe_form_values.get('ingredient_uuid') == ingredient.item_uuid|string %}
+                  {% set ingredient_price_value = recipe_form_values.get('unit_price') if is_edited_ingredient else ("{:,}".format(ingredient.current_price.unit_price) if ingredient.current_price else '') %}
+                  <form
+                    method="post"
+                    action="/items/{{ detail.uuid }}/recipe-ingredients/{{ ingredient.item_uuid }}/price"
+                    class="price-edit-form recipe-price-edit-form"
+                  >
+                    <label class="visually-hidden" for="recipe-price-{{ ingredient.item_uuid }}">
+                      Per Unit Price for {{ ingredient.display_name }}
+                    </label>
+                    <input
+                      id="recipe-price-{{ ingredient.item_uuid }}"
+                      name="unit_price"
+                      inputmode="numeric"
+                      value="{{ ingredient_price_value }}"
+                      data-initial-value="{{ '{:,}'.format(ingredient.current_price.unit_price) if ingredient.current_price else '' }}"
+                      placeholder="—"
+                      title="Click to edit. Press Enter or leave the field to save."
+                      required
+                    >
+                  </form>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="numeric">
+                {% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}
+              </td>
+              <td class="status">
+                {% if not ingredient.is_resolved %}Unresolved item{% elif not ingredient.current_price %}Price missing{% else %}Priced{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </details>
+    {% endif %}
+    {% include "fragments/recipe_metrics.html" %}
+  {% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}

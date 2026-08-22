@@ -1,0 +1,695 @@
+:root {
+  color-scheme: light dark;
+  --background: #f6f4ef;
+  --surface: #ffffff;
+  --text: #25231f;
+  --muted: #68635a;
+  --border: #cfc9bc;
+  --accent: #28645a;
+  --accent-contrast: #ffffff;
+  --warning: #9a5a00;
+  --danger: #a12d2d;
+  --chart-sales: #28645a;
+  --chart-cost: #b06400;
+  --chart-profit: #7651a8;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #171816;
+    --surface: #222420;
+    --text: #f2efe7;
+    --muted: #bbb5a9;
+    --border: #4f514a;
+    --accent: #75c8b8;
+    --accent-contrast: #10221f;
+    --warning: #f0b35f;
+    --danger: #ff8b8b;
+    --chart-sales: #75c8b8;
+    --chart-cost: #f0b35f;
+    --chart-profit: #c7a8f3;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page-shell {
+  margin-inline: auto;
+  max-width: 72rem;
+  padding: 1rem clamp(1rem, 4vw, 3rem);
+}
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+  align-items: end;
+  display: flex;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  margin-inline: auto;
+  max-width: 72rem;
+  padding: 0.8rem clamp(1rem, 4vw, 3rem) 0;
+}
+
+.site-brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding-block-end: 0.8rem;
+  text-decoration: none;
+}
+
+.site-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.site-tab {
+  border-bottom: 0.25rem solid transparent;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0.8rem 0.9rem 0.55rem;
+  text-decoration: none;
+}
+
+.site-tab:hover,
+.site-tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.collapsible-section,
+.search-form,
+.add-item-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  margin-block: 1rem;
+  padding: 1rem;
+}
+
+.collapsible-section > summary {
+  color: var(--text);
+  cursor: pointer;
+}
+
+.collapsible-section > summary::marker {
+  color: var(--accent);
+}
+
+.collapsible-section > summary h2 {
+  display: inline;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.collapsible-section[open] > summary {
+  margin-block-end: 1rem;
+}
+
+.section-summary {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  width: calc(100% - 1.5rem);
+}
+
+.section-summary > span {
+  color: var(--muted);
+}
+
+form {
+  align-items: end;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(8rem, 1fr));
+}
+
+form label,
+form textarea,
+form .htmx-indicator {
+  grid-column: 1 / -1;
+}
+
+.sale-price-suggestion {
+  color: var(--accent);
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+input,
+textarea,
+select,
+button {
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  font: inherit;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.7rem;
+}
+
+button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+[role="alert"] {
+  border-left: 0.35rem solid var(--danger);
+  color: var(--danger);
+  padding-inline: 0.75rem;
+}
+
+.notification {
+  animation: notification-dismiss 250ms ease 3s forwards;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-left: 0.35rem solid var(--accent);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--text) 18%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+  inset: 1rem 1rem auto auto;
+  margin: 0;
+  max-width: min(24rem, calc(100vw - 2rem));
+  padding: 0.75rem;
+  position: fixed;
+  z-index: 10;
+}
+
+@keyframes notification-dismiss {
+  to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    visibility: hidden;
+  }
+}
+
+.status {
+  color: var(--warning);
+  font-weight: 650;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.item-table-wrap,
+.sales-table-wrap,
+.price-history-table-wrap,
+.recipe-table-wrap {
+  overflow-x: auto;
+}
+
+.price-history-table {
+  border-collapse: collapse;
+  min-width: 28rem;
+  width: 100%;
+}
+
+.price-history-table th {
+  border-bottom: 2px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.price-history-table th.numeric {
+  text-align: right;
+}
+
+.price-history-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem;
+}
+
+.item-table,
+.sales-table {
+  border-collapse: collapse;
+  min-width: 50rem;
+  width: 100%;
+}
+
+.item-table th,
+.sales-table th {
+  border-bottom: 2px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.item-table th.numeric,
+.sales-table th.numeric {
+  text-align: right;
+}
+
+.sort-header {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  gap: 0.35rem;
+  text-decoration: none;
+}
+
+.item-table th.numeric .sort-header {
+  justify-content: flex-end;
+}
+
+.sort-header:hover {
+  color: var(--accent);
+}
+
+.sort-arrow {
+  color: var(--accent);
+  font-size: 0.65em;
+}
+
+.item-table td,
+.sales-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+}
+
+.sales-table td,
+.sales-table th {
+  padding: 0.75rem;
+}
+
+.item-table tbody tr:hover,
+.item-table tbody tr:focus-within {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.item-cell-link {
+  color: inherit;
+  display: block;
+  min-height: 3.25rem;
+  padding: 0.8rem 0.75rem;
+  text-decoration: none;
+}
+
+.item-name .item-cell-link,
+.item-action .item-cell-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.item-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.65rem;
+}
+
+.item-icon {
+  flex: 0 0 auto;
+  height: 2.5rem;
+  image-rendering: auto;
+  object-fit: contain;
+  width: 2.5rem;
+}
+
+.item-icon-large {
+  height: 4rem;
+  width: 4rem;
+}
+
+.inline-form {
+  display: block;
+}
+
+.inline-form button {
+  min-height: 2.2rem;
+}
+
+.price-edit-form,
+.row-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.price-edit-form {
+  flex-direction: row;
+  margin: 0;
+}
+
+.price-edit-form input {
+  background: transparent;
+  border-color: transparent transparent var(--border);
+  border-radius: 0;
+  min-height: 2.2rem;
+  min-width: 7rem;
+  padding-inline: 0.25rem;
+  text-align: right;
+  width: 8rem;
+}
+
+.price-edit-form input:hover,
+.price-edit-form input:focus {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border-color: var(--accent);
+  border-radius: 0.25rem;
+}
+
+.secondary-button {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.action-icon-button {
+  font-size: 1.25rem;
+  line-height: 1;
+  min-height: 2.2rem;
+  min-width: 2.5rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.item-current-price-form input {
+  font-size: 1.35rem;
+  font-weight: 750;
+  width: 12rem;
+}
+
+.crafting-metrics-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.crafting-metric {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+}
+
+.crafting-metric span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.crafting-metric strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-message {
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+  border-left: 0.3rem solid var(--warning);
+  margin: 0;
+  padding: 0.8rem;
+}
+
+.reopen-button {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 1.25rem;
+  line-height: 1;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.reopen-button:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.delete-button {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+  font-size: 1.2rem;
+  line-height: 1;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.delete-button:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+
+.sales-metrics {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-block: 1rem;
+}
+
+.sales-metrics div {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+}
+
+.sales-metrics span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sales-metrics strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sales-chart-wrap {
+  overflow-x: auto;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin-block: 0.75rem;
+}
+
+.chart-legend > span {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 0.4rem;
+}
+
+.chart-legend-swatch {
+  background: currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.25rem;
+  width: 1.5rem;
+}
+
+.chart-legend-swatch--sales {
+  color: var(--chart-sales);
+}
+
+.chart-legend-swatch--cost {
+  color: var(--chart-cost);
+}
+
+.chart-legend-swatch--profit {
+  color: var(--chart-profit);
+}
+
+.chart-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-block: 0 0.75rem;
+}
+
+.sales-chart {
+  color: var(--muted);
+  display: block;
+  min-width: 46rem;
+  width: 100%;
+}
+
+.chart-grid-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-axis-line {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.chart-series {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.chart-point {
+  fill: var(--surface);
+  stroke-width: 4;
+}
+
+.chart-series--sales,
+.chart-point--sales {
+  stroke: var(--chart-sales);
+}
+
+.chart-series--cost,
+.chart-point--cost {
+  stroke: var(--chart-cost);
+}
+
+.chart-series--profit,
+.chart-point--profit {
+  stroke: var(--chart-profit);
+}
+
+.chart-axis-label,
+.chart-axis-title {
+  fill: currentColor;
+  font-family: inherit;
+}
+
+.chart-axis-label {
+  font-size: 12px;
+}
+
+.chart-axis-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sales-data-details {
+  margin-block-start: 0.75rem;
+}
+
+.sales-data-details summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.sales-data-table {
+  border-collapse: collapse;
+  margin-block-start: 0.75rem;
+  width: 100%;
+}
+
+.sales-data-table th,
+.sales-data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem;
+  text-align: left;
+}
+
+.sales-data-table .numeric {
+  text-align: right;
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.recipe-table {
+  border-collapse: collapse;
+  min-width: 52rem;
+  width: 100%;
+}
+
+.recipe-table th,
+.recipe-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.7rem;
+  text-align: left;
+}
+
+.recipe-table .numeric {
+  text-align: right;
+}
+
+.recipe-item-link {
+  font-weight: 750;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.16em;
+}
+
+.htmx-indicator {
+  color: var(--muted);
+  opacity: 0;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  .site-header-inner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .site-brand {
+    padding-block-end: 0.25rem;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recipe-table {
+    min-width: 0;
+  }
+
+  .recipe-table thead {
+    display: none;
+  }
+
+  .recipe-table tbody,
+  .recipe-table tr,
+  .recipe-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .recipe-table tr {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    margin-block: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  .sales-metrics {
+    grid-template-columns: 1fr;
+  }
+}
