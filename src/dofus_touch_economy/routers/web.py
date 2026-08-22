@@ -275,6 +275,7 @@ def root() -> RedirectResponse:
 def sales_page(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
     notice: str | None = Query(default=None),
     active_sort: Annotated[SaleSortField, Query()] = "started",
     active_direction: Annotated[SaleSortDirection, Query()] = "desc",
@@ -289,7 +290,7 @@ def sales_page(
         "listing-deleted": "Sale listing has been deleted.",
     }
     context = _sales_context(
-        SalesService(session),
+        SalesService(session, settings.market_context),
         active_sort=active_sort,
         active_direction=active_direction,
         sold_sort=sold_sort,
@@ -303,10 +304,11 @@ def sales_page(
 async def start_sale(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     values = _form_values(form, ("item_uuid", "asking_price"))
-    service = SalesService(session)
+    service = SalesService(session, settings.market_context)
     try:
         command = SaleListingCreate.model_validate(values)
     except ValidationError as error:
@@ -345,8 +347,9 @@ def duplicate_sale(
     request: Request,
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse | RedirectResponse:
-    service = SalesService(session)
+    service = SalesService(session, settings.market_context)
     try:
         service.duplicate(listing_uuid)
     except SaleListingNotFound:
@@ -368,8 +371,9 @@ def delete_sale(
     request: Request,
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse | RedirectResponse:
-    service = SalesService(session)
+    service = SalesService(session, settings.market_context)
     try:
         service.delete(listing_uuid)
     except SaleListingNotFound:
@@ -391,10 +395,11 @@ async def update_sale_price(
     request: Request,
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     values = _form_values(form, ("asking_price",))
-    service = SalesService(session)
+    service = SalesService(session, settings.market_context)
     try:
         command = SalePriceUpdate.model_validate(values)
     except ValidationError as error:
@@ -432,8 +437,9 @@ def mark_sale_sold(
     request: Request,
     listing_uuid: UUID,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse | RedirectResponse:
-    service = SalesService(session)
+    service = SalesService(session, settings.market_context)
     try:
         service.mark_sold(listing_uuid)
     except SaleListingNotFound:

@@ -37,14 +37,22 @@ class SalesRepository:
         )
         return self._session.scalar(statement)
 
-    def update_price(self, listing_uuid: UUID, asking_price: int) -> bool:
+    def update_price(
+        self,
+        listing_uuid: UUID,
+        asking_price: int,
+        price_observation_id: int,
+    ) -> bool:
         result = self._session.execute(
             update(SaleListing)
             .where(
                 SaleListing.uuid == listing_uuid,
                 SaleListing.date_sold.is_(None),
             )
-            .values(asking_price=asking_price)
+            .values(
+                asking_price=asking_price,
+                price_observation_id=price_observation_id,
+            )
         )
         return result.rowcount == 1
 

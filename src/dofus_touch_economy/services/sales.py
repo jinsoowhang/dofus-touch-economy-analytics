@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from dofus_touch_economy.models import Item, SaleListing
+from dofus_touch_economy.models import Item, PriceObservation, SaleListing
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.repositories.sales import SalesRepository
 from dofus_touch_economy.schemas import (
@@ -32,8 +32,9 @@ class SaleListingConflict(RuntimeError):
 
 
 class SalesService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, market_context: str) -> None:
         self._session = session
+        self._market_context = market_context
         self._catalog = CatalogRepository(session)
         self._sales = SalesRepository(session)
 
@@ -68,11 +69,18 @@ class SalesService:
         item_id = self._session.scalar(select(Item.id).where(Item.uuid == command.item_uuid))
         if item_id is None:
             raise SaleItemNotFound(str(command.item_uuid))
+        selling_started_at = datetime.now(UTC)
+        observation = self._new_price_observation(
+            item_id,
+            command.asking_price,
+            selling_started_at,
+        )
         listing = SaleListing(
             item_id=item_id,
+            price_observation_id=None if observation is None else observation.id,
             lot_quantity=1,
             asking_price=command.asking_price,
-            selling_started_at=datetime.now(UTC),
+            selling_started_at=selling_started_at,
         )
         self._session.add(listing)
         self._session.commit()
@@ -106,17 +114,47 @@ class SalesService:
         listing_uuid: UUID,
         command: SalePriceUpdate,
     ) -> SaleListingResponse:
-        if not self._sales.update_price(listing_uuid, command.asking_price):
+        existing = self._sales.get_by_uuid(listing_uuid)
+        if existing is None:
+            raise SaleListingNotFound(str(listing_uuid))
+        observation = self._new_price_observation(
+            existing.item_id,
+            command.asking_price,
+            datetime.now(UTC),
+        )
+        if observation is None:  # pragma: no cover - update prices are always present
+            raise ValueError("sale price is required")
+        if not self._sales.update_price(
+            listing_uuid,
+            command.asking_price,
+            observation.id,
+        ):
             self._session.rollback()
-            existing = self._sales.get_by_uuid(listing_uuid)
-            if existing is None:
-                raise SaleListingNotFound(str(listing_uuid))
             raise SaleListingConflict(str(listing_uuid))
         self._session.commit()
         listing = self._sales.get_by_uuid(listing_uuid)
         if listing is None:  # pragma: no cover - protected by successful update
             raise SaleListingNotFound(str(listing_uuid))
         return _response(listing)
+
+    def _new_price_observation(
+        self,
+        item_id: int,
+        total_price: int | None,
+        observed_at: datetime,
+    ) -> PriceObservation | None:
+        if total_price is None:
+            return None
+        observation = PriceObservation(
+            item_id=item_id,
+            lot_quantity=1,
+            total_price=total_price,
+            observed_at=observed_at,
+            market_context=self._market_context,
+        )
+        self._session.add(observation)
+        self._session.flush()
+        return observation
 
     def mark_sold(self, listing_uuid: UUID) -> SaleListingResponse:
         if not self._sales.mark_sold(listing_uuid, datetime.now(UTC)):

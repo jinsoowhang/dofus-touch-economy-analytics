@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 
 from dofus_touch_economy.models import Item, SaleListing
 from dofus_touch_economy.schemas import (
@@ -19,7 +20,7 @@ from dofus_touch_economy.services.sales import (
 
 
 def test_manual_sale_moves_from_active_to_sold(session, catalog_item) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
     listing = service.start(
         SaleListingCreate(
             item_uuid=catalog_item.uuid,
@@ -32,6 +33,9 @@ def test_manual_sale_moves_from_active_to_sold(session, catalog_item) -> None:
     assert listing.selling_started_at.tzinfo == UTC
     assert listing.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
+    current_price = PriceService(session, "Dodge").current_for_item(catalog_item.id)
+    assert current_price is not None
+    assert current_price.total_price == 50_000
 
     sold = service.mark_sold(listing.uuid)
 
@@ -39,6 +43,38 @@ def test_manual_sale_moves_from_active_to_sold(session, catalog_item) -> None:
     assert sold.date_sold.tzinfo == UTC
     assert service.active() == []
     assert [sale.uuid for sale in service.sold()] == [listing.uuid]
+
+
+def test_priced_sale_updates_current_price_and_preserves_history(session, catalog_item) -> None:
+    price_service = PriceService(session, "Dodge")
+    previous = price_service.record(
+        catalog_item.uuid,
+        PriceObservationCreate(
+            lot_quantity=1,
+            total_price=100_000,
+            observed_at=datetime(2020, 1, 1, tzinfo=UTC),
+        ),
+    )
+
+    listing = SalesService(session, "Dodge").start(
+        SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=98_000)
+    )
+
+    current = price_service.current_for_item(catalog_item.id)
+    history = price_service.history_for_item(catalog_item.id)
+    stored_listing = session.scalar(select(SaleListing).where(SaleListing.uuid == listing.uuid))
+    assert current is not None
+    assert current.total_price == 98_000
+    assert [observation.total_price for observation in history] == [98_000, 100_000]
+    assert history[1].observation_uuid == previous.observation_uuid
+    assert stored_listing is not None
+    assert stored_listing.price_observation_id is not None
+
+
+def test_unpriced_sale_does_not_create_price_history(session, catalog_item) -> None:
+    SalesService(session, "Dodge").start(SaleListingCreate(item_uuid=catalog_item.uuid))
+
+    assert PriceService(session, "Dodge").history_for_item(catalog_item.id) == []
 
 
 def test_price_record_automatically_starts_a_sale(session, catalog_item) -> None:
@@ -51,7 +87,7 @@ def test_price_record_automatically_starts_a_sale(session, catalog_item) -> None
         ),
     )
 
-    sales = SalesService(session).active()
+    sales = SalesService(session, "Dodge").active()
 
     assert len(sales) == 1
     assert sales[0].item_uuid == catalog_item.uuid
@@ -59,7 +95,7 @@ def test_price_record_automatically_starts_a_sale(session, catalog_item) -> None
 
 
 def test_sales_reject_unknown_items_and_invalid_transitions(session) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
 
     with pytest.raises(SaleItemNotFound):
         service.start(SaleListingCreate(item_uuid=uuid4()))
@@ -68,7 +104,7 @@ def test_sales_reject_unknown_items_and_invalid_transitions(session) -> None:
 
 
 def test_sale_cannot_be_marked_sold_twice(session, catalog_item) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
     listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
     service.mark_sold(listing.uuid)
 
@@ -77,7 +113,7 @@ def test_sale_cannot_be_marked_sold_twice(session, catalog_item) -> None:
 
 
 def test_sale_can_be_duplicated_and_repriced_independently(session, catalog_item) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
     original = service.start(
         SaleListingCreate(
             item_uuid=catalog_item.uuid,
@@ -99,10 +135,12 @@ def test_sale_can_be_duplicated_and_repriced_independently(session, catalog_item
     assert updated.asking_price == 45_000
     assert active_by_uuid[original.uuid].asking_price == 50_000
     assert active_by_uuid[duplicate.uuid].asking_price == 45_000
+    history = PriceService(session, "Dodge").history_for_item(catalog_item.id)
+    assert [observation.total_price for observation in history] == [45_000, 50_000]
 
 
 def test_sold_sale_price_cannot_be_changed(session, catalog_item) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
     listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
     service.mark_sold(listing.uuid)
 
@@ -111,7 +149,7 @@ def test_sold_sale_price_cannot_be_changed(session, catalog_item) -> None:
 
 
 def test_unknown_sale_cannot_be_duplicated_or_repriced(session) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
     listing_uuid = uuid4()
 
     with pytest.raises(SaleListingNotFound):
@@ -176,7 +214,7 @@ def test_active_sales_sort_by_each_displayed_field(
     )
     session.commit()
 
-    results = SalesService(session).active(sort_field, sort_direction)
+    results = SalesService(session, "Dodge").active(sort_field, sort_direction)
 
     assert [result.display_name for result in results] == expected
 
@@ -238,13 +276,13 @@ def test_sold_sales_sort_by_each_displayed_field(
     )
     session.commit()
 
-    results = SalesService(session).sold(sort_field, sort_direction)
+    results = SalesService(session, "Dodge").sold(sort_field, sort_direction)
 
     assert [result.display_name for result in results] == expected
 
 
 def test_active_or_sold_sale_can_be_deleted(session, catalog_item) -> None:
-    service = SalesService(session)
+    service = SalesService(session, "Dodge")
     active = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
     sold = service.start(SaleListingCreate(item_uuid=catalog_item.uuid))
     service.mark_sold(sold.uuid)
@@ -267,9 +305,9 @@ def test_deleting_sale_keeps_linked_price_observation(session, catalog_item) -> 
             observed_at=datetime(2026, 8, 21, tzinfo=UTC),
         ),
     )
-    listing = SalesService(session).active()[0]
+    listing = SalesService(session, "Dodge").active()[0]
 
-    SalesService(session).delete(listing.uuid)
+    SalesService(session, "Dodge").delete(listing.uuid)
 
     current = PriceService(session, "Dodge").current_for_item(catalog_item.id)
     assert current is not None

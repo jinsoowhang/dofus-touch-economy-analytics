@@ -93,7 +93,15 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert f'aria-label="Delete sale row for {catalog_item.display_name}"' in active_page.text
 
     with session_factory() as session:
-        listing_uuid = session.scalar(select(SaleListing.uuid))
+        listing = session.scalar(select(SaleListing))
+        assert listing is not None
+        assert listing.price_observation is not None
+        assert listing.price_observation.total_price == 50_000
+        assert listing.price_observation.market_context == "Dodge"
+        listing_uuid = listing.uuid
+    item_page = client.get(f"/items/{catalog_item.uuid}")
+    assert "Current price: 50000 kama" in item_page.text
+    assert "· 50000 kama" in item_page.text
     completed = client.post(
         f"/sales/{listing_uuid}/sold",
         follow_redirects=False,
