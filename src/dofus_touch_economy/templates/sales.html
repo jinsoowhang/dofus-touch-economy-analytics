@@ -102,8 +102,8 @@
                       id="sale-price-{{ sale.uuid }}"
                       name="asking_price"
                       inputmode="numeric"
-                      value="{{ sale.asking_price or '' }}"
-                      data-initial-value="{{ sale.asking_price or '' }}"
+                      value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
+                      data-initial-value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
                       title="Click to edit. Press Enter or leave the field to save."
                       required
                     >
@@ -192,7 +192,7 @@
                     <span>{{ sale.display_name }}</span>
                   </a>
                 </td>
-                <td class="numeric">{{ sale.asking_price or "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(sale.asking_price) if sale.asking_price is not none else "—" }}</td>
                 <td>
                   <time datetime="{{ selling_started_at.isoformat() }}">
                     {{ selling_started_at.strftime("%Y-%m-%d") }}
@@ -204,19 +204,29 @@
                   </time>
                 </td>
                 <td>
-                  <form
-                    method="post"
-                    action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
-                    class="inline-form"
-                    onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
-                  >
-                    <button
-                      type="submit"
-                      class="delete-button"
-                      aria-label="Delete sale row for {{ sale.display_name }}"
-                      title="Delete sale row"
-                    >×</button>
-                  </form>
+                  <div class="row-actions">
+                    <form method="post" action="/sales/{{ sale.uuid }}/reopen?{{ sales_sort_query }}" class="inline-form">
+                      <button
+                        type="submit"
+                        class="reopen-button"
+                        aria-label="Return {{ sale.display_name }} to Currently Selling"
+                        title="Return to Currently Selling"
+                      >↩</button>
+                    </form>
+                    <form
+                      method="post"
+                      action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
+                      class="inline-form"
+                      onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
+                    >
+                      <button
+                        type="submit"
+                        class="delete-button"
+                        aria-label="Delete sale row for {{ sale.display_name }}"
+                        title="Delete sale row"
+                      >×</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             {% endfor %}

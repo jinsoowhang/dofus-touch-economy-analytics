@@ -66,3 +66,14 @@ class SalesRepository:
             .values(date_sold=date_sold)
         )
         return result.rowcount == 1
+
+    def reopen(self, listing_uuid: UUID) -> bool:
+        result = self._session.execute(
+            update(SaleListing)
+            .where(
+                SaleListing.uuid == listing_uuid,
+                SaleListing.date_sold.is_not(None),
+            )
+            .values(date_sold=None)
+        )
+        return result.rowcount == 1

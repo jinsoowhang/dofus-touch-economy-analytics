@@ -7,6 +7,21 @@
     <p class="notification" role="status">{{ notification }}</p>
   {% endif %}
   <form method="get" action="/items" class="search-form">
+    <label for="item-category">Category (Optional)</label>
+    <select
+      id="item-category"
+      name="category"
+      hx-get="/items"
+      hx-trigger="change"
+      hx-target="#item-results"
+      hx-include="#item-query, input[name='sort'], input[name='direction']"
+      hx-indicator="#search-indicator"
+    >
+      <option value="">All Categories</option>
+      {% for category in category_choices %}
+        <option value="{{ category.key }}"{% if category_filter == category.key %} selected{% endif %}>{{ category.label }}</option>
+      {% endfor %}
+    </select>
     <label for="item-query">Item Name</label>
     <input type="hidden" name="sort" value="{{ sort_field }}">
     <input type="hidden" name="direction" value="{{ sort_direction }}">
@@ -18,6 +33,7 @@
       hx-get="/items"
       hx-trigger="input changed delay:250ms, search"
       hx-target="#item-results"
+      hx-include="#item-category, input[name='sort'], input[name='direction']"
       hx-indicator="#search-indicator"
     >
     <button type="submit">Search</button>

@@ -59,7 +59,7 @@
           {% if item.current_price %}
             <td class="numeric">
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
-                {{ item.current_price.total_price }}
+                {{ "{:,}".format(item.current_price.total_price) }}
               </a>
             </td>
             <td>

@@ -342,6 +342,20 @@ button {
   color: var(--accent);
 }
 
+.reopen-button {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 1.25rem;
+  line-height: 1;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.reopen-button:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
 .delete-button {
   background: transparent;
   border-color: var(--danger);

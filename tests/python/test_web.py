@@ -114,7 +114,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         "/sales",
         data={
             "item_uuid": str(catalog_item.uuid),
-            "asking_price": "50000",
+            "asking_price": "50,000",
         },
         follow_redirects=False,
     )
@@ -124,12 +124,12 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     active_page = client.get(created.headers["location"])
     assert "Sale listing has been added." in active_page.text
     assert catalog_item.display_name in active_page.text
-    assert 'value="50000"' in active_page.text
+    assert 'value="50,000"' in active_page.text
     assert "Mark sold" in active_page.text
     assert "Duplicate" in active_page.text
     assert active_page.text.count('class="collapsible-section" open') == 4
     assert '<button type="submit">Update</button>' not in active_page.text
-    assert 'data-initial-value="50000"' in active_page.text
+    assert 'data-initial-value="50,000"' in active_page.text
     assert "Press Enter or leave the field to save." in active_page.text
     assert "Lot quantity" not in active_page.text
     assert 'name="lot_quantity"' not in active_page.text
@@ -144,8 +144,8 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         assert listing.price_observation.market_context == "Dodge"
         listing_uuid = listing.uuid
     item_page = client.get(f"/items/{catalog_item.uuid}")
-    assert "Current Price: 50000 kama" in item_page.text
-    assert "· 50000 kama" in item_page.text
+    assert "Current Price: 50,000 kama" in item_page.text
+    assert "· 50,000 kama" in item_page.text
     completed = client.post(
         f"/sales/{listing_uuid}/sold",
         follow_redirects=False,
@@ -158,6 +158,24 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert "0 active" in sold_page.text
     assert "1 sold" in sold_page.text
     assert "Date Sold" in sold_page.text
+    assert (
+        f'action="/sales/{listing_uuid}/reopen?{DEFAULT_SALES_QUERY.replace("&", "&amp;")}"'
+        in sold_page.text
+    )
+    assert f'aria-label="Return {catalog_item.display_name} to Currently Selling"' in sold_page.text
+    assert ">↩</button>" in sold_page.text
+
+    reopened = client.post(
+        f"/sales/{listing_uuid}/reopen",
+        follow_redirects=False,
+    )
+
+    assert reopened.status_code == 303
+    assert reopened.headers["location"] == (f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-reopened")
+    reopened_page = client.get(reopened.headers["location"])
+    assert "Item has been returned to Currently Selling." in reopened_page.text
+    assert "1 active" in reopened_page.text
+    assert "0 sold" in reopened_page.text
 
 
 def test_sales_page_requires_an_asking_price(client, catalog_item) -> None:
@@ -187,7 +205,7 @@ def test_recorded_item_price_appears_as_an_active_sale(client, catalog_item) -> 
     assert response.status_code == 303
     sales = client.get("/sales")
     assert catalog_item.display_name in sales.text
-    assert 'value="125000"' in sales.text
+    assert 'value="125,000"' in sales.text
     assert "1 active" in sales.text
 
 
@@ -223,7 +241,7 @@ def test_sales_page_duplicates_and_reprices_a_listing(
 
     repriced = client.post(
         f"/sales/{listings[1].uuid}/price",
-        data={"asking_price": "45000"},
+        data={"asking_price": "45,000"},
         follow_redirects=False,
     )
 
@@ -233,8 +251,8 @@ def test_sales_page_duplicates_and_reprices_a_listing(
     )
     page = client.get(repriced.headers["location"])
     assert "Sale price has been updated." in page.text
-    assert 'value="50000"' in page.text
-    assert 'value="45000"' in page.text
+    assert 'value="50,000"' in page.text
+    assert 'value="45,000"' in page.text
     assert "2 active" in page.text
 
 
@@ -474,6 +492,39 @@ def test_search_field_reduces_catalog_table(client, session_factory, catalog_ite
     assert "1 shown" in response.text
 
 
+def test_item_search_category_filter_reduces_results_and_persists_in_sorting(
+    client,
+    session_factory,
+) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Item(
+                    display_name="Alpha Ring",
+                    normalized_name="alpha ring",
+                    category="Ring",
+                    identity_category="ring",
+                ),
+                Item(
+                    display_name="Alpha Hat",
+                    normalized_name="alpha hat",
+                    category="Hat",
+                    identity_category="hat",
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/items", params={"q": "alpha", "category": "ring"})
+
+    assert response.status_code == 200
+    assert '<label for="item-category">Category (Optional)</label>' in response.text
+    assert '<option value="ring" selected>Ring</option>' in response.text
+    assert "Alpha Ring" in response.text
+    assert "Alpha Hat" not in response.text
+    assert "q=alpha&amp;category=ring&amp;sort=price&amp;direction=asc" in response.text
+
+
 def test_item_headers_toggle_sort_and_show_active_direction(client, catalog_item) -> None:
     response = client.get(
         "/items",
@@ -485,7 +536,7 @@ def test_item_headers_toggle_sort_and_show_active_direction(client, catalog_item
     assert 'name="direction" value="desc"' in response.text
     assert 'aria-sort="descending"' in response.text
     assert '<span class="sort-arrow" aria-hidden="true">▼</span>' in response.text
-    assert "/items?q=synthetic&amp;sort=price&amp;direction=asc" in response.text
+    assert "/items?q=synthetic&amp;category=&amp;sort=price&amp;direction=asc" in response.text
     for field in ("name", "category", "price", "observed"):
         assert f"sort={field}" in response.text
 
@@ -548,6 +599,12 @@ def test_search_input_uses_delayed_htmx_updates(client) -> None:
     assert 'hx-get="/items"' in response.text
     assert 'hx-trigger="input changed delay:250ms, search"' in response.text
     assert 'hx-target="#item-results"' in response.text
+    assert (
+        "hx-include=\"#item-category, input[name='sort'], input[name='direction']\""
+        in response.text
+    )
+    assert 'id="item-category"' in response.text
+    assert 'hx-trigger="change"' in response.text
 
 
 def test_no_results_offers_typo_suggestion_and_manual_add_form(client, catalog_item) -> None:
@@ -666,7 +723,7 @@ def test_htmx_price_create_redirects_to_item_search(client, session_factory, fix
         f"/items/{crafted_uuid}/price-observations",
         headers={"HX-Request": "true"},
         data={
-            "total_price": "125",
+            "total_price": "125,000",
             "observed_at": "2026-08-20T12:00:00Z",
             "note": "Manual check",
         },
@@ -678,7 +735,7 @@ def test_htmx_price_create_redirects_to_item_search(client, session_factory, fix
     with session_factory() as session:
         detail = CatalogService(session, "Dodge").detail(crafted_uuid)
     assert detail.current_price is not None
-    assert detail.current_price.total_price == 125
+    assert detail.current_price.total_price == 125_000
     assert detail.current_price.lot_quantity == 1
 
 
@@ -704,7 +761,7 @@ def test_non_htmx_price_create_redirects_to_search_with_notification(client, cat
     response = client.post(
         f"/items/{catalog_item.uuid}/price-observations",
         data={
-            "total_price": "125",
+            "total_price": "245,000",
             "observed_at": "2026-08-20T12:00:00Z",
             "note": "",
         },
@@ -717,6 +774,7 @@ def test_non_htmx_price_create_redirects_to_search_with_notification(client, cat
     search = client.get(response.headers["location"])
     assert search.status_code == 200
     assert f"{catalog_item.display_name} price has been updated." in search.text
+    assert "245,000" in search.text
     assert 'class="notification" role="status"' in search.text
 
 

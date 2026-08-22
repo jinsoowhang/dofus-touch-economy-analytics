@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -13,6 +14,18 @@ DecimalString = Annotated[
     Decimal,
     PlainSerializer(lambda value: str(value), return_type=str, when_used="json"),
 ]
+COMMA_SEPARATED_INTEGER = re.compile(r"[+-]?\d{1,3}(?:,\d{3})+")
+
+
+def _parse_comma_separated_integer(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if "," not in stripped:
+        return stripped
+    if COMMA_SEPARATED_INTEGER.fullmatch(stripped):
+        return stripped.replace(",", "")
+    return value
 
 
 class ItemCreate(BaseModel):
@@ -38,6 +51,11 @@ class PriceObservationCreate(BaseModel):
     observed_at: datetime
     note: str | None = Field(default=None, max_length=500)
 
+    @field_validator("total_price", mode="before")
+    @classmethod
+    def parse_total_price(cls, value: object) -> object:
+        return _parse_comma_separated_integer(value)
+
     @field_validator("observed_at")
     @classmethod
     def require_timezone(cls, value: datetime) -> datetime:
@@ -62,9 +80,19 @@ class SaleListingCreate(BaseModel):
     item_uuid: UUID
     asking_price: int = Field(gt=0)
 
+    @field_validator("asking_price", mode="before")
+    @classmethod
+    def parse_asking_price(cls, value: object) -> object:
+        return _parse_comma_separated_integer(value)
+
 
 class SalePriceUpdate(BaseModel):
     asking_price: int = Field(gt=0)
+
+    @field_validator("asking_price", mode="before")
+    @classmethod
+    def parse_asking_price(cls, value: object) -> object:
+        return _parse_comma_separated_integer(value)
 
 
 class SaleItemChoiceResponse(BaseModel):

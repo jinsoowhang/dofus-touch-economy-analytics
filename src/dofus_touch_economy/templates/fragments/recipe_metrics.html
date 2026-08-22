@@ -2,8 +2,8 @@
   <summary><h2>Crafting Metrics</h2></summary>
   {% if detail.recipe %}
     {% if detail.metrics.is_complete %}
-      <p class="numeric">Recipe Cost: {{ detail.metrics.recipe_cost }} kama</p>
-      {% if detail.metrics.profit is not none %}<p class="numeric">Profit: {{ detail.metrics.profit }} kama</p>{% endif %}
+      <p class="numeric">Recipe Cost: {{ "{:,}".format(detail.metrics.recipe_cost) }} kama</p>
+      {% if detail.metrics.profit is not none %}<p class="numeric">Profit: {{ "{:,}".format(detail.metrics.profit) }} kama</p>{% endif %}
       {% if detail.metrics.roi is not none %}<p class="numeric">ROI: {{ detail.metrics.roi }}</p>{% endif %}
     {% else %}
       <p>Recipe cost is incomplete.</p>

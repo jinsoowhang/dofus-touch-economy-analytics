@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from dofus_touch_economy.app import get_session, get_settings
 from dofus_touch_economy.config import Settings
+from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.schemas import (
     InvalidationCreate,
     ItemCreate,
@@ -113,21 +114,34 @@ def _search_context(
     *,
     sort_field: ItemSortField = "name",
     sort_direction: SortDirection = "asc",
+    category: str = "",
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
+    category_filter = normalize_item_name(category) if category.strip() else ""
+    category_choices = catalog.category_choices()
+    category_labels = {choice.key: choice.label for choice in category_choices}
     items = catalog.search(
         query,
         limit=None,
         sort_field=sort_field,
         sort_direction=sort_direction,
+        category=category_filter,
     )
-    suggestions = catalog.suggest(query, limit=5) if query.strip() and not items else []
+    suggestions = (
+        catalog.suggest(query, limit=5, category=category_filter)
+        if query.strip() and not items
+        else []
+    )
     proposed_display_name = catalog.format_display_name(query) if query.strip() else query
-    recognized_category = catalog.infer_category(query) if query.strip() else None
+    recognized_category = category_labels.get(category_filter)
+    if recognized_category is None and query.strip():
+        recognized_category = catalog.infer_category(query)
     return {
         "query": query,
+        "category_filter": category_filter,
+        "category_choices": category_choices,
         "items": items,
         "active_tab": "items",
         "suggestions": suggestions,
@@ -136,7 +150,12 @@ def _search_context(
         "market_context": market_context,
         "sort_field": sort_field,
         "sort_direction": sort_direction,
-        "sort_columns": _sort_columns(query, sort_field, sort_direction),
+        "sort_columns": _sort_columns(
+            query,
+            category_filter,
+            sort_field,
+            sort_direction,
+        ),
         "notification": notification,
         "errors": errors or [],
         "form_values": form_values or {},
@@ -145,6 +164,7 @@ def _search_context(
 
 def _sort_columns(
     query: str,
+    category: str,
     sort_field: ItemSortField,
     sort_direction: SortDirection,
 ) -> list[dict[str, object]]:
@@ -158,7 +178,12 @@ def _sort_columns(
     for field, label, numeric in columns:
         active = field == sort_field
         next_direction = "desc" if active and sort_direction == "asc" else "asc"
-        parameters = {"q": query, "sort": field, "direction": next_direction}
+        parameters = {
+            "q": query,
+            "category": category,
+            "sort": field,
+            "direction": next_direction,
+        }
         result.append(
             {
                 "field": field,
@@ -421,6 +446,7 @@ def sales_page(
         "listing-duplicated": "Sale listing has been duplicated.",
         "listing-price-updated": "Sale price has been updated.",
         "listing-sold": "Item has been marked as sold.",
+        "listing-reopened": "Item has been returned to Currently Selling.",
         "listing-deleted": "Sale listing has been deleted.",
     }
     context = _sales_context(
@@ -640,12 +666,56 @@ def mark_sale_sold(
     )
 
 
+@router.post(
+    "/sales/{listing_uuid}/reopen",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def reopen_sale(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+) -> HTMLResponse | RedirectResponse:
+    service = SalesService(session, settings.market_context)
+    try:
+        service.reopen(listing_uuid)
+    except SaleListingNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Sale listing not found."],
+            ),
+            status_code=404,
+        )
+    except SaleListingConflict:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Only a sold listing can be returned to Currently Selling."],
+            ),
+            status_code=409,
+        )
+    return RedirectResponse(
+        url=_sales_redirect_url(sort_state, "listing-reopened"),
+        status_code=303,
+    )
+
+
 @router.get("/items", response_class=HTMLResponse)
 def search_items(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     q: str = Query(default=""),
+    category: str = Query(default=""),
     sort: Annotated[ItemSortField, Query()] = "name",
     direction: Annotated[SortDirection, Query()] = "asc",
     updated: Annotated[UUID | None, Query()] = None,
@@ -665,6 +735,7 @@ def search_items(
         settings.market_context,
         sort_field=sort,
         sort_direction=direction,
+        category=category,
         notification=notification,
     )
     if _is_htmx(request):

@@ -11,13 +11,21 @@ class CatalogRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def search(self, query: str, limit: int | None = 50) -> list[Item]:
+    def search(
+        self,
+        query: str,
+        limit: int | None = 50,
+        category: str = "",
+    ) -> list[Item]:
         statement = select(Item)
         if query.strip():
             normalized_query = normalize_item_name(query)
             statement = statement.where(
                 Item.normalized_name.contains(normalized_query, autoescape=True)
             )
+        if category.strip():
+            normalized_category = normalize_item_name(category)
+            statement = statement.where(func.lower(func.trim(Item.category)) == normalized_category)
         statement = statement.order_by(
             Item.normalized_name,
             func.coalesce(Item.category, ""),
@@ -25,6 +33,15 @@ class CatalogRepository:
         )
         if limit is not None:
             statement = statement.limit(limit)
+        return list(self._session.scalars(statement))
+
+    def categories(self) -> list[str]:
+        statement = (
+            select(Item.category)
+            .where(Item.category.is_not(None), func.trim(Item.category) != "")
+            .distinct()
+            .order_by(func.lower(Item.category), Item.category)
+        )
         return list(self._session.scalars(statement))
 
     def find_by_identity(self, normalized_name: str, identity_category: str) -> Item | None:
@@ -43,8 +60,12 @@ class CatalogRepository:
         )
         return list(self._session.scalars(statement))
 
-    def suggestion_candidates(self) -> list[Item]:
-        statement = select(Item).order_by(
+    def suggestion_candidates(self, category: str = "") -> list[Item]:
+        statement = select(Item)
+        if category.strip():
+            normalized_category = normalize_item_name(category)
+            statement = statement.where(func.lower(func.trim(Item.category)) == normalized_category)
+        statement = statement.order_by(
             Item.normalized_name,
             func.coalesce(Item.category, ""),
             Item.id,

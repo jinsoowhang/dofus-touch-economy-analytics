@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from decimal import Decimal
 from difflib import SequenceMatcher
 from typing import Literal
@@ -33,6 +34,12 @@ ItemSortField = Literal["name", "category", "price", "observed"]
 SortDirection = Literal["asc", "desc"]
 
 
+@dataclass(frozen=True)
+class CatalogCategoryChoice:
+    key: str
+    label: str
+
+
 class CatalogItemConflict(RuntimeError):
     def __init__(self, candidates: list[ItemSummaryResponse]) -> None:
         super().__init__("catalog item identity already exists")
@@ -52,15 +59,31 @@ class CatalogService:
         limit: int | None = 50,
         sort_field: ItemSortField = "name",
         sort_direction: SortDirection = "asc",
+        category: str = "",
     ) -> list[ItemSummaryResponse]:
         repository_limit = limit if sort_field == "name" and sort_direction == "asc" else None
-        items = self._catalog.search(query, repository_limit)
+        items = self._catalog.search(query, repository_limit, category)
         current_prices = self._prices.current_for_items([item.id for item in items])
         summaries = [_item_summary(item, current_prices.get(item.id)) for item in items]
         ordered = _sort_item_summaries(summaries, sort_field, sort_direction)
         return ordered if limit is None else ordered[:limit]
 
-    def suggest(self, query: str, limit: int = 5) -> list[ItemSummaryResponse]:
+    def category_choices(self) -> list[CatalogCategoryChoice]:
+        labels: dict[str, str] = {}
+        for category in self._catalog.categories():
+            key = normalize_item_name(category)
+            labels.setdefault(key, format_item_display_name(category))
+        return [
+            CatalogCategoryChoice(key=key, label=label)
+            for key, label in sorted(labels.items(), key=lambda entry: entry[1].casefold())
+        ]
+
+    def suggest(
+        self,
+        query: str,
+        limit: int = 5,
+        category: str = "",
+    ) -> list[ItemSummaryResponse]:
         if not query.strip():
             return []
         normalized_query = normalize_item_name(query)
@@ -69,7 +92,7 @@ class CatalogService:
                 SequenceMatcher(None, normalized_query, item.normalized_name).ratio(),
                 item,
             )
-            for item in self._catalog.suggestion_candidates()
+            for item in self._catalog.suggestion_candidates(category)
         ]
         close_items = [
             item

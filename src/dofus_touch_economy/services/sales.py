@@ -197,6 +197,19 @@ class SalesService:
             raise SaleListingNotFound(str(listing_uuid))
         return _response(listing)
 
+    def reopen(self, listing_uuid: UUID) -> SaleListingResponse:
+        if not self._sales.reopen(listing_uuid):
+            self._session.rollback()
+            existing = self._sales.get_by_uuid(listing_uuid)
+            if existing is None:
+                raise SaleListingNotFound(str(listing_uuid))
+            raise SaleListingConflict(str(listing_uuid))
+        self._session.commit()
+        listing = self._sales.get_by_uuid(listing_uuid)
+        if listing is None:  # pragma: no cover - protected by successful update
+            raise SaleListingNotFound(str(listing_uuid))
+        return _response(listing)
+
 
 def _response(listing: SaleListing) -> SaleListingResponse:
     return SaleListingResponse(

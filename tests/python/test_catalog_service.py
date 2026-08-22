@@ -55,6 +55,35 @@ def test_blank_search_lists_full_catalog_alphabetically(session_factory) -> None
     assert [result.display_name for result in results] == ["Alpha Item", "Zeta Item"]
 
 
+def test_search_filters_by_exact_normalized_category(session_factory) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Item(
+                    display_name="Alpha Ring",
+                    normalized_name="alpha ring",
+                    category="Ring",
+                    identity_category="ring",
+                ),
+                Item(
+                    display_name="Alpha Hat",
+                    normalized_name="alpha hat",
+                    category="Hat",
+                    identity_category="hat",
+                ),
+            ]
+        )
+        session.commit()
+
+        service = CatalogService(session, "Dodge")
+        results = service.search("alpha", limit=None, category=" ring ")
+        choices = service.category_choices()
+
+    assert [result.display_name for result in results] == ["Alpha Ring"]
+    assert ("ring", "Ring") in [(choice.key, choice.label) for choice in choices]
+    assert ("hat", "Hat") in [(choice.key, choice.label) for choice in choices]
+
+
 @pytest.mark.parametrize(
     ("sort_field", "sort_direction", "expected"),
     [

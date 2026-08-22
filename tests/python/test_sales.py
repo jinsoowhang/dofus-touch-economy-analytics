@@ -19,7 +19,7 @@ from dofus_touch_economy.services.sales import (
 )
 
 
-def test_manual_sale_moves_from_active_to_sold(session, catalog_item) -> None:
+def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -> None:
     service = SalesService(session, "Dodge")
     listing = service.start(
         SaleListingCreate(
@@ -43,6 +43,12 @@ def test_manual_sale_moves_from_active_to_sold(session, catalog_item) -> None:
     assert sold.date_sold.tzinfo == UTC
     assert service.active() == []
     assert [sale.uuid for sale in service.sold()] == [listing.uuid]
+
+    reopened = service.reopen(listing.uuid)
+
+    assert reopened.date_sold is None
+    assert [sale.uuid for sale in service.active()] == [listing.uuid]
+    assert service.sold() == []
 
 
 def test_priced_sale_updates_current_price_and_preserves_history(session, catalog_item) -> None:
@@ -104,6 +110,14 @@ def test_sale_cannot_be_marked_sold_twice(session, catalog_item) -> None:
 
     with pytest.raises(SaleListingConflict):
         service.mark_sold(listing.uuid)
+
+
+def test_active_sale_cannot_be_reopened(session, catalog_item) -> None:
+    service = SalesService(session, "Dodge")
+    listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
+
+    with pytest.raises(SaleListingConflict):
+        service.reopen(listing.uuid)
 
 
 def test_sale_can_be_duplicated_and_repriced_independently(session, catalog_item) -> None:
