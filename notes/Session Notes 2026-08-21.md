@@ -243,3 +243,13 @@ add optional direct-entry pricing or reporting when requested.
   listing, so its price can change without affecting the original.
 - Migration `0004` completed with no missing linked prices. `./scripts/check.sh` passed
   with 126 tests, and live Item Search and Sales smoke requests returned HTTP 200.
+
+## Follow-up: Item Icons
+
+- Added a local item-icon cache sourced by exact name from the current Dofus Touch
+  client, DofusDB, and Dofus Wiki, with reviewed aliases for legacy source spellings.
+- Displayed icons throughout Item Search, item detail and recipes, and Sales.
+- Cached valid PNGs for all 997 local catalog items with no missing or failed downloads.
+- Migration `0005` records icon provenance; cached binaries remain ignored local data.
+- `./scripts/check.sh` passed with 133 tests, and live Item Search and Sales requests
+  returned HTTP 200 with their icon routes serving PNG files.
