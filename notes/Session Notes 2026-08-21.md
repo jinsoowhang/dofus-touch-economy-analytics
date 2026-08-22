@@ -285,3 +285,15 @@ add optional direct-entry pricing or reporting when requested.
 - `./scripts/check.sh` passed with 151 tests. A read-only live check confirmed all 26
   existing active rows remained intact, sorted prices correctly, and exposed confirmed
   delete controls without showing lot quantity.
+
+## Follow-up: Sales Prices Update Item History
+
+- A price entered when adding or repricing a Sales row now appends a linked quantity-one
+  price observation, updates the item's current price, and preserves older observations.
+- Duplicate alone does not create redundant history, and an unpriced Sales row still
+  creates no observation.
+- Corrected the existing Clay-headed Giant's Helmet listing to current price 98,000
+  while retaining 100,000 in history, and captured Coco Blop Belt at 38,000 after it
+  was submitted during the server restart.
+- `./scripts/check.sh` passed with 153 tests; the live item pages showed the expected
+  current prices and history.
