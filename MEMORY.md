@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-22
 
 ## Dofus Touch Economy Analytics
 
@@ -30,3 +30,16 @@
 - Additive SQLite migrations for referenced tables should use supported direct `ALTER TABLE` operations rather than batch table rebuilds while foreign-key enforcement is active; populated upgrade tests must include dependent rows.
 - Operational schema, Alembic migration, import CLI, repositories and services, HTML/HTMX interface, JSON API, local security boundary, and documentation are complete on `feature/fastapi-price-tracking`.
 - Next milestone: design immutable SQLite-to-DuckDB ingestion and dbt models for operational observations. Sales ingestion still requires deterministic dates and confirmed row grain.
+- Hosted pilot: use a free single-user dbt Developer project with BigQuery while
+  retaining dbt Core and DuckDB locally until model parity is demonstrated.
+- Hosted pilot environments use `dofus_dev` and `dofus_prod` base datasets in a
+  dedicated Google Cloud project, dbt's Core `Latest` runtime, and a 1 GB
+  maximum-bytes-billed guardrail.
+- The free dbt Developer plan requires service-account JSON authentication for
+  BigQuery. Credential files never enter Git; `.secrets/` is ignored and rejected by
+  the public-file policy.
+- Hosted data remains limited to synthetic or contract-approved sources. Do not
+  schedule production jobs or manually upload private CSVs before deterministic
+  ingestion exists.
+- Account-side BigQuery and dbt configuration remains to be completed and verified
+  using `docs/dbt-cloud-bigquery-setup.md`.

@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from pathlib import PurePosixPath
 
 FORBIDDEN_PREFIXES = (
+    ".secrets/",
     "data/app/",
     "data/raw/",
     "data/reports/",

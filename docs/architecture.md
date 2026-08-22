@@ -28,6 +28,18 @@ ignored item_cost.csv + item_recipes.csv
 
 `item_sales.csv` does not enter either implemented import path because its abbreviated dates and source-row grain are not deterministic.
 
+Hosted pilot flow:
+
+```text
+synthetic or contract-approved source tables
+    -> BigQuery
+    -> dbt Developer staging / intermediate / marts
+```
+
+The hosted pilot does not authorize manual upload of the private raw exports. A
+future secure loader must preserve the same validation, metadata, rejection, and
+immutability guarantees as the local flow.
+
 ## Operational boundary
 
 SQLite owns transactional application state:
@@ -75,3 +87,14 @@ Imported cost values and spreadsheet-derived totals, profit, and ROI remain reco
 - SQLite-to-DuckDB extraction and dbt domain models;
 - public hosting, authentication, authorization, and multi-user behavior;
 - scraping, game-client automation, alerts, and dashboards.
+
+## Hosted analytical pilot
+
+A dbt Developer and BigQuery pilot may execute the same dbt project against
+synthetic or contract-approved hosted data. Local dbt Core and DuckDB remain the
+canonical reproducible analytical path until hosted model parity is demonstrated.
+
+The pilot is limited to connection, Git, parse, and compile verification until a
+deterministic operational extraction exists. See
+[the setup guide](dbt-cloud-bigquery-setup.md) and
+[ADR 0003](adr/0003-pilot-dbt-platform-and-bigquery.md).

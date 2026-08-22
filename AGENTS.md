@@ -78,6 +78,9 @@ This repository is a public, reproducible analytics project with a local FastAPI
 
 - Keep `data/raw/` private. Put local exports there under the canonical names documented in `data/raw/README.md`.
 - Keep SQLite and DuckDB files, import reports, spreadsheets, credentials, `.env` files, `.user.yml`, task-observer logs, and `.worktrees/` out of Git by using the existing ignored local paths.
+- Keep dbt or Google Cloud credential files under the ignored `.secrets/` path only
+  when a temporary local copy is unavoidable; remove the copy after configuring the
+  external service.
 - Publish only synthetic sample data unless redistribution rights are documented.
 - Preserve source values exactly as collected. If a contract is unclear, stop and document the blocker rather than guessing.
 - Do not automate game-client actions or external collection workflows unless the user gives explicit authorization.
@@ -89,6 +92,8 @@ This repository is a public, reproducible analytics project with a local FastAPI
 - [docs/data-contract.md](docs/data-contract.md) for source requirements and blockers.
 - [docs/adr/0001-use-dbt-and-duckdb.md](docs/adr/0001-use-dbt-and-duckdb.md) for the stack decision.
 - [docs/adr/0002-use-sqlite-for-operational-state.md](docs/adr/0002-use-sqlite-for-operational-state.md) for operational and analytical database ownership.
+- [docs/adr/0003-pilot-dbt-platform-and-bigquery.md](docs/adr/0003-pilot-dbt-platform-and-bigquery.md) for the hosted analytical pilot decision.
+- [docs/dbt-cloud-bigquery-setup.md](docs/dbt-cloud-bigquery-setup.md) for the hosted pilot setup and security checklist.
 - `notes/FastAPI Item Search and Price Tracking Design.md` for the approved application design.
 - `notes/FastAPI Item Search and Price Tracking Implementation Plan.md` for the current task map.
 - `notes/Dofus Touch Economy Analytics Scaffold Design.md` for the approved scaffold design.

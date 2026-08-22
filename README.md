@@ -6,6 +6,9 @@ This is an unofficial fan project and is not affiliated with, endorsed by, or sp
 
 The current application milestone provides a loopback-only FastAPI website backed by SQLite. It imports catalog and recipe structure from local CSV exports, records append-only market observations, and calculates crafting cost, profit, and ROI. DuckDB and dbt remain the downstream analytical layer; the SQLite-to-DuckDB bridge and analytical models are deferred.
 
+A dbt Developer and BigQuery hosted pilot is documented alongside the local stack;
+it does not yet replace local dbt Core or authorize private-data uploads.
+
 ```text
 ignored item_cost.csv + item_recipes.csv
                     |
@@ -108,6 +111,13 @@ uv run python scripts/check_public_files.py
 ```
 
 Run the complete local and CI-equivalent sequence with `./scripts/check.sh`.
+
+## Hosted dbt pilot
+
+See [docs/dbt-cloud-bigquery-setup.md](docs/dbt-cloud-bigquery-setup.md) for the
+BigQuery IAM, dbt connection, GitHub, environment, verification, and cost-control
+steps. The pilot keeps local DuckDB checks active until hosted model parity is
+demonstrated.
 
 ## Licensing
 

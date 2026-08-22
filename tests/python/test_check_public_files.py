@@ -35,6 +35,7 @@ def test_rejects_private_or_generated_files() -> None:
         "uppercase/cache.DUCKDB",
         "uppercase/cache.DUCKDB.WAL",
         "data/raw/item_sales.csv",
+        ".secrets/dbt-cloud-bigquery.json",
         "private/local_source.xlsx",
         "data/warehouse/dofus_touch.duckdb",
         "dbt_packages/package/dbt_project.yml",
