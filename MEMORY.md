@@ -5,6 +5,9 @@
 ## Dofus Touch Economy Analytics
 
 - Public identity: analytics engineering for player-observed Dofus Touch item prices, crafting economics, sales behavior.
+- The public README presents the current system as a local-first economy tracker and
+  hosted analytics project. It states explicitly that FastAPI writes to SQLite and
+  that BigQuery snapshots plus dbt builds are manual, separate publication steps.
 - Local stack: Python 3.12, uv, FastAPI, Jinja, vendored HTMX, SQLAlchemy, Alembic, SQLite, dbt Core, dbt-duckdb, and DuckDB.
 - Implemented application: a loopback-only FastAPI/Jinja/vendored-HTMX website with versioned JSON endpoints. SQLite owns operational state while DuckDB and dbt remain the downstream analytical layer.
 - Application prices are append-only observations with audit-preserving invalidation. Item Search records total price with implicit quantity one; each new `item_cost.csv` checksum now seeds idempotent, lot-one current-price observations, using the last file occurrence for duplicate identities without creating Sales listings.

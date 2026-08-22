@@ -1,14 +1,21 @@
 # Dofus Touch Economy Analytics
 
-Local-first item search, market-price tracking, and analytics engineering for a player-observed Dofus Touch economy.
+Local-first economy tracking and hosted analytics for player-observed Dofus Touch
+items, recipes, market prices, crafting economics, and Sales listings.
 
 This is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Ankama. Dofus Touch and related names belong to their respective owners.
 
-The current application milestone provides a loopback-only FastAPI website backed by SQLite. It imports catalog and recipe structure from local CSV exports, records append-only market observations, and calculates crafting cost, profit, and ROI. An immutable snapshot loader publishes normalized operational data to BigQuery, where dbt builds documented catalog, recipe, price, and Sales models. DuckDB and dbt Core remain the local parse and CI path during the hosted pilot.
+The implemented FastAPI website runs locally against SQLite. It imports catalog and
+recipe structure, records append-only market observations and Sales activity, and
+calculates crafting cost, profit, and ROI. An immutable snapshot loader publishes
+normalized operational data to BigQuery, where dbt builds documented and tested
+staging, intermediate, and mart models. DuckDB and dbt Core remain the local parse
+and CI path.
 
-A dbt Developer and BigQuery hosted pilot is documented alongside the local stack.
-Private normalized snapshots may be uploaded through the contracted loader; raw CSVs,
-SQLite databases, and credentials must never enter Git.
+The BigQuery and free dbt Developer environments are operational for both development
+and production. Publication is intentionally manual: website changes remain in
+SQLite until the snapshot loader runs, and dbt models refresh only after a subsequent
+`dbt build`. Raw CSVs, SQLite databases, and credentials must never enter Git.
 
 ```text
 ignored item_cost.csv + item_recipes.csv
@@ -75,6 +82,31 @@ explicit override.
 
 The import command validates both CSV contracts before writing, stores accepted and rejected source-row provenance in SQLite, and writes an ignored report to `data/reports/latest-import.json`. A repeated dataset checksum is a no-op. A result containing rejected rows returns a nonzero exit code while retaining valid rows from the completed transaction.
 
+## Publish analytics updates
+
+First preview the next immutable snapshot without contacting Google:
+
+```bash
+uv run dofus-load-bigquery --dry-run
+```
+
+Then publish the normalized SQLite state to both `dofus_dev` and `dofus_prod` in the
+`US` multi-region:
+
+```bash
+uv run dofus-load-bigquery \
+  --project-id=claude-projects-489306 \
+  --location=US
+```
+
+After the loader completes, run `dbt build` in the dbt Studio development environment
+to refresh `dofus_dev_*`. When a manual production deployment job is configured, run
+it only after reviewing the development build and its cost. No recurring sync or
+scheduled production job is configured.
+
+See [docs/operational-bigquery-ingestion.md](docs/operational-bigquery-ingestion.md)
+for authentication, sidebar navigation, verification, and retry behavior.
+
 ## Data boundary
 
 Private raw exports, operational databases, import reports, DuckDB files, and generated artifacts remain local and Git-ignored. Only invented synthetic fixtures are committed, and CI never requires private data. The normalized operational rows may exist privately in BigQuery after the contracted loader publishes an immutable snapshot.
@@ -118,13 +150,14 @@ uv run python scripts/check_public_files.py
 
 Run the complete local and CI-equivalent sequence with `./scripts/check.sh`.
 
-## Hosted dbt pilot
+## Hosted analytics
 
 See [docs/dbt-cloud-bigquery-setup.md](docs/dbt-cloud-bigquery-setup.md) for the
 BigQuery IAM, dbt connection, GitHub, environment, verification, and cost-control
 steps. See [docs/operational-bigquery-ingestion.md](docs/operational-bigquery-ingestion.md)
-for snapshot loading and sidebar-based verification. The pilot keeps local DuckDB
-checks active until hosted model parity is demonstrated.
+for snapshot loading and sidebar-based verification. Full guarded dbt builds have
+passed in both development and production; local DuckDB checks remain the public,
+credential-free CI path.
 
 ## Licensing
 

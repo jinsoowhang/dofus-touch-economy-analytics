@@ -158,3 +158,22 @@ dataset location, then confirm the dbt connection test plus hosted `dbt parse` a
 Refresh dbt Studio so it sees the pushed model commit, run `dbt build` there to verify
 the dbt Cloud execution path, then create a manual production deployment job only
 after reviewing development lineage and costs.
+
+## Public Project Description Refresh
+
+### Work Completed
+
+- Updated the public README to describe the implemented FastAPI, SQLite, BigQuery,
+  and dbt architecture instead of an incomplete hosted pilot.
+- Documented the exact manual snapshot command and clarified that website writes do
+  not automatically update BigQuery or dbt models.
+- Updated the GitHub profile project's Current Projects description to call this an
+  economy tracker and analytics platform and to list the current primary stack.
+
+### Verification
+
+- Confirmed both repositories were clean before editing.
+- `./scripts/check.sh` passed, including Ruff, 177 Python tests, package compilation,
+  dbt debug and parse, SQLFluff, and the public-file policy.
+- `git diff --check` passed in both repositories, and the profile entry appears
+  exactly once in second position after `skills`.
