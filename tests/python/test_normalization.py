@@ -28,6 +28,10 @@ def test_format_item_display_name_collapses_whitespace_and_uses_title_case() -> 
     assert format_item_display_name("  chouquish   belt ") == "Chouquish Belt"
 
 
+def test_format_item_display_name_only_capitalizes_after_spaces() -> None:
+    assert format_item_display_name("daggero's red necklace") == "Daggero's Red Necklace"
+
+
 @pytest.mark.parametrize(
     ("raw_name", "expected"),
     [

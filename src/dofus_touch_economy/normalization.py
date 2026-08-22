@@ -23,7 +23,7 @@ def format_item_display_name(raw: str) -> str:
     display_name = " ".join(raw.split())
     if not display_name:
         raise ValueError("item name must not be blank")
-    return display_name.title()
+    return " ".join(word[:1].upper() + word[1:].lower() for word in display_name.split(" "))
 
 
 def normalize_item_name(raw: str) -> str:
