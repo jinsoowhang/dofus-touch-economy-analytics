@@ -350,6 +350,44 @@ button {
   padding: 0.35rem 0.6rem;
 }
 
+.item-current-price-form input {
+  font-size: 1.35rem;
+  font-weight: 750;
+  width: 12rem;
+}
+
+.crafting-metrics-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.crafting-metric {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+}
+
+.crafting-metric span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.crafting-metric strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-message {
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+  border-left: 0.3rem solid var(--warning);
+  margin: 0;
+  padding: 0.8rem;
+}
+
 .reopen-button {
   background: transparent;
   border-color: var(--accent);

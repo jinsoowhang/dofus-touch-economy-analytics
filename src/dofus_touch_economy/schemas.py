@@ -104,6 +104,15 @@ class RecipeIngredientPriceUpdate(BaseModel):
         return _parse_comma_separated_integer(value)
 
 
+class ItemCurrentPriceUpdate(BaseModel):
+    current_price: int = Field(gt=0)
+
+    @field_validator("current_price", mode="before")
+    @classmethod
+    def parse_current_price(cls, value: object) -> object:
+        return _parse_comma_separated_integer(value)
+
+
 class SaleItemChoiceResponse(BaseModel):
     uuid: UUID
     display_name: str

@@ -19,6 +19,7 @@ from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.schemas import (
     InvalidationCreate,
     ItemCreate,
+    ItemCurrentPriceUpdate,
     PriceObservationCreate,
     RecipeIngredientPriceUpdate,
     SaleListingCreate,
@@ -109,7 +110,6 @@ def _detail_context(
         "recipe_errors": recipe_errors or [],
         "recipe_form_values": recipe_form_values or {},
         "notification": notification,
-        "default_observed_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "include_metrics_oob": include_metrics_oob,
     }
 
@@ -824,6 +824,54 @@ def item_detail(
         request,
         "item_detail.html",
         context=_detail_context(detail, notification=notification),
+    )
+
+
+@router.post(
+    "/items/{item_uuid}/price",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+async def update_item_current_price(
+    request: Request,
+    item_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse | RedirectResponse:
+    catalog = CatalogService(session, settings.market_context)
+    try:
+        detail = catalog.detail(item_uuid)
+    except ItemNotFound:
+        return _error_response(request, "Item not found", 404)
+
+    form = await request.form()
+    values = _form_values(form, ("current_price",))
+    try:
+        command = ItemCurrentPriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            context=_detail_context(
+                detail,
+                errors=_validation_messages(error),
+                form_values=values,
+            ),
+            status_code=422,
+        )
+
+    PriceService(session, settings.market_context).record(
+        item_uuid,
+        PriceObservationCreate(
+            lot_quantity=1,
+            total_price=command.current_price,
+            observed_at=datetime.now(UTC),
+            note="Item current price update",
+        ),
+    )
+    return RedirectResponse(
+        url=f"/items/{item_uuid}?updated={item_uuid}#price-panel",
+        status_code=303,
     )
 
 

@@ -376,3 +376,13 @@ add optional direct-entry pricing or reporting when requested.
   section with a notification; unrelated item UUIDs are rejected.
 - The full check passed with 168 tests. A read-only live smoke matched 117 active rows
   to a total price of 6,436,350 and rendered eight editable Abyss Necklace ingredients.
+
+## Follow-up: Compact Item Price and Crafting Metrics
+
+- Replaced the Item detail timestamp, note, and total-price form with one inline
+  Current Price field that saves on Enter or blur and preserves read-only history.
+- Removed all Item detail invalidation controls from the browser interface.
+- Redesigned Crafting Metrics as responsive Recipe Cost, Profit, and percentage ROI
+  cards, with a distinct status panel for incomplete recipe costs.
+- The full check passed with 169 tests; a read-only live smoke confirmed the legacy
+  fields are absent and a fully priced recipe renders all three metric cards.

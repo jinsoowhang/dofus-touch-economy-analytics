@@ -81,7 +81,9 @@ if (categorySelect && itemSelect) {
 }
 
 for (const form of document.querySelectorAll(".price-edit-form")) {
-  const input = form.querySelector('input[name="asking_price"], input[name="unit_price"]');
+  const input = form.querySelector(
+    'input[name="asking_price"], input[name="unit_price"], input[name="current_price"]',
+  );
   if (!input) {
     continue;
   }

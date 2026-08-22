@@ -150,7 +150,9 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         assert listing.price_observation.market_context == "Dodge"
         listing_uuid = listing.uuid
     item_page = client.get(f"/items/{catalog_item.uuid}")
-    assert "Current Price: 50,000 kama" in item_page.text
+    assert "<summary><h2>Current Price</h2></summary>" in item_page.text
+    assert 'name="current_price"' in item_page.text
+    assert 'value="50,000"' in item_page.text
     assert "· 50,000 kama" in item_page.text
     completed = client.post(
         f"/sales/{listing_uuid}/sold",
@@ -562,7 +564,8 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
 
     detail = client.get(item_url)
     assert detail.status_code == 200
-    assert "<summary><h2>Price Observations</h2></summary>" in detail.text
+    assert "<summary><h2>Current Price</h2></summary>" in detail.text
+    assert "Price Observations" not in detail.text
     assert "<summary><h2>Crafting Metrics</h2></summary>" in detail.text
 
 
@@ -725,6 +728,14 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
                 observed_at=datetime(2026, 8, 21, tzinfo=UTC),
             ),
         )
+        price_service.record(
+            items["synthetic widget"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=4_000,
+                observed_at=datetime(2026, 8, 21, tzinfo=UTC),
+            ),
+        )
 
     response = client.get(f"/items/{items['synthetic widget'].uuid}")
 
@@ -741,6 +752,14 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert '<script src="/static/sales.js" defer></script>' in response.text
     script = client.get("/static/sales.js")
     assert 'input[name="asking_price"], input[name="unit_price"]' in script.text
+    assert 'input[name="current_price"]' in script.text
+    assert 'class="crafting-metrics-grid"' in response.text
+    assert response.text.count('class="crafting-metric"') == 3
+    assert "Recipe Cost" in response.text
+    assert "3,500 kama" in response.text
+    assert "Profit" in response.text
+    assert "500 kama" in response.text
+    assert "14.29%" in response.text
     for value in ("2,000", "1,500"):
         assert re.search(rf'<td class="numeric">\s*{value}\s*</td>', response.text)
 
@@ -856,22 +875,59 @@ def test_htmx_price_create_redirects_to_item_search(client, session_factory, fix
     assert detail.current_price.lot_quantity == 1
 
 
-def test_html_validation_is_inline_and_preserves_safe_values(client, catalog_item) -> None:
+def test_item_current_price_validation_is_inline_and_hides_legacy_fields(
+    client, catalog_item
+) -> None:
     response = client.post(
-        f"/items/{catalog_item.uuid}/price-observations",
-        headers={"HX-Request": "true"},
-        data={
-            "total_price": "-1",
-            "observed_at": "2026-08-20T12:00:00Z",
-            "note": "Keep this note",
-        },
+        f"/items/{catalog_item.uuid}/price",
+        data={"current_price": "-1"},
     )
 
     assert response.status_code == 422
     assert "Input should be greater than 0" in response.text
     assert 'value="-1"' in response.text
-    assert 'name="lot_quantity"' not in response.text
-    assert "Keep this note" in response.text
+    for field_name in ("note", "total_price", "observed_at", "lot_quantity", "reason"):
+        assert f'name="{field_name}"' not in response.text
+    assert "Invalidate" not in response.text
+
+
+def test_item_current_price_edit_appends_history_and_returns_to_item(
+    client, session_factory, catalog_item
+) -> None:
+    initial_page = client.get(f"/items/{catalog_item.uuid}")
+
+    assert initial_page.status_code == 200
+    assert f'action="/items/{catalog_item.uuid}/price"' in initial_page.text
+    assert 'name="current_price"' in initial_page.text
+    assert 'placeholder="—"' in initial_page.text
+    assert "Observed At" not in initial_page.text
+    assert ">Note<" not in initial_page.text
+    assert ">Total Price<" not in initial_page.text
+    assert "Invalidation Reason" not in initial_page.text
+    assert ">Invalidate</button>" not in initial_page.text
+
+    response = client.post(
+        f"/items/{catalog_item.uuid}/price",
+        data={"current_price": "245,000"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        f"/items/{catalog_item.uuid}?updated={catalog_item.uuid}#price-panel"
+    )
+    updated_page = client.get(response.headers["location"])
+    assert f"{catalog_item.display_name} price has been updated." in updated_page.text
+    assert 'value="245,000"' in updated_page.text
+    assert "· 245,000 kama" in updated_page.text
+    with session_factory() as session:
+        listing = session.scalar(select(SaleListing))
+        detail = CatalogService(session, "Dodge").detail(catalog_item.uuid)
+    assert listing is not None
+    assert listing.asking_price == 245_000
+    assert detail.current_price is not None
+    assert detail.current_price.total_price == 245_000
+    assert len(detail.price_history) == 1
 
 
 def test_non_htmx_price_create_redirects_to_search_with_notification(client, catalog_item) -> None:
@@ -903,5 +959,7 @@ def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
     )
 
     assert response.status_code == 200
-    assert "Current Price: 100" in response.text
+    assert 'name="current_price"' in response.text
+    assert 'value="100"' in response.text
+    assert "Invalidate" not in response.text
     assert 'hx-swap-oob="true"' in response.text
