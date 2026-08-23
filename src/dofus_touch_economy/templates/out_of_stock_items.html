@@ -20,18 +20,18 @@
         <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
       </div>
       <div class="item-table-wrap">
-        <table class="item-table">
+        <table class="item-table" data-sortable-table>
           <thead>
             <tr>
-              <th>Item</th>
-              <th>Category</th>
-              <th class="numeric">Sold Count</th>
-              <th>Last Sold</th>
-              <th class="numeric">Last Sale Price</th>
-              <th class="numeric">Current Price</th>
-              <th class="numeric">Recipe Cost</th>
-              <th class="numeric">Profit at Last Sale Price</th>
-              <th>Calculator</th>
+              <th data-sort-type="text">Item</th>
+              <th data-sort-type="text">Category</th>
+              <th class="numeric" data-sort-type="number">Sold Count</th>
+              <th data-sort-type="date">Last Sold</th>
+              <th class="numeric" data-sort-type="number">Last Sale Price</th>
+              <th class="numeric" data-sort-type="number">Current Price</th>
+              <th class="numeric" data-sort-type="number">Recipe Cost</th>
+              <th class="numeric" data-sort-type="number">Profit at Last Sale Price</th>
+              <th data-sort-disabled>Calculator</th>
             </tr>
           </thead>
           <tbody>

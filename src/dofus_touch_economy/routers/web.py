@@ -427,6 +427,7 @@ def _sort_columns(
     columns = (
         ("name", "Item Name", False),
         ("category", "Category", False),
+        ("weight", "Weight", True),
         ("price", "Current Price", True),
         ("observed", "Last Observed", False),
     )

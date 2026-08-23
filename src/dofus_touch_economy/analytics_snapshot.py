@@ -84,6 +84,7 @@ OPERATIONAL_TABLES = (
             _column("identity_category", "STRING"),
             _column("created_source", "STRING"),
             _column("icon_source_url", "STRING", required=False),
+            _column("weight", "INTEGER", required=False),
             _column("created_at", "TIMESTAMP"),
             _column("updated_at", "TIMESTAMP"),
         ),

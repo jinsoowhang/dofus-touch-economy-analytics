@@ -30,10 +30,11 @@ from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     PriceService,
     calculate_recipe_metrics,
+    price_freshness,
 )
 from dofus_touch_economy.services.recipes import required_profession_level
 
-ItemSortField = Literal["name", "category", "price", "observed"]
+ItemSortField = Literal["name", "category", "weight", "price", "observed"]
 SortDirection = Literal["asc", "desc"]
 
 
@@ -209,7 +210,7 @@ class CatalogService:
                     if ingredient_unit_price is None
                     else Decimal(ingredient.quantity) * ingredient_unit_price
                 )
-                price_age_days, price_status = _recipe_price_freshness(
+                price_age_days, price_status = price_freshness(
                     ingredient_current,
                     self._as_of,
                 )
@@ -254,6 +255,7 @@ class CatalogService:
             display_name=item.display_name,
             category=item.category,
             icon_url=_icon_url(item),
+            weight=item.weight,
             created_source=item.created_source,
             market_context=self._market_context,
             active_sale_count=active_sale_count,
@@ -274,6 +276,7 @@ def _item_summary(
         display_name=item.display_name,
         category=item.category,
         icon_url=_icon_url(item),
+        weight=item.weight,
         created_source=item.created_source,
         current_price=current_price,
     )
@@ -281,15 +284,6 @@ def _item_summary(
 
 def _icon_url(item: Item) -> str | None:
     return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"
-
-
-def _recipe_price_freshness(current_price, as_of: datetime) -> tuple[int | None, str]:
-    if current_price is None:
-        return None, "Missing price"
-    observed_at = current_price.observed_at.astimezone(UTC)
-    reference_time = as_of if as_of.tzinfo is not None else as_of.replace(tzinfo=UTC)
-    age_days = max((reference_time.astimezone(UTC).date() - observed_at.date()).days, 0)
-    return age_days, "Stale price" if age_days >= 7 else "Current price"
 
 
 def _sort_item_summaries(
@@ -304,6 +298,8 @@ def _sort_item_summaries(
             return None if item.category is None else item.category.casefold()
         if sort_field == "price":
             return None if item.current_price is None else item.current_price.total_price
+        if sort_field == "weight":
+            return item.weight
         return None if item.current_price is None else item.current_price.observed_at
 
     with_value = [item for item in items if value(item) is not None]

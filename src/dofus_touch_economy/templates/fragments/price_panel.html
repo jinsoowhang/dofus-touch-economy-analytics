@@ -31,12 +31,12 @@
   {% set visible_price_history = detail.price_history | selectattr('invalidated_at', 'none') | list %}
   {% if visible_price_history %}
     <div class="price-history-table-wrap">
-      <table class="price-history-table">
+      <table class="price-history-table" data-sortable-table>
         <thead>
           <tr>
-            <th>Date Observed</th>
-            <th class="numeric">Price</th>
-            <th>Action</th>
+            <th data-sort-type="date">Date Observed</th>
+            <th class="numeric" data-sort-type="number">Price</th>
+            <th data-sort-disabled>Action</th>
           </tr>
         </thead>
         <tbody>

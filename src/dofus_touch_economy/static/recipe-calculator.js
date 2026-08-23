@@ -12,6 +12,7 @@ const calculatorSelectedCount = document.querySelector("#calculator-selected-cou
 const calculatorForm = document.querySelector("#recipe-calculator-form");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
+const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position";
 
 if (
   calculatorSearch &&
@@ -358,6 +359,14 @@ if (
           return;
         }
         input.dataset.initialValue = input.value.trim();
+        try {
+          window.sessionStorage.setItem(
+            recipeCalculatorScrollStorageKey,
+            String(window.scrollY),
+          );
+        } catch {
+          // The calculator results remain the no-storage fallback.
+        }
         calculatorForm.action = `/recipe-calculator?updated=${encodeURIComponent(form.dataset.itemUuid)}`;
         calculatorForm.requestSubmit();
       } catch {
@@ -374,3 +383,20 @@ if (
     input.addEventListener("blur", savePrice);
   }
 }
+
+window.addEventListener("load", () => {
+  let savedScrollPosition = null;
+  try {
+    savedScrollPosition = window.sessionStorage.getItem(recipeCalculatorScrollStorageKey);
+    window.sessionStorage.removeItem(recipeCalculatorScrollStorageKey);
+  } catch {
+    return;
+  }
+  if (savedScrollPosition === null) {
+    return;
+  }
+  const scrollPosition = Number(savedScrollPosition);
+  if (Number.isFinite(scrollPosition) && scrollPosition >= 0) {
+    window.requestAnimationFrame(() => window.scrollTo(0, scrollPosition));
+  }
+});

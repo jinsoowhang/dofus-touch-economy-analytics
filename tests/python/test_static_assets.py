@@ -29,7 +29,45 @@ def test_base_template_uses_only_local_assets() -> None:
 
     assert "/static/app.css" in template
     assert "/static/htmx.min.js" in template
+    assert "/static/table-sort.js" in template
     assert "https://" not in template
+
+
+def test_client_table_sorter_supports_typed_columns_and_missing_values() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/table-sort.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'document.querySelectorAll("table[data-sortable-table]")' in script
+    assert 'type === "number"' in script
+    assert 'type === "date"' in script
+    assert 'header.setAttribute("aria-sort", direction)' in script
+    assert "left.value === null" in script
+    assert 'button.addEventListener("click"' in script
+
+
+def test_every_web_table_has_client_or_server_sorting() -> None:
+    templates = resources.files("dofus_touch_economy").joinpath("templates")
+    expected_server_sorted = {
+        "fragments/item_results.html": 1,
+        "item_detail.html": 0,
+        "fragments/price_panel.html": 0,
+        "out_of_stock_items.html": 0,
+        "recipe_calculator.html": 0,
+        "recipes.html": 1,
+        "sales.html": 2,
+    }
+
+    for relative_path, server_sorted_count in expected_server_sorted.items():
+        template = templates.joinpath(relative_path).read_text(encoding="utf-8")
+        table_count = template.count("<table")
+        client_sorted_count = template.count("data-sortable-table")
+
+        assert table_count == client_sorted_count + server_sorted_count
+        if server_sorted_count:
+            assert 'class="sort-header"' in template
 
 
 def test_bulk_sale_buttons_share_text_button_geometry() -> None:

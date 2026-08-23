@@ -58,6 +58,11 @@
               {{ (item.category or "Uncategorized") | title }}
             </a>
           </td>
+          <td class="numeric">
+            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
+              {{ "{:,}".format(item.weight) if item.weight is not none else "—" }}
+            </a>
+          </td>
           {% if item.current_price %}
             <td class="numeric">
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">

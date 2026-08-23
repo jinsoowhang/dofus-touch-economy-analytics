@@ -39,6 +39,7 @@ def seed_recipe_catalog(session_factory) -> dict[str, Item]:
             normalized_name="synthetic wood",
             category="Wood",
             identity_category="wood",
+            weight=2,
         )
         alpha = Item(
             display_name="Alpha Sword",
@@ -191,7 +192,11 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
     items = seed_recipe_catalog(session_factory)
 
     with session_factory() as session:
-        service = RecipeCalculatorService(session, "Dodge")
+        service = RecipeCalculatorService(
+            session,
+            "Dodge",
+            as_of=datetime(2026, 8, 22, tzinfo=UTC),
+        )
         result = service.calculate(
             {
                 items["alpha"].uuid: 2,
@@ -209,13 +214,21 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
     assert result.total_crafts == 5
     assert len(result.ingredients) == 1
     assert result.ingredients[0].display_name == "Synthetic Wood"
+    assert result.ingredients[0].category == "Wood"
     assert result.ingredients[0].total_quantity == 136
+    assert result.ingredients[0].unit_weight == 2
+    assert result.ingredients[0].total_weight == 272
     assert result.ingredients[0].unit_price == 10
     assert result.ingredients[0].total_cost == 1360
+    assert result.ingredients[0].price_age_days == 0
+    assert result.ingredients[0].price_status == "Current price"
     assert result.ingredients[0].used_by == ("Alpha Sword", "Beta Ring")
     assert result.priced_ingredient_count == 1
     assert result.known_total_cost == 1360
     assert result.total_cost == 1360
+    assert result.weighted_ingredient_count == 1
+    assert result.known_total_weight == 272
+    assert result.total_weight == 272
 
 
 def test_recipe_calculator_rejects_noncraftable_selection(session_factory) -> None:

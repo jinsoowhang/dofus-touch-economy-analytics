@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -11,7 +12,9 @@ from dofus_touch_economy.normalization import format_item_display_name, normaliz
 from dofus_touch_economy.services.pricing import (
     IngredientPrice,
     PriceService,
+    PriceStatus,
     calculate_recipe_metrics,
+    price_freshness,
 )
 
 RecipeSortField = Literal[
@@ -107,10 +110,15 @@ class RecipeCalculatorSelectedItem:
 class RecipeCalculatorIngredient:
     item_uuid: UUID | None
     display_name: str
+    category: str | None
     icon_url: str | None
     total_quantity: int
+    unit_weight: int | None
+    total_weight: int | None
     unit_price: Decimal | None
     total_cost: Decimal | None
+    price_age_days: int | None
+    price_status: PriceStatus
     used_by: tuple[str, ...]
 
 
@@ -122,6 +130,9 @@ class RecipeCalculatorResult:
     priced_ingredient_count: int
     known_total_cost: Decimal
     total_cost: Decimal | None
+    weighted_ingredient_count: int
+    known_total_weight: int
+    total_weight: int | None
 
 
 class RecipeCalculatorSelectionError(ValueError):
@@ -132,9 +143,13 @@ class RecipeCalculatorSelectionError(ValueError):
 class _IngredientAccumulator:
     item_uuid: UUID | None
     display_name: str
+    category: str | None
     icon_url: str | None
     total_quantity: int
+    unit_weight: int | None
     unit_price: Decimal | None
+    price_age_days: int | None
+    price_status: PriceStatus
     used_by: set[str]
 
 
@@ -250,9 +265,16 @@ class RecipeCatalogService:
 
 
 class RecipeCalculatorService:
-    def __init__(self, session: Session, market_context: str) -> None:
+    def __init__(
+        self,
+        session: Session,
+        market_context: str,
+        *,
+        as_of: datetime | None = None,
+    ) -> None:
         self._session = session
         self._prices = PriceService(session, market_context)
+        self._as_of = as_of or datetime.now(UTC)
 
     def choices(self) -> list[RecipeCalculatorChoice]:
         return sorted(
@@ -341,24 +363,37 @@ class RecipeCalculatorService:
                     key: tuple[str, object] = ("unresolved", ingredient.normalized_name)
                     item_uuid = None
                     display_name = ingredient.raw_name
+                    category = None
                     icon_url = None
+                    unit_weight = None
                     unit_price = None
+                    price_age_days, price_status = price_freshness(None, self._as_of)
                 else:
                     key = ("item", ingredient.item_id)
                     item_uuid = ingredient.item.uuid
                     display_name = ingredient.item.display_name
+                    category = ingredient.item.category
                     icon_url = _icon_url(ingredient.item)
+                    unit_weight = ingredient.item.weight
                     current_price = current_prices.get(ingredient.item_id)
                     unit_price = None if current_price is None else current_price.unit_price
+                    price_age_days, price_status = price_freshness(
+                        current_price,
+                        self._as_of,
+                    )
                 required_quantity = ingredient.quantity * craft_quantity
                 existing = accumulated_ingredients.get(key)
                 if existing is None:
                     accumulated_ingredients[key] = _IngredientAccumulator(
                         item_uuid=item_uuid,
                         display_name=display_name,
+                        category=category,
                         icon_url=icon_url,
                         total_quantity=required_quantity,
+                        unit_weight=unit_weight,
                         unit_price=unit_price,
+                        price_age_days=price_age_days,
+                        price_status=price_status,
                         used_by={recipe.crafted_item.display_name},
                     )
                 else:
@@ -369,14 +404,23 @@ class RecipeCalculatorService:
             RecipeCalculatorIngredient(
                 item_uuid=ingredient.item_uuid,
                 display_name=ingredient.display_name,
+                category=ingredient.category,
                 icon_url=ingredient.icon_url,
                 total_quantity=ingredient.total_quantity,
+                unit_weight=ingredient.unit_weight,
+                total_weight=(
+                    None
+                    if ingredient.unit_weight is None
+                    else ingredient.unit_weight * ingredient.total_quantity
+                ),
                 unit_price=ingredient.unit_price,
                 total_cost=(
                     None
                     if ingredient.unit_price is None
                     else ingredient.unit_price * ingredient.total_quantity
                 ),
+                price_age_days=ingredient.price_age_days,
+                price_status=ingredient.price_status,
                 used_by=tuple(sorted(ingredient.used_by, key=str.casefold)),
             )
             for ingredient in sorted(
@@ -395,6 +439,17 @@ class RecipeCalculatorService:
         priced_ingredient_count = sum(
             ingredient.total_cost is not None for ingredient in ingredients
         )
+        known_total_weight = sum(
+            (
+                ingredient.total_weight
+                for ingredient in ingredients
+                if ingredient.total_weight is not None
+            ),
+            start=0,
+        )
+        weighted_ingredient_count = sum(
+            ingredient.total_weight is not None for ingredient in ingredients
+        )
         return RecipeCalculatorResult(
             selected_items=tuple(selected_items),
             ingredients=ingredients,
@@ -402,6 +457,11 @@ class RecipeCalculatorService:
             priced_ingredient_count=priced_ingredient_count,
             known_total_cost=known_total_cost,
             total_cost=(known_total_cost if priced_ingredient_count == len(ingredients) else None),
+            weighted_ingredient_count=weighted_ingredient_count,
+            known_total_weight=known_total_weight,
+            total_weight=(
+                known_total_weight if weighted_ingredient_count == len(ingredients) else None
+            ),
         )
 
 

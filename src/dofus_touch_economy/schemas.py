@@ -151,6 +151,7 @@ class ItemSummaryResponse(BaseModel):
     display_name: str
     category: str | None
     icon_url: str | None
+    weight: int | None = Field(default=None, ge=0)
     created_source: Literal["imported", "manual"]
     current_price: CurrentPriceResponse | None = None
 
@@ -206,6 +207,7 @@ class ItemDetailResponse(BaseModel):
     display_name: str
     category: str | None
     icon_url: str | None
+    weight: int | None = Field(default=None, ge=0)
     created_source: Literal["imported", "manual"]
     market_context: str
     active_sale_count: int = Field(ge=0)

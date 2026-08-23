@@ -20,6 +20,7 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
             "nameId": catalog_item.display_name,
             "typeId": 10,
             "exchangeable": True,
+            "realWeight": 3,
         },
         "2": {
             "id": 2,
@@ -27,6 +28,7 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
             "nameId": "Alpha Ring",
             "typeId": 20,
             "exchangeable": True,
+            "realWeight": 0,
         },
         "3": {
             "id": 3,
@@ -34,6 +36,7 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
             "nameId": "Alpha Ring",
             "typeId": 20,
             "exchangeable": True,
+            "realWeight": 5,
         },
         "4": {
             "id": 4,
@@ -88,6 +91,8 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
     with session_factory() as session:
         items = {item.display_name: item for item in session.scalars(select(Item)).all()}
     assert items["Alpha Ring"].category == "Ring"
+    assert items["Alpha Ring"].weight == 0
+    assert items[catalog_item.display_name].weight == 3
     assert items["Alpha Ring"].created_source == "imported"
     assert "Hidden Ring" not in items
     assert (icon_directory / f"{items['Alpha Ring'].uuid}.png").is_file()
@@ -125,6 +130,7 @@ def test_sync_preserves_existing_category_for_unique_exact_name(
                     "nameId": catalog_item.display_name,
                     "typeId": 10,
                     "exchangeable": True,
+                    "realWeight": 7,
                 }
             }
         if payload == {"class": "ItemTypes", "lang": "en"}:
@@ -145,6 +151,7 @@ def test_sync_preserves_existing_category_for_unique_exact_name(
     assert item is not None
     assert item.uuid == catalog_item.uuid
     assert item.category == "Ore"
+    assert item.weight == 7
 
 
 def test_fetches_exact_touch_and_dofusdb_fallback_icons(

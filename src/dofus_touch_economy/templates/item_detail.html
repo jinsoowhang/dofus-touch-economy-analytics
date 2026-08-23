@@ -14,6 +14,7 @@
     </h1>
     <p>
       {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
+      Weight: {{ "{:,} pods".format(detail.weight) if detail.weight is not none else "Unknown" }} ·
       Catalog Source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
     </p>
     <div class="item-sales-counts" aria-label="Sales activity for this item">
@@ -45,15 +46,15 @@
           </div>
         {% endif %}
         <div class="recipe-table-wrap">
-        <table class="recipe-table">
+        <table class="recipe-table" data-sortable-table>
           <thead>
             <tr>
-              <th>Ingredient</th>
-              <th class="numeric">Quantity</th>
-              <th class="numeric">Per Unit Price</th>
-              <th class="numeric">Total Cost</th>
-              <th class="numeric">Last Updated (Days)</th>
-              <th>Status</th>
+              <th data-sort-type="text">Ingredient</th>
+              <th class="numeric" data-sort-type="number">Quantity</th>
+              <th class="numeric" data-sort-type="number">Per Unit Price</th>
+              <th class="numeric" data-sort-type="number">Total Cost</th>
+              <th class="numeric" data-sort-type="number">Last Updated (Days)</th>
+              <th data-sort-type="number">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -103,7 +104,10 @@
                 {% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}
               </td>
               <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
-              <td class="status">{{ ingredient.price_status }}</td>
+              <td
+                class="status"
+                data-sort-value="{{ 0 if ingredient.price_status == 'Missing price' else (1 if ingredient.price_status == 'Stale price' else 2) }}"
+              >{{ ingredient.price_status }}</td>
             </tr>
           {% endfor %}
           </tbody>

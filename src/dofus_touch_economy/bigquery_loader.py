@@ -135,13 +135,24 @@ class BigQuerySnapshotLoader:
             self.client.create_table(table)
             return
 
-        expected = [(field.name, field.field_type, field.mode) for field in schema]
-        actual = [(field.name, field.field_type, field.mode) for field in table.schema]
-        if actual != expected:
+        expected_by_name = {field.name: (field.field_type, field.mode) for field in schema}
+        actual_by_name = {field.name: (field.field_type, field.mode) for field in table.schema}
+        unexpected = sorted(set(actual_by_name).difference(expected_by_name))
+        incompatible = sorted(
+            field_name
+            for field_name in set(actual_by_name).intersection(expected_by_name)
+            if actual_by_name[field_name] != expected_by_name[field_name]
+        )
+        missing = [field for field in schema if field.name not in actual_by_name]
+        required_missing = [field.name for field in missing if field.mode != "NULLABLE"]
+        if unexpected or incompatible or required_missing:
             raise ValueError(
                 f"BigQuery table {table_id} does not match the loader schema; "
                 "review the schema before loading"
             )
+        if missing:
+            table.schema = [*table.schema, *missing]
+            self.client.update_table(table, ["schema"])
 
     def _manifest_exists(self, dataset: str, snapshot_id: str) -> bool:
         query = (

@@ -920,6 +920,8 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     assert f'data-item-uuid="{widget_uuid}"' in response.text
     assert 'class="recipe-cart-add secondary-button"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
+    assert '<table class="item-table" data-sortable-table>' in response.text
+    assert '<th data-sort-type="date">Last Sold</th>' in response.text
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
     assert cart_script.status_code == 200
 
@@ -1030,6 +1032,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     importer.import_files(*synthetic_files.paths)
     with session_factory() as session:
         items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        items["synthetic wood"].weight = 2
+        session.commit()
 
     page = client.get("/recipe-calculator")
     script = client.get("/static/recipe-calculator.js")
@@ -1037,6 +1041,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert page.status_code == 200
     assert "Recipe Calculator" in page.text
     assert 'class="site-submenu-link is-active"' in page.text
+    assert 'class="page-shell page-shell--wide"' in page.text
     assert 'id="calculator-choice-data"' in page.text
     assert 'id="calculator-select-all"' in page.text
     assert 'id="calculator-select-none"' in page.text
@@ -1061,6 +1066,11 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'document.querySelectorAll(".calculator-ingredient-price-form")' in script.text
     assert "await fetch(form.action" in script.text
     assert "calculatorForm.requestSubmit()" in script.text
+    assert 'const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position"' in (
+        script.text
+    )
+    assert "String(window.scrollY)" in script.text
+    assert "window.scrollTo(0, scrollPosition)" in script.text
 
     response = client.post(
         "/recipe-calculator",
@@ -1076,6 +1086,17 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
 
     assert response.status_code == 200
     assert "Combined Shopping List" in response.text
+    assert "Total Weight" in response.text
+    assert "<strong>38 pods</strong>" in response.text
+    assert "Category" in response.text
+    assert "Unit Weight" in response.text
+    assert "Last Updated (Days)" in response.text
+    assert "Current price" in response.text
+    assert '<table class="calculator-selected-table" data-sortable-table>' in response.text
+    assert (
+        'class="calculator-results-table calculator-shopping-list-table" data-sortable-table'
+        in (response.text)
+    )
     assert "Synthetic Wood" in response.text
     assert re.search(r"Total Quantity</th>.*?>19</td>", response.text, re.DOTALL)
     assert "190" in response.text
@@ -1103,6 +1124,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert subset.status_code == 200
     assert re.search(r"Total Quantity</th>.*?>4</td>", subset.text, re.DOTALL)
     assert "<strong>40</strong>" in subset.text
+    assert "<strong>8 pods</strong>" in subset.text
 
     invalid_update = client.post(
         f"/recipe-calculator/ingredients/{items['synthetic wood'].uuid}/price",
@@ -1143,6 +1165,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert re.search(r"Total Quantity</th>.*?>19</td>", recalculated.text, re.DOTALL)
     assert "<strong>475</strong>" in recalculated.text
     assert 'value="25"' in recalculated.text
+    assert "Current price" in recalculated.text
     with session_factory() as session:
         ingredient = session.scalar(select(Item).where(Item.normalized_name == "synthetic wood"))
         assert ingredient is not None
@@ -1233,6 +1256,7 @@ def test_blank_search_lists_catalog_alphabetically(client, session_factory, cata
 
     assert response.status_code == 200
     assert "Item Name" in response.text
+    assert "Weight" in response.text
     assert "Current Price" in response.text
     assert "Observed lot" not in response.text
     assert "Last Observed" in response.text
@@ -1334,7 +1358,7 @@ def test_item_headers_toggle_sort_and_show_active_direction(client, catalog_item
     assert 'aria-sort="descending"' in response.text
     assert '<span class="sort-arrow" aria-hidden="true">▼</span>' in response.text
     assert "/items?q=synthetic&amp;category=&amp;sort=price&amp;direction=asc" in response.text
-    for field in ("name", "category", "price", "observed"):
+    for field in ("name", "category", "weight", "price", "observed"):
         assert f"sort={field}" in response.text
 
 
@@ -1349,10 +1373,11 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert "2026-08-20" in response.text
     assert "2026-08-20 00:00 UTC" not in response.text
     assert "Update Price" in response.text
-    assert response.text.count(f'href="{item_url}"') == 5
+    assert response.text.count(f'href="{item_url}"') == 6
 
     detail = client.get(item_url)
     assert detail.status_code == 200
+    assert "Weight: Unknown" in detail.text
     assert "<summary><h2>Current Price</h2></summary>" in detail.text
     assert "Price Observations" not in detail.text
     assert "<summary><h2>Crafting Metrics</h2></summary>" in detail.text
@@ -1614,7 +1639,7 @@ def test_recipe_unit_price_edit_updates_history_without_starting_sale(
     assert re.search(r'<td class="numeric">\s*2,500\s*</td>', updated_page.text)
     assert "Last Updated (Days)" in updated_page.text
     assert re.search(r'<td class="numeric">\s*0\s*</td>', updated_page.text)
-    assert '<td class="status">Current price</td>' in updated_page.text
+    assert re.search(r'<td\s+class="status".*?>Current price</td>', updated_page.text, re.DOTALL)
     assert "Price missing" not in updated_page.text
     assert ">Priced<" not in updated_page.text
 
@@ -1764,10 +1789,10 @@ def test_price_history_is_a_table_with_confirmed_audit_safe_deletion(
     page = client.get(f"/items/{priced_item.item_uuid}")
 
     assert page.status_code == 200
-    assert '<table class="price-history-table">' in page.text
-    assert "<th>Date Observed</th>" in page.text
-    assert '<th class="numeric">Price</th>' in page.text
-    assert "<th>Action</th>" in page.text
+    assert '<table class="price-history-table" data-sortable-table>' in page.text
+    assert '<th data-sort-type="date">Date Observed</th>' in page.text
+    assert '<th class="numeric" data-sort-type="number">Price</th>' in page.text
+    assert "<th data-sort-disabled>Action</th>" in page.text
     assert f'action="/price-observations/{priced_item.previous_uuid}/delete"' in page.text
     assert f'action="/price-observations/{priced_item.current_uuid}/delete"' in page.text
     assert "return window.confirm('Delete this price history row?')" in page.text

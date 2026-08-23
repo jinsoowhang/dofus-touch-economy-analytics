@@ -15,7 +15,7 @@ The loader reads these normalized operational tables in one read-only transactio
 | --- | --- | --- |
 | `import_batches` | `raw_import_batches` | Import checksums, filenames, status, and counts |
 | `source_records` | `raw_source_records` | Accepted and rejected source-row provenance |
-| `items` | `raw_items` | Canonical item catalog |
+| `items` | `raw_items` | Canonical item catalog, including nullable carrying weight in pods |
 | `source_item_names` | `raw_source_item_names` | Exact source-name resolution decisions |
 | `recipes` | `raw_recipes` | Versioned recipe headers |
 | `recipe_ingredients` | `raw_recipe_ingredients` | Ordered recipe ingredients and quantities |
@@ -30,6 +30,9 @@ explicit active or sold state.
 
 - The exact SQLite schema must match the loader contract. Missing or unexpected
   columns stop the load instead of being guessed.
+- Existing BigQuery tables may gain a newly contracted nullable column in place.
+  Unexpected columns, required additions, and type or mode changes still stop the
+  load for review.
 - Required nulls and invalid timestamps stop extraction.
 - A SHA-256 content hash identifies each immutable snapshot.
 - Every raw row receives `_snapshot_id` and `_extracted_at` metadata.

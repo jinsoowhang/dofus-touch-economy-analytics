@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from google.api_core.exceptions import NotFound
+from google.cloud import bigquery
 from sqlalchemy import text
 
 from dofus_touch_economy.analytics_snapshot import (
@@ -22,7 +23,7 @@ def _create_database(path: Path) -> None:
     Base.metadata.create_all(engine)
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
-        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0005')"))
+        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0006')"))
     factory = create_session_factory(engine)
     with factory() as session:
         session.add(
@@ -31,6 +32,7 @@ def _create_database(path: Path) -> None:
                 normalized_name="synthetic ore",
                 category="Ore",
                 identity_category="ore",
+                weight=3,
                 created_at=datetime(2026, 8, 22, tzinfo=UTC),
                 updated_at=datetime(2026, 8, 22, tzinfo=UTC),
             )
@@ -47,12 +49,13 @@ def test_snapshot_is_complete_and_content_addressed(tmp_path: Path) -> None:
     second = extract_operational_snapshot(database_path)
 
     assert first.snapshot_id == second.snapshot_id
-    assert first.source_schema_version == "0005"
+    assert first.source_schema_version == "0006"
     assert tuple(first.row_counts) == tuple(table.name for table in OPERATIONAL_TABLES)
     assert first.row_counts["items"] == 1
     assert sum(first.row_counts.values()) == 1
     items = next(table for table in first.tables if table.contract.name == "items")
     assert items.rows[0]["display_name"] == "Synthetic Ore"
+    assert items.rows[0]["weight"] == 3
     assert items.rows[0]["created_at"] == "2026-08-22T00:00:00Z"
 
 
@@ -97,7 +100,7 @@ def test_bigquery_cli_dry_run_needs_no_credentials(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert "schema=0005" in output
+    assert "schema=0006" in output
     assert "items=1" in output
     assert "dry-run: no BigQuery changes made" in output
     assert "Synthetic Ore" not in output
@@ -120,6 +123,7 @@ class _FakeBigQueryClient:
     def __init__(self) -> None:
         self.tables = {}
         self.rows = {}
+        self.updated_tables = []
 
     def get_dataset(self, _dataset_ref):
         return _FakeDataset()
@@ -132,6 +136,13 @@ class _FakeBigQueryClient:
     def create_table(self, table):
         table_id = f"{table.project}.{table.dataset_id}.{table.table_id}"
         self.tables[table_id] = table
+        return table
+
+    def update_table(self, table, fields):
+        assert fields == ["schema"]
+        table_id = f"{table.project}.{table.dataset_id}.{table.table_id}"
+        self.tables[table_id] = table
+        self.updated_tables.append(table_id)
         return table
 
     def query(self, query, *, job_config, location):
@@ -185,3 +196,24 @@ def test_bigquery_loader_publishes_manifest_last_and_is_idempotent(tmp_path: Pat
     )
     assert "dataset=dofus_dev status=already-loaded" in progress
     assert all("Synthetic Ore" not in message for message in progress)
+
+
+def test_bigquery_loader_adds_new_nullable_columns_to_existing_tables(tmp_path: Path) -> None:
+    database_path = tmp_path / "application.sqlite3"
+    _create_database(database_path)
+    snapshot = extract_operational_snapshot(database_path)
+    items = next(table for table in snapshot.tables if table.contract.name == "items")
+    client = _FakeBigQueryClient()
+    loader = BigQuerySnapshotLoader("example-project", "US", client=client)
+    table_id = "example-project.dofus_dev.raw_items"
+    prior_schema = [
+        field for field in loader._raw_schema(items.contract.columns) if field.name != "weight"
+    ]
+    client.tables[table_id] = bigquery.Table(table_id, schema=prior_schema)
+
+    result = loader.load(snapshot, ("dofus_dev",))
+
+    assert result[0].loaded is True
+    assert client.updated_tables == [table_id]
+    assert client.tables[table_id].schema[-1].name == "weight"
+    assert client.rows[table_id][0]["weight"] == 3

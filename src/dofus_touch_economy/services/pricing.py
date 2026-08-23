@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -25,6 +26,9 @@ class ObservationNotFound(LookupError):
 
 class ObservationConflict(RuntimeError):
     pass
+
+
+PriceStatus = Literal["Missing price", "Stale price", "Current price"]
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,18 @@ def calculate_recipe_metrics(
     profit = None if crafted_item_price is None else crafted_item_price - recipe_cost
     roi = None if profit is None or recipe_cost == 0 else profit / recipe_cost
     return RecipeMetrics(recipe_cost=recipe_cost, profit=profit, roi=roi, is_complete=True)
+
+
+def price_freshness(
+    current_price: CurrentPriceResponse | None,
+    as_of: datetime,
+) -> tuple[int | None, PriceStatus]:
+    if current_price is None:
+        return None, "Missing price"
+    observed_at = current_price.observed_at.astimezone(UTC)
+    reference_time = as_of if as_of.tzinfo is not None else as_of.replace(tzinfo=UTC)
+    age_days = max((reference_time.astimezone(UTC).date() - observed_at.date()).days, 0)
+    return age_days, "Stale price" if age_days >= 7 else "Current price"
 
 
 class PriceService:

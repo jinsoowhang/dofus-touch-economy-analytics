@@ -7,6 +7,7 @@ select
     identity_category,
     created_source,
     icon_source_url,
+    weight,
     created_at,
     updated_at,
     _snapshot_id as ingestion_snapshot_id,

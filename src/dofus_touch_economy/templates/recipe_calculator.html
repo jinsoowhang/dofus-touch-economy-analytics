@@ -37,16 +37,16 @@
       </div>
       <script id="calculator-choice-data" type="application/json">{{ choice_data | tojson }}</script>
       <div class="calculator-selected-list">
-        <table class="calculator-selected-table">
+        <table class="calculator-selected-table" data-sortable-table>
           <thead>
             <tr>
-              <th scope="col" class="selection-column">Calculate</th>
-              <th scope="col">Item</th>
-              <th scope="col">Category</th>
-              <th scope="col">Profession</th>
-              <th scope="col" class="numeric">Level</th>
-              <th scope="col" class="numeric">Craft Quantity</th>
-              <th scope="col">Action</th>
+              <th scope="col" class="selection-column" data-sort-disabled>Calculate</th>
+              <th scope="col" data-sort-type="text">Item</th>
+              <th scope="col" data-sort-type="text">Category</th>
+              <th scope="col" data-sort-type="text">Profession</th>
+              <th scope="col" class="numeric" data-sort-type="number">Level</th>
+              <th scope="col" class="numeric" data-sort-type="number">Craft Quantity</th>
+              <th scope="col" data-sort-disabled>Action</th>
             </tr>
           </thead>
           <tbody id="calculator-selected-items">
@@ -105,24 +105,34 @@
         <div><span>Total Crafts</span><strong>{{ result.total_crafts }}</strong></div>
         <div><span>Unique Ingredients</span><strong>{{ result.ingredients | length }}</strong></div>
         <div>
+          <span>Total Weight</span>
+          <strong>{% if result.total_weight is not none %}{{ "{:,}".format(result.total_weight) }} pods{% else %}Incomplete{% endif %}</strong>
+        </div>
+        <div>
           <span>Total Cost</span>
           <strong>{% if result.total_cost is not none %}{{ "{:,}".format(result.total_cost) }}{% else %}Incomplete{% endif %}</strong>
         </div>
         <div><span>Price Coverage</span><strong>{{ result.priced_ingredient_count }} of {{ result.ingredients | length }}</strong></div>
         {% if result.total_cost is none %}<div><span>Known Cost</span><strong>{{ "{:,}".format(result.known_total_cost) }}</strong></div>{% endif %}
+        {% if result.total_weight is none %}<div><span>Known Weight</span><strong>{{ "{:,}".format(result.known_total_weight) }} pods</strong></div>{% endif %}
       </div>
 
       <h3>Ingredients to Buy</h3>
       {% if result.ingredients %}
         <div class="item-table-wrap">
-          <table class="calculator-results-table">
+          <table class="calculator-results-table calculator-shopping-list-table" data-sortable-table>
             <thead>
               <tr>
-                <th>Ingredient</th>
-                <th class="numeric">Total Quantity</th>
-                <th class="numeric">Current Unit Price</th>
-                <th class="numeric">Total Cost</th>
-                <th>Used By</th>
+                <th data-sort-type="text">Ingredient</th>
+                <th data-sort-type="text">Category</th>
+                <th class="numeric" data-sort-type="number">Total Quantity</th>
+                <th class="numeric" data-sort-type="number">Unit Weight</th>
+                <th class="numeric" data-sort-type="number">Total Weight</th>
+                <th class="numeric" data-sort-type="number">Current Unit Price</th>
+                <th class="numeric" data-sort-type="number">Total Cost</th>
+                <th class="numeric" data-sort-type="number">Last Updated (Days)</th>
+                <th data-sort-type="number">Status</th>
+                <th data-sort-type="text">Used By</th>
               </tr>
             </thead>
             <tbody>
@@ -134,7 +144,10 @@
                       {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">{{ ingredient.display_name }}</a>{% else %}{{ ingredient.display_name }}{% endif %}
                     </span>
                   </td>
+                  <td>{{ (ingredient.category or "Uncategorized") | title }}</td>
                   <td class="numeric">{{ ingredient.total_quantity }}</td>
+                  <td class="numeric">{{ "{:,}".format(ingredient.unit_weight) if ingredient.unit_weight is not none else "—" }}</td>
+                  <td class="numeric">{{ "{:,}".format(ingredient.total_weight) if ingredient.total_weight is not none else "—" }}</td>
                   <td class="numeric">
                     {% if ingredient.item_uuid %}
                       <form
@@ -163,6 +176,11 @@
                     {% endif %}
                   </td>
                   <td class="numeric">{{ "{:,}".format(ingredient.total_cost) if ingredient.total_cost is not none else "—" }}</td>
+                  <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
+                  <td
+                    class="status"
+                    data-sort-value="{{ 0 if ingredient.price_status == 'Missing price' else (1 if ingredient.price_status == 'Stale price' else 2) }}"
+                  >{{ ingredient.price_status }}</td>
                   <td>{{ ingredient.used_by | join(", ") }}</td>
                 </tr>
               {% endfor %}
@@ -176,15 +194,15 @@
       <details class="calculator-selected-items">
         <summary>Selected craft breakdown</summary>
         <div class="item-table-wrap">
-          <table class="calculator-results-table">
+          <table class="calculator-results-table" data-sortable-table>
             <thead>
               <tr>
-                <th>Craftable Item</th>
-                <th>Profession</th>
-                <th class="numeric">Level</th>
-                <th class="numeric">Quantity</th>
-                <th class="numeric">Unit Recipe Cost</th>
-                <th class="numeric">Total Recipe Cost</th>
+                <th data-sort-type="text">Craftable Item</th>
+                <th data-sort-type="text">Profession</th>
+                <th class="numeric" data-sort-type="number">Level</th>
+                <th class="numeric" data-sort-type="number">Quantity</th>
+                <th class="numeric" data-sort-type="number">Unit Recipe Cost</th>
+                <th class="numeric" data-sort-type="number">Total Recipe Cost</th>
               </tr>
             </thead>
             <tbody>

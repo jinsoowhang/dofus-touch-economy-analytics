@@ -74,6 +74,17 @@ uv run dofus-fetch-icons
 The command may report catalog entries whose public upstream image is unavailable;
 successfully downloaded icons remain usable.
 
+The live catalog sync also stores each matched item's official carrying weight in
+pods from the Dofus Touch `realWeight` field. Run it after migrating a restored or
+older database:
+
+```bash
+uv run dofus-sync-catalog
+```
+
+Zero is a valid upstream weight. Items without an unambiguous live catalog match
+retain an unknown weight instead of being assigned zero.
+
 Search is normalized and case-insensitive. When no catalog item matches, the page shows
 advisory spelling suggestions and an **Add item** form. Manually added items can receive
 price observations immediately. A later import reuses the same normalized
@@ -84,7 +95,7 @@ The top navigation contains **Item**, **Sales**, and **BigQuery Sync**. Hovering
 or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator**
 submenu. **Sales** opens **Sales Activity** and **Out of Stock Items**.
 The item page lists the full catalog in 100-row alphabetical pages beneath the search
-field, including category, latest unit price, observed lot, and observation time.
+field, including category, weight, latest unit price, and observation time.
 Typing filters the table by item name. Clicking any row opens item detail, where a new
 audited price observation can be recorded.
 
@@ -105,11 +116,19 @@ it as **Missing price**, **Current price**, or **Stale price** at seven days old
 The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
 Items remain in its browser-local cart until removed, while row checkboxes, **Select
 all**, and **Select none** control which cart items are included in the next calculation.
-It combines shared ingredients into one shopping list with total quantities, current
-unit prices, extended costs, price coverage, and complete or known-cost totals.
+It combines shared ingredients into one shopping list with category, total quantity,
+unit and total weight, current unit price, extended cost, price age and freshness,
+and consuming recipes. Summary cards report complete total weight when every weight
+is known, otherwise the known subtotal remains explicit alongside the incomplete
+state. Price coverage and complete or known-cost totals remain independent of weight
+coverage.
 Resolved ingredient unit prices are editable directly in the shopping list; Enter or
-leaving the field appends a price observation and recalculates every affected total.
+leaving the field appends a price observation, restores the previous scroll position,
+and recalculates every affected total.
 Missing prices and unresolved ingredients remain explicit rather than becoming zero.
+
+Every data-bearing table supports sorting by its displayed data columns. Selection,
+calculator, and mutation-only Action columns are intentionally excluded from sorting.
 
 Manual item names are whitespace-normalized and title-cased. The add form recognizes
 common equipment types from a complete final word, so `chouquish belt` previews and

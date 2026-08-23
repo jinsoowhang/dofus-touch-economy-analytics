@@ -510,3 +510,47 @@ after reviewing development lineage and costs.
   scripts.
 - The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 216 Python
   tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.
+
+## Shopping-list Weight, Freshness, Scroll, and Universal Table Sorting
+
+### Work Completed
+
+- Added nullable nonnegative item weight to the operational schema in Alembic
+  revision `0006`, JSON responses, the exact BigQuery snapshot contract, dbt staging,
+  and `dim_items`.
+- Verified the official Dofus Touch exchangeable-item payload uses integer
+  `realWeight` values in pods and preserves valid zero weights. The existing live
+  catalog sync now enriches matched items without changing UUIDs, prices, recipes,
+  provenance, or Sales history.
+- Migrated the ignored canonical SQLite database and ran the live catalog sync.
+  Weight is populated for 10,927 of 11,400 catalog items; 3,099 values are valid zero,
+  and populated values range from 0 through 500 pods. Ten already-known unavailable
+  icon downloads still fail independently after weight changes commit.
+- Expanded Combined Shopping List rows with Category, Unit Weight, Total Weight,
+  Last Updated (Days), and exact Missing price, Stale price, or Current price status.
+  Added complete Total Weight and explicit Known Weight summary behavior when any
+  ingredient weight is unknown.
+- Made Recipe Calculator use the wide desktop shell and a 90rem minimum shopping-list
+  table while retaining horizontal overflow on smaller screens.
+- Saved and restored the Recipe Calculator scroll offset around a successful inline
+  ingredient-price save and recalculation.
+- Added one local typed table sorter for text, numeric, and date columns, with stable
+  ordering and missing values last. Applied it to item detail recipe/history, Sales
+  daily totals, Out of Stock, and every Recipe Calculator table. Existing paginated
+  Item Search, Recipes, Currently Selling, and Sold History tables retain server-side
+  sorting. Selection and action-only columns are not misleading sort targets.
+- Added a guarded BigQuery schema-evolution path so the existing `raw_items` tables
+  can gain the new nullable weight column. Unexpected columns, required additions,
+  and type or mode changes still stop publication for review.
+
+### Verification
+
+- Focused service, migration, snapshot-loader, API, static-asset, and web tests passed.
+- JavaScript syntax checks passed for the shared table sorter and Recipe Calculator.
+- The canonical database dry run produced snapshot
+  `5d9b8a507bfd4afdf4d2d744a13f215f29d680af78ceeab368373db7f2c18006`
+  at schema `0006` without contacting BigQuery.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 221 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+- No BigQuery publication or dbt Cloud build was started; those remain manual actions
+  from the BigQuery Sync page and dbt Studio respectively.

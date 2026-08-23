@@ -549,6 +549,21 @@ button {
   color: var(--accent);
 }
 
+.client-sort-header {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  justify-content: flex-start;
+  min-height: auto;
+  padding: 0;
+  width: 100%;
+}
+
+th.numeric .client-sort-header {
+  justify-content: flex-end;
+}
+
 .sort-arrow {
   color: var(--accent);
   font-size: 0.65em;
@@ -1061,6 +1076,10 @@ button {
   border-collapse: collapse;
   min-width: 50rem;
   width: 100%;
+}
+
+.calculator-shopping-list-table {
+  min-width: 90rem;
 }
 
 .calculator-selected-table th,

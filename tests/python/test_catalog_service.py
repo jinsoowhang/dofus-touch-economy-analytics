@@ -90,6 +90,7 @@ def test_search_filters_by_exact_normalized_category(session_factory) -> None:
     [
         ("name", "desc", ["Zeta Belt", "Synthetic Ore", "Alpha Hat"]),
         ("category", "asc", ["Zeta Belt", "Alpha Hat", "Synthetic Ore"]),
+        ("weight", "asc", ["Zeta Belt", "Synthetic Ore", "Alpha Hat"]),
         ("price", "desc", ["Alpha Hat", "Zeta Belt", "Synthetic Ore"]),
         ("observed", "asc", ["Synthetic Ore", "Zeta Belt", "Alpha Hat"]),
     ],
@@ -107,14 +108,19 @@ def test_search_sorts_by_each_requested_field(
             normalized_name="alpha hat",
             category="Hat",
             identity_category="hat",
+            weight=30,
         )
         zeta = Item(
             display_name="Zeta Belt",
             normalized_name="zeta belt",
             category="Belt",
             identity_category="belt",
+            weight=10,
         )
         session.add_all([alpha, zeta])
+        stored_catalog_item = session.get(Item, catalog_item.id)
+        assert stored_catalog_item is not None
+        stored_catalog_item.weight = 20
         session.commit()
         price_service = PriceService(session, "Dodge")
         price_service.record(catalog_item.uuid, price_command(100))

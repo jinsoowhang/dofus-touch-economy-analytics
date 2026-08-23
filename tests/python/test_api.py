@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+from dofus_touch_economy.models import Item
+
 
 def test_rejects_cross_origin_mutation(client, catalog_item) -> None:
     response = client.post(
@@ -28,6 +30,22 @@ def test_api_search_includes_current_price(client, priced_item) -> None:
     assert response.status_code == 200
     assert response.json()[0]["uuid"] == str(priced_item.item_uuid)
     assert response.json()[0]["current_price"]["unit_price"] == "120"
+
+
+def test_api_item_responses_include_nullable_weight(client, session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        item = session.get(Item, catalog_item.id)
+        assert item is not None
+        item.weight = 12
+        session.commit()
+
+    search = client.get("/api/v1/items", params={"q": "synthetic ore"})
+    detail = client.get(f"/api/v1/items/{catalog_item.uuid}")
+
+    assert search.status_code == 200
+    assert search.json()[0]["weight"] == 12
+    assert detail.status_code == 200
+    assert detail.json()["weight"] == 12
 
 
 def test_api_creates_manual_item_and_makes_it_searchable(client) -> None:

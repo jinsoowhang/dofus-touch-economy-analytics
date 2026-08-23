@@ -48,7 +48,8 @@ SQLite owns transactional application state:
 
 - import batches and accepted or rejected source-row provenance;
 - imported or manually created canonical catalog identities, their creation source,
-  and explicit source-name resolution decisions;
+  Dofus Touch carrying weight when live-catalog matched, and explicit source-name
+  resolution decisions;
 - normalized recipes and ordered ingredients;
 - append-only manual lot-price observations and audit-preserving invalidation.
 
@@ -72,15 +73,24 @@ observations on Enter or blur, preserve the active recipe view, and recalculate 
 economics without creating Sales listings. Item-detail ingredient prices expose
 calendar-day age and become stale at seven days.
 
+All data-bearing tables expose sortable data headers. Paginated Item Search, Recipes,
+and Sales tables sort on the server while detail, calculator, out-of-stock, and daily
+summary tables use one local typed sorter. Selection and action-only columns remain
+controls rather than misleading sort targets.
+
 The Recipe Calculator is an operational projection over the latest recipe per
 crafted item and the latest valid ingredient prices. Resolved shopping-list prices
 can append quantity-one observations through an inline editor; a successful save
 recalculates the selected recipes without creating Sales listings. User-selected craft
 quantities and calculation selections remain separate browser-local cart state and
 non-authoritative request state. Unchecked items stay in the cart but are omitted from
-the submitted calculation. Shared canonical ingredients are aggregated into
-one shopping-list row; unresolved identities and missing prices remain explicit, and
-the calculator never writes recipes or Sales listings.
+the submitted calculation. Shared canonical ingredients are aggregated into one
+shopping-list row. Each row includes catalog category, official pod weight,
+quantity-adjusted total weight, and current-price freshness. The calculator reports a
+complete total weight only when every ingredient weight is known, and restores the
+previous scroll offset after an inline price edit recalculates the page. Unresolved
+identities and missing prices remain explicit, and the calculator never writes
+recipes or Sales listings.
 
 Out of Stock Items is a grouped Sales projection: an item qualifies when it has at
 least one completed listing and zero active listings. It uses the most recent sold
@@ -107,6 +117,10 @@ contract, derives a content hash, and appends partitioned raw rows to both base
 datasets. A manifest is written last; dbt filters every source to the newest complete
 manifested snapshot. The operational application is not coupled to analytical model
 availability.
+
+BigQuery tables reject incompatible or unexpected schema changes. A new nullable
+contract column may be appended in place so existing immutable rows remain valid with
+null values; required additions and type changes still stop publication for review.
 
 DuckDB and dbt Core remain the reproducible local profile and CI parse path during
 the pilot. The operational dbt models require hosted raw tables until an equivalent

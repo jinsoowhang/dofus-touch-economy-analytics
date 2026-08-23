@@ -53,6 +53,12 @@ automatically. A cost import may add a category to a sole uncategorized manual i
 with the same normalized name; the item UUID, creation provenance, and observations
 remain unchanged.
 
+The live Dofus Touch catalog may enrich an exact matched item with `realWeight`, a
+nonnegative integer carrying weight measured in pods. Zero is valid. Items without a
+valid or unambiguous live match keep a null weight; missing weight is never converted
+to zero. This enrichment preserves item identity, provenance, recipes, prices, and
+Sales history.
+
 ## Operational price observations
 
 Manual observations persisted by the application contain:
@@ -102,6 +108,7 @@ contract preserves:
 - source filename, row number, raw payload, validation messages, and import checksum;
 - recorded, observed, listing-started, sold, and invalidation timestamps;
 - market context, invalidation state, and Sales status;
+- nullable live-catalog item weight in pods;
 - a stable content-derived snapshot ID and UTC extraction timestamp.
 
 All contracted tables are read inside one SQLite transaction. Any missing or

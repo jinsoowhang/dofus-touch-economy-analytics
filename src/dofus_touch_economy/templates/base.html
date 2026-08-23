@@ -6,6 +6,7 @@
     <title>{% block title %}Dofus Touch Economy{% endblock %}</title>
     <link rel="stylesheet" href="/static/app.css">
     <script src="/static/htmx.min.js" defer></script>
+    <script src="/static/table-sort.js" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -65,7 +66,7 @@
         </nav>
       </div>
     </header>
-    <main class="page-shell{% if active_tab in ['recipes', 'out_of_stock'] %} page-shell--wide{% endif %}">
+    <main class="page-shell{% if active_tab in ['recipes', 'recipe_calculator', 'out_of_stock'] %} page-shell--wide{% endif %}">
       {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

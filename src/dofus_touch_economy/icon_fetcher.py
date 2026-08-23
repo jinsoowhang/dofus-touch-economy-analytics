@@ -101,6 +101,7 @@ class _CatalogCandidate:
     normalized_name: str
     category: str
     identity_category: str
+    weight: int | None
     source_url: str
 
 
@@ -327,6 +328,12 @@ def _touch_catalog_candidates(
         icon_id = value.get("iconId")
         display_name = value.get("nameId")
         category = item_types.get(value.get("typeId"))
+        raw_weight = value.get("realWeight")
+        weight = (
+            raw_weight
+            if isinstance(raw_weight, int) and not isinstance(raw_weight, bool) and raw_weight >= 0
+            else None
+        )
         if (
             not isinstance(item_id, int)
             or not isinstance(icon_id, int)
@@ -346,6 +353,7 @@ def _touch_catalog_candidates(
                 normalized_name=normalized_name,
                 category=category.strip(),
                 identity_category=identity_category,
+                weight=weight,
                 source_url=f"{assets_url.rstrip('/')}/{icon_id}.png",
             )
         )
@@ -395,6 +403,7 @@ def _sync_catalog_items(
                     category=candidate.category,
                     identity_category=candidate.identity_category,
                     created_source="imported",
+                    weight=candidate.weight,
                 )
                 session.add(item)
                 session.flush()
@@ -403,6 +412,7 @@ def _sync_catalog_items(
                 created_count += 1
             else:
                 matched_count += 1
+                item.weight = candidate.weight
             targets.append(
                 _Target(
                     item_id=item.id,
