@@ -351,6 +351,17 @@ button {
   margin-block: 0.75rem;
 }
 
+.bulk-actions button {
+  align-items: center;
+  display: inline-flex;
+  font-size: inherit;
+  justify-content: center;
+  line-height: inherit;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.7rem;
+  white-space: nowrap;
+}
+
 .bulk-selection-count {
   color: var(--muted);
   font-weight: 650;

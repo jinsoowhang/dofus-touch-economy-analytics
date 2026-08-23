@@ -219,3 +219,12 @@ after reviewing development lineage and costs.
   deletion, selection validation, redirect anchors, and scroll-restoration assets.
 - `./scripts/check.sh` passed, including Ruff, all 180 Python tests, package
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+### Bulk Toolbar Alignment Follow-up
+
+- The Delete selected control inherited the compact icon-only `.delete-button`
+  typography and height while Mark selected sold used normal text-button geometry.
+- Added a higher-specificity bulk-toolbar rule so both controls share font size,
+  line height, minimum height, padding, and centered inline-flex alignment without
+  changing compact row-level delete icons.
+- Added a static-asset regression test for the shared bulk-button geometry.
