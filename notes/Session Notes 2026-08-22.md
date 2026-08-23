@@ -337,3 +337,20 @@ after reviewing development lineage and costs.
   passed.
 - `./scripts/check.sh` passed, including Ruff, all 204 Python tests, package
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Dual-handle Recipe Level Filter
+
+### Work Completed
+
+- Replaced the two visible Required Profession Level tracks with one shared range
+  bar and separate minimum and maximum handles.
+- Kept both selected values visible, prevented the handles from crossing, highlighted
+  the selected interval, and retained keyboard labels and focus indicators.
+- Preserved the existing `min_level` and `max_level` query parameters so filtered
+  links and backend behavior remain compatible.
+
+### Verification
+
+- JavaScript syntax and focused recipe-page rendering and validation tests passed.
+- `./scripts/check.sh` passed, including Ruff, all 204 Python tests, package
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

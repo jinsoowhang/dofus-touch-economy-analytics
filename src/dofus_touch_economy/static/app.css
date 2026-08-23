@@ -227,9 +227,8 @@ form .htmx-indicator {
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.5rem;
   grid-column: 1 / -1;
-  grid-template-columns: auto minmax(10rem, 1fr);
   margin: 0;
   padding: 0.75rem;
 }
@@ -239,11 +238,16 @@ form .htmx-indicator {
   padding-inline: 0.3rem;
 }
 
-.level-range-filter label {
+.level-range-values {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.level-range-values label {
   align-items: center;
   display: flex;
   gap: 0.35rem;
-  grid-column: auto;
   white-space: nowrap;
 }
 
@@ -253,10 +257,90 @@ form .htmx-indicator {
   font-weight: 750;
 }
 
-.level-range-filter input[type="range"] {
-  min-height: auto;
-  padding: 0;
+.dual-range-slider {
+  --range-maximum-position: 100%;
+  --range-minimum-position: 0%;
+  height: 2rem;
+  position: relative;
   width: 100%;
+}
+
+.dual-range-track {
+  background: linear-gradient(
+    to right,
+    var(--border) 0 var(--range-minimum-position),
+    var(--accent) var(--range-minimum-position) var(--range-maximum-position),
+    var(--border) var(--range-maximum-position) 100%
+  );
+  border-radius: 999px;
+  height: 0.4rem;
+  inset-inline: 0;
+  position: absolute;
+  top: calc(50% - 0.2rem);
+}
+
+.dual-range-slider input[type="range"] {
+  appearance: none;
+  background: transparent;
+  inset: 0;
+  margin: 0;
+  min-height: 2rem;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+}
+
+.dual-range-slider input[type="range"]::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: 0.4rem;
+}
+
+.dual-range-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  background: var(--accent);
+  border: 0.2rem solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: grab;
+  height: 1.2rem;
+  margin-block-start: -0.4rem;
+  pointer-events: auto;
+  width: 1.2rem;
+}
+
+.dual-range-slider input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 0.4rem;
+}
+
+.dual-range-slider input[type="range"]::-moz-range-progress {
+  background: transparent;
+}
+
+.dual-range-slider input[type="range"]::-moz-range-thumb {
+  background: var(--accent);
+  border: 0.2rem solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: grab;
+  height: 0.8rem;
+  pointer-events: auto;
+  width: 0.8rem;
+}
+
+.dual-range-slider input[type="range"]:focus-visible {
+  outline: none;
+}
+
+.dual-range-slider input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 0.2rem var(--surface), 0 0 0 0.35rem var(--accent);
+}
+
+.dual-range-slider input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 0.2rem var(--surface), 0 0 0 0.35rem var(--accent);
 }
 
 .filter-help,

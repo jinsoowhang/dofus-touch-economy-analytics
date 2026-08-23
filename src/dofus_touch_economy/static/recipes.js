@@ -4,8 +4,15 @@ const minimumLevel = document.querySelector("#recipe-min-level");
 const maximumLevel = document.querySelector("#recipe-max-level");
 const minimumLevelOutput = document.querySelector("#recipe-min-level-output");
 const maximumLevelOutput = document.querySelector("#recipe-max-level-output");
+const levelRangeSlider = document.querySelector(".dual-range-slider");
 
-if (minimumLevel && maximumLevel && minimumLevelOutput && maximumLevelOutput) {
+if (
+  minimumLevel &&
+  maximumLevel &&
+  minimumLevelOutput &&
+  maximumLevelOutput &&
+  levelRangeSlider
+) {
   const updateLevelRange = (changedInput) => {
     if (Number(minimumLevel.value) > Number(maximumLevel.value)) {
       if (changedInput === minimumLevel) {
@@ -16,6 +23,25 @@ if (minimumLevel && maximumLevel && minimumLevelOutput && maximumLevelOutput) {
     }
     minimumLevelOutput.value = minimumLevel.value;
     maximumLevelOutput.value = maximumLevel.value;
+
+    const availableMinimum = Number(minimumLevel.min);
+    const availableMaximum = Number(maximumLevel.max);
+    const availableSpan = availableMaximum - availableMinimum;
+    const minimumPosition =
+      availableSpan === 0
+        ? 0
+        : ((Number(minimumLevel.value) - availableMinimum) / availableSpan) * 100;
+    const maximumPosition =
+      availableSpan === 0
+        ? 100
+        : ((Number(maximumLevel.value) - availableMinimum) / availableSpan) * 100;
+    levelRangeSlider.style.setProperty("--range-minimum-position", `${minimumPosition}%`);
+    levelRangeSlider.style.setProperty("--range-maximum-position", `${maximumPosition}%`);
+
+    minimumLevel.setAttribute("aria-valuetext", `Minimum level ${minimumLevel.value}`);
+    maximumLevel.setAttribute("aria-valuetext", `Maximum level ${maximumLevel.value}`);
+    minimumLevel.style.zIndex = changedInput === minimumLevel ? "3" : "2";
+    maximumLevel.style.zIndex = changedInput === maximumLevel ? "3" : "2";
   };
 
   minimumLevel.addEventListener("input", () => updateLevelRange(minimumLevel));

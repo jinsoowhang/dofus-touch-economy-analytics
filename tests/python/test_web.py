@@ -835,6 +835,12 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
     assert 'id="recipe-min-level"' in response.text
     assert 'name="min_level"' in response.text
+    assert 'id="recipe-max-level"' in response.text
+    assert 'name="max_level"' in response.text
+    assert response.text.count('class="dual-range-track"') == 1
+    assert 'class="dual-range-slider"' in response.text
+    assert 'aria-label="Minimum required profession level"' in response.text
+    assert 'aria-label="Maximum required profession level"' in response.text
     assert 'value="1"' in response.text
     assert "Synthetic Widget" in response.text
     assert f'href="/items/{item_uuid}#recipe"' in response.text
@@ -852,6 +858,8 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert '<script src="/static/recipes.js" defer></script>' in response.text
     assert script.status_code == 200
     assert 'minimumLevel.addEventListener("input"' in script.text
+    assert 'levelRangeSlider.style.setProperty("--range-minimum-position"' in script.text
+    assert 'levelRangeSlider.style.setProperty("--range-maximum-position"' in script.text
     assert 'document.querySelectorAll(".recipe-current-price-form")' in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert "window.sessionStorage.setItem(recipeScrollStorageKey" in script.text

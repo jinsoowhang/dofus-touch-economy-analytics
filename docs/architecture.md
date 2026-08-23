@@ -63,9 +63,10 @@ for the active market context. Filtering replaces only the table fragment. Item 
 link to detail; price changes remain append-only observations rather than direct
 edits. Recipes selects the latest recipe per crafted item, resolves current prices in
 bulk, derives standard profession-slot requirements and crafting economics, and
-provides URL-backed filters and sortable columns without mutating recipe data. Its
-Current Price cells append quantity-one observations on Enter or blur, preserve the
-active recipe view, and recalculate row economics without creating Sales listings.
+provides URL-backed filters—including one dual-handle profession-level range—and
+sortable columns without mutating recipe data. Its Current Price cells append
+quantity-one observations on Enter or blur, preserve the active recipe view, and
+recalculate row economics without creating Sales listings.
 
 Missing items may be created through the HTML or JSON interface. Similar-name results
 are advisory and never establish identity. A later source import may enrich a sole

@@ -61,28 +61,35 @@
       </label>
       <fieldset class="level-range-filter">
         <legend>Required profession level</legend>
-        <label for="recipe-min-level">
-          Minimum <output id="recipe-min-level-output" for="recipe-min-level">{{ selected_minimum_level }}</output>
-        </label>
-        <input
-          id="recipe-min-level"
-          name="min_level"
-          type="range"
-          min="{{ minimum_available_level }}"
-          max="{{ maximum_available_level }}"
-          value="{{ selected_minimum_level }}"
-        >
-        <label for="recipe-max-level">
-          Maximum <output id="recipe-max-level-output" for="recipe-max-level">{{ selected_maximum_level }}</output>
-        </label>
-        <input
-          id="recipe-max-level"
-          name="max_level"
-          type="range"
-          min="{{ minimum_available_level }}"
-          max="{{ maximum_available_level }}"
-          value="{{ selected_maximum_level }}"
-        >
+        <div class="level-range-values">
+          <label for="recipe-min-level">
+            Minimum <output id="recipe-min-level-output" for="recipe-min-level">{{ selected_minimum_level }}</output>
+          </label>
+          <label for="recipe-max-level">
+            Maximum <output id="recipe-max-level-output" for="recipe-max-level">{{ selected_maximum_level }}</output>
+          </label>
+        </div>
+        <div class="dual-range-slider">
+          <div class="dual-range-track" aria-hidden="true"></div>
+          <input
+            id="recipe-min-level"
+            name="min_level"
+            type="range"
+            min="{{ minimum_available_level }}"
+            max="{{ maximum_available_level }}"
+            value="{{ selected_minimum_level }}"
+            aria-label="Minimum required profession level"
+          >
+          <input
+            id="recipe-max-level"
+            name="max_level"
+            type="range"
+            min="{{ minimum_available_level }}"
+            max="{{ maximum_available_level }}"
+            value="{{ selected_maximum_level }}"
+            aria-label="Maximum required profession level"
+          >
+        </div>
       </fieldset>
       <p class="filter-help">
         Required level follows the ingredient-slot unlocks for standard recipes.
