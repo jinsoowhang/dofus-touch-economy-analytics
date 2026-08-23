@@ -90,10 +90,12 @@ observation can be recorded.
 The Recipes page lists the latest recipe for each craftable item with its profession,
 standard required profession level, current item price, recipe cost, profit, and ROI.
 It supports item, category, profession, level-range, and profitability filters plus
-sorting on every displayed field. Required profession level follows the standard
-Dofus Touch ingredient-slot unlocks: levels 1, 10, 20, 40, 60, 80, and 100 for
-increasing recipe sizes through eight ingredients. Item detail shows the same level
-beside the recipe profession.
+sorting on every displayed field. Current Price is editable directly in each row;
+Enter or leaving the field appends a price observation and refreshes the calculated
+economics without creating a Sales listing. Required profession level follows the
+standard Dofus Touch ingredient-slot unlocks: levels 1, 10, 20, 40, 60, 80, and 100
+for increasing recipe sizes through eight ingredients. Item detail shows the same
+level beside the recipe profession.
 
 Manual item names are whitespace-normalized and title-cased. The add form recognizes
 common equipment types from a complete final word, so `chouquish belt` previews and

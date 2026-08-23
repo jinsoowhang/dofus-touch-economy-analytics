@@ -3,9 +3,18 @@
 {% block content %}
   <h1>Recipes</h1>
   <p>Market: {{ market_context }}</p>
+  {% if notification %}
+    <p class="notification" role="status">{{ notification }}</p>
+  {% endif %}
   {% if errors %}
     <div role="alert">
       <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+  {% if price_errors %}
+    <div role="alert">
+      <p>Could not save the current price:</p>
+      <ul>{% for message in price_errors %}<li>{{ message }}</li>{% endfor %}</ul>
     </div>
   {% endif %}
 
@@ -135,7 +144,29 @@
                 <td><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ (recipe.category or "Uncategorized") | title }}</a></td>
                 <td><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ recipe.profession }}</a></td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ recipe.profession_level if recipe.profession_level is not none else "—" }}</a></td>
-                <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.current_price) if recipe.current_price is not none else "—" }}</a></td>
+                <td class="numeric">
+                  {% set is_edited_price = price_item_uuid == recipe.item_uuid %}
+                  {% set current_price_value = price_form_value if is_edited_price else ("{:,}".format(recipe.current_price) if recipe.current_price is not none else "") %}
+                  <form
+                    method="post"
+                    action="/recipes/{{ recipe.item_uuid }}/price?{{ recipe_view_query }}"
+                    class="price-edit-form recipe-current-price-form"
+                  >
+                    <label class="visually-hidden" for="recipe-current-price-{{ recipe.item_uuid }}">
+                      Current Price for {{ recipe.display_name }}
+                    </label>
+                    <input
+                      id="recipe-current-price-{{ recipe.item_uuid }}"
+                      name="current_price"
+                      inputmode="numeric"
+                      value="{{ current_price_value }}"
+                      data-initial-value="{{ '{:,}'.format(recipe.current_price) if recipe.current_price is not none else '' }}"
+                      placeholder="—"
+                      title="Click to edit. Press Enter or leave the field to save."
+                      required
+                    >
+                  </form>
+                </td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.recipe_cost) if recipe.recipe_cost is not none else "—" }}</a></td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.profit) if recipe.profit is not none else "—" }}</a></td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:.1%}".format(recipe.roi) if recipe.roi is not none else "—" }}</a></td>

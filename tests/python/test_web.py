@@ -838,6 +838,12 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert 'value="1"' in response.text
     assert "Synthetic Widget" in response.text
     assert f'href="/items/{item_uuid}#recipe"' in response.text
+    assert (
+        f'action="/recipes/{item_uuid}/price?profession=Crafting&amp;min_level=1&amp;'
+        'max_level=1&amp;economics=unknown&amp;sort=level&amp;direction=desc"'
+    ) in response.text
+    assert 'name="current_price"' in response.text
+    assert 'class="price-edit-form recipe-current-price-form"' in response.text
     assert 'aria-label="Sort recipes by Required Level, ascending"' in response.text
     assert (
         "profession=Crafting&amp;min_level=1&amp;max_level=1&amp;economics=unknown&amp;"
@@ -846,6 +852,84 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert '<script src="/static/recipes.js" defer></script>' in response.text
     assert script.status_code == 200
     assert 'minimumLevel.addEventListener("input"' in script.text
+    assert 'document.querySelectorAll(".recipe-current-price-form")' in script.text
+    assert 'input.addEventListener("blur", savePrice)' in script.text
+    assert "window.sessionStorage.setItem(recipeScrollStorageKey" in script.text
+
+
+def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        recipe = session.scalar(select(Recipe))
+        assert recipe is not None
+        item_uuid = recipe.crafted_item.uuid
+
+    response = client.post(
+        f"/recipes/{item_uuid}/price",
+        params={
+            "q": "widget",
+            "profession": "Crafting",
+            "sort": "profit",
+            "direction": "desc",
+        },
+        data={"current_price": "4,000"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/recipes?q=widget&profession=Crafting&sort=profit&direction=desc&"
+        f"updated={item_uuid}#recipe-catalog"
+    )
+    updated_page = client.get(response.headers["location"])
+    assert "Synthetic Widget price has been updated." in updated_page.text
+    assert 'value="4,000"' in updated_page.text
+    assert ">3,500</a>" in updated_page.text
+    assert ">500</a>" in updated_page.text
+
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(item_uuid)
+        listing = session.scalar(select(SaleListing))
+    assert detail.current_price is not None
+    assert detail.current_price.total_price == 4_000
+    assert detail.current_price.lot_quantity == 1
+    assert listing is None
+
+
+def test_recipe_current_price_edit_rejects_invalid_value_inline(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        recipe = session.scalar(select(Recipe))
+        assert recipe is not None
+        item_uuid = recipe.crafted_item.uuid
+
+    response = client.post(
+        f"/recipes/{item_uuid}/price",
+        params={"sort": "price", "direction": "desc"},
+        data={"current_price": "-1"},
+    )
+
+    assert response.status_code == 422
+    assert "Could not save the current price:" in response.text
+    assert "Input should be greater than 0" in response.text
+    assert 'value="-1"' in response.text
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(item_uuid)
+    assert detail.current_price is None
 
 
 def test_recipes_page_shows_inline_reversed_level_error(client) -> None:

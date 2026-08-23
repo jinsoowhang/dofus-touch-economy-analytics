@@ -314,3 +314,26 @@ after reviewing development lineage and costs.
 - Focused Item Search, Recipes, Sales, and static dropdown checks passed.
 - `./scripts/check.sh` passed, including Ruff, all 202 Python tests, package
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Recipe Catalog Current Price Editing
+
+### Work Completed
+
+- Replaced read-only Current Price links in Craftable Items with inline fields that
+  save on Enter or blur.
+- Reused the append-only quantity-one price-observation path, so recipe-page edits
+  never create Sales listings.
+- Preserved URL-backed filters and sorting across the save, recalculated Current
+  Price, Profit, and ROI, and restored the prior scroll offset when browser session
+  storage is available.
+- Kept invalid values inline with the submitted value and validation message without
+  writing a price observation.
+
+### Verification
+
+- Focused rendering, successful update, economics recalculation, state preservation,
+  validation, and no-Sales-listing checks passed.
+- `node --check` passed for the updated recipe-page script, and all 52 web tests
+  passed.
+- `./scripts/check.sh` passed, including Ruff, all 204 Python tests, package
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

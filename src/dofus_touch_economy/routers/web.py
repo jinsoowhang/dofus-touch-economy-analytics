@@ -787,6 +787,60 @@ def _recipe_sort_columns(
     return result
 
 
+def _recipe_page_context(
+    session: Session,
+    market_context: str,
+    filter_state: RecipeFilterState,
+    sort_field: RecipeSortField,
+    sort_direction: RecipeSortDirection,
+    *,
+    notification: str | None = None,
+    price_errors: list[str] | None = None,
+    price_item_uuid: UUID | None = None,
+    price_form_value: str = "",
+) -> dict[str, object]:
+    result = RecipeCatalogService(session, market_context).browse(
+        filter_state.catalog_filters(),
+        sort_field,
+        sort_direction,
+    )
+    minimum_level = filter_state.minimum_level or result.minimum_available_level
+    maximum_level = filter_state.maximum_level or result.maximum_available_level
+    filter_parameters = filter_state.parameters()
+    view_parameters = {
+        **filter_parameters,
+        "sort": sort_field,
+        "direction": sort_direction,
+    }
+    return {
+        "active_tab": "recipes",
+        "market_context": market_context,
+        "recipes": result.rows,
+        "recipe_total_count": result.total_count,
+        "profession_choices": result.professions,
+        "category_choices": result.categories,
+        "minimum_available_level": result.minimum_available_level,
+        "maximum_available_level": result.maximum_available_level,
+        "selected_minimum_level": minimum_level,
+        "selected_maximum_level": maximum_level,
+        "filter_state": filter_state,
+        "has_recipe_filters": bool(filter_parameters),
+        "sort_field": sort_field,
+        "sort_direction": sort_direction,
+        "sort_columns": _recipe_sort_columns(
+            sort_field,
+            sort_direction,
+            filter_parameters,
+        ),
+        "recipe_view_query": urlencode(view_parameters),
+        "errors": filter_state.errors(),
+        "notification": notification,
+        "price_errors": price_errors or [],
+        "price_item_uuid": price_item_uuid,
+        "price_form_value": price_form_value,
+    }
+
+
 def _form_values(form, fields: tuple[str, ...]) -> dict[str, str]:
     return {
         field: value if isinstance((value := form.get(field, "")), str) else "" for field in fields
@@ -834,36 +888,87 @@ def recipes_page(
     filter_state: Annotated[RecipeFilterState, Depends(_recipe_filter_state)],
     sort: Annotated[RecipeSortField, Query()] = "name",
     direction: Annotated[RecipeSortDirection, Query()] = "asc",
+    updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
-    result = RecipeCatalogService(session, settings.market_context).browse(
-        filter_state.catalog_filters(),
-        sort,
-        direction,
-    )
-    minimum_level = filter_state.minimum_level or result.minimum_available_level
-    maximum_level = filter_state.maximum_level or result.maximum_available_level
-    filter_parameters = filter_state.parameters()
+    notification = None
+    if updated is not None:
+        try:
+            updated_item = CatalogService(session, settings.market_context).detail(updated)
+        except ItemNotFound:
+            pass
+        else:
+            notification = f"{updated_item.display_name} price has been updated."
     return templates.TemplateResponse(
         request,
         "recipes.html",
-        context={
-            "active_tab": "recipes",
-            "market_context": settings.market_context,
-            "recipes": result.rows,
-            "recipe_total_count": result.total_count,
-            "profession_choices": result.professions,
-            "category_choices": result.categories,
-            "minimum_available_level": result.minimum_available_level,
-            "maximum_available_level": result.maximum_available_level,
-            "selected_minimum_level": minimum_level,
-            "selected_maximum_level": maximum_level,
-            "filter_state": filter_state,
-            "has_recipe_filters": bool(filter_parameters),
-            "sort_field": sort,
-            "sort_direction": direction,
-            "sort_columns": _recipe_sort_columns(sort, direction, filter_parameters),
-            "errors": filter_state.errors(),
-        },
+        context=_recipe_page_context(
+            session,
+            settings.market_context,
+            filter_state,
+            sort,
+            direction,
+            notification=notification,
+        ),
+    )
+
+
+@router.post(
+    "/recipes/{item_uuid}/price",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+async def update_recipe_item_current_price(
+    request: Request,
+    item_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    filter_state: Annotated[RecipeFilterState, Depends(_recipe_filter_state)],
+    sort: Annotated[RecipeSortField, Query()] = "name",
+    direction: Annotated[RecipeSortDirection, Query()] = "asc",
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("current_price",))
+    try:
+        command = ItemCurrentPriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "recipes.html",
+            context=_recipe_page_context(
+                session,
+                settings.market_context,
+                filter_state,
+                sort,
+                direction,
+                price_errors=_validation_messages(error),
+                price_item_uuid=item_uuid,
+                price_form_value=values["current_price"],
+            ),
+            status_code=422,
+        )
+
+    try:
+        PriceService(session, settings.market_context).record(
+            item_uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=command.current_price,
+                observed_at=datetime.now(UTC),
+                note="Recipe catalog current price update",
+            ),
+        )
+    except ItemNotFound:
+        return _error_response(request, "Item not found", 404)
+
+    parameters = {
+        **filter_state.parameters(),
+        "sort": sort,
+        "direction": direction,
+        "updated": str(item_uuid),
+    }
+    return RedirectResponse(
+        url=f"/recipes?{urlencode(parameters)}#recipe-catalog",
+        status_code=303,
     )
 
 
