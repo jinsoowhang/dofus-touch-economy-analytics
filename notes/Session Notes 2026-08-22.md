@@ -438,3 +438,19 @@ after reviewing development lineage and costs.
   Calculator dropped from about 0.88 seconds to about 0.37 seconds.
 - The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 214 Python
   tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.
+
+## Wider Recipes Layout
+
+### Work Completed
+
+- Added a Recipes-only wide content shell with a 100rem maximum and smaller
+  responsive side padding so the desktop table uses substantially more viewport
+  width.
+- Kept the standard 72rem shell on Item Search, item detail, Sales, Recipe
+  Calculator, and BigQuery Sync, and retained horizontal overflow for narrow screens.
+
+### Verification
+
+- All 61 focused web and static-asset tests passed.
+- The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 214 Python
+  tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.

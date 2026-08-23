@@ -53,6 +53,11 @@ a {
   padding: 1rem clamp(1rem, 4vw, 3rem);
 }
 
+.page-shell--wide {
+  max-width: 100rem;
+  padding-inline: clamp(1rem, 2vw, 2rem);
+}
+
 .site-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);

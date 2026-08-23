@@ -50,7 +50,7 @@
         </nav>
       </div>
     </header>
-    <main class="page-shell">
+    <main class="page-shell{% if active_tab == 'recipes' %} page-shell--wide{% endif %}">
       {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

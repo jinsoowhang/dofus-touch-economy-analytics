@@ -832,6 +832,7 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert response.status_code == 200
     assert ">Recipes</a>" in response.text
     assert 'class="site-submenu-link is-active"' in response.text
+    assert 'class="page-shell page-shell--wide"' in response.text
     assert "<span>Item</span>" in response.text
     assert '<option value="Crafting" selected>Crafting</option>' in response.text
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
