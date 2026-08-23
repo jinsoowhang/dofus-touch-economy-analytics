@@ -197,3 +197,25 @@ after reviewing development lineage and costs.
 - Confirmed a cached file begins with the PNG signature.
 - Confirmed the running FastAPI application serves a cached icon with HTTP 200,
   `image/png`, and a nonzero response body.
+
+## Currently Selling Position and Bulk Actions
+
+### Work Completed
+
+- Added a `currently-selling` fragment to the individual Mark-as-sold redirect and
+  saved/restored the exact scroll offset for Currently Selling row actions.
+- Added accessible row checkboxes, a select-all checkbox, a live selected-row count,
+  and Mark selected sold and Delete selected controls.
+- Added one validated bulk endpoint and transactional service methods. A missing,
+  stale, or already-sold selection fails before any selected row is changed.
+- Kept Duplicate as a row-only operation to avoid accidentally creating many new
+  listings. Bulk deletion requires explicit browser confirmation.
+- Preserved both table sort settings through individual and bulk actions.
+
+### Verification
+
+- Focused Ruff checks passed.
+- All 64 Sales service and web tests passed, including atomic bulk updates, bulk
+  deletion, selection validation, redirect anchors, and scroll-restoration assets.
+- `./scripts/check.sh` passed, including Ruff, all 180 Python tests, package
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

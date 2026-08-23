@@ -111,6 +111,10 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     assert "salePriceInput.value = suggestedPrice" in script.text
     assert "No completed sales for this item yet." in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
+    assert 'activeSalesSelectAll.addEventListener("change"' in script.text
+    assert "window.sessionStorage.setItem(salesScrollStorageKey" in script.text
+    assert "window.scrollTo(0, scrollPosition)" in script.text
+    assert "Delete the selected sales rows? This cannot be undone." in script.text
 
 
 def test_sales_item_choice_suggests_median_completed_sale_price(
@@ -187,6 +191,8 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert 'name="lot_quantity"' not in active_page.text
     assert "Delete this sales row? This cannot be undone." in active_page.text
     assert f'aria-label="Delete sale row for {catalog_item.display_name}"' in active_page.text
+    assert 'id="active-sales-bulk-form"' in active_page.text
+    assert 'id="select-all-active-sales"' in active_page.text
 
     with session_factory() as session:
         listing = session.scalar(select(SaleListing))
@@ -195,6 +201,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         assert listing.price_observation.total_price == 50_000
         assert listing.price_observation.market_context == "Dodge"
         listing_uuid = listing.uuid
+    assert f'value="{listing_uuid}"' in active_page.text
     item_page = client.get(f"/items/{catalog_item.uuid}")
     assert "<summary><h2>Current Price</h2></summary>" in item_page.text
     assert 'name="current_price"' in item_page.text
@@ -206,7 +213,9 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     )
 
     assert completed.status_code == 303
-    assert completed.headers["location"] == f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-sold"
+    assert completed.headers["location"] == (
+        f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-sold#currently-selling"
+    )
     sold_page = client.get(completed.headers["location"])
     assert "Item has been marked as sold." in sold_page.text
     assert "0 active" in sold_page.text
@@ -358,6 +367,75 @@ def test_sales_page_deletes_a_listing_after_confirmation(
     assert "0 active" in deleted_page.text
     with session_factory() as session:
         assert session.scalar(select(SaleListing.id)) is None
+
+
+def test_sales_page_bulk_marks_sold_and_deletes_selected_rows(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    for asking_price in (1_000, 2_000, 3_000):
+        client.post(
+            "/sales",
+            data={"item_uuid": str(catalog_item.uuid), "asking_price": str(asking_price)},
+        )
+    with session_factory() as session:
+        listing_uuids = list(session.scalars(select(SaleListing.uuid).order_by(SaleListing.id)))
+
+    page = client.get("/sales")
+    escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
+    assert f'action="/sales/bulk?{escaped_query}"' in page.text
+    assert page.text.count('class="active-sale-checkbox"') == 3
+    assert 'aria-label="Select all currently selling rows"' in page.text
+    assert "Mark selected sold" in page.text
+    assert "Delete selected" in page.text
+    assert page.text.count("data-preserve-scroll") == 13
+
+    sold = client.post(
+        "/sales/bulk",
+        data={
+            "action": "mark_sold",
+            "listing_uuid": [str(listing_uuids[0]), str(listing_uuids[1])],
+        },
+        follow_redirects=False,
+    )
+
+    assert sold.status_code == 303
+    assert sold.headers["location"] == (
+        f"/sales?{DEFAULT_SALES_QUERY}&notice=listings-sold&count=2#currently-selling"
+    )
+    sold_page = client.get(sold.headers["location"])
+    assert "2 selected items have been marked as sold." in sold_page.text
+    assert "1 active" in sold_page.text
+    assert "2 sold" in sold_page.text
+
+    deleted = client.post(
+        "/sales/bulk",
+        data={"action": "delete", "listing_uuid": str(listing_uuids[2])},
+        follow_redirects=False,
+    )
+
+    assert deleted.status_code == 303
+    assert deleted.headers["location"] == (
+        f"/sales?{DEFAULT_SALES_QUERY}&notice=listings-deleted&count=1#currently-selling"
+    )
+    deleted_page = client.get(deleted.headers["location"])
+    assert "1 selected listing has been deleted." in deleted_page.text
+    assert "0 active" in deleted_page.text
+    assert "2 sold" in deleted_page.text
+
+
+def test_sales_page_bulk_action_requires_a_selection(client, catalog_item) -> None:
+    client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": "1000"},
+    )
+
+    response = client.post("/sales/bulk", data={"action": "mark_sold"})
+
+    assert response.status_code == 422
+    assert "Select at least one Currently Selling row and choose a bulk action." in response.text
+    assert "1 active" in response.text
 
 
 def test_sales_tables_sort_independently_and_show_directions(

@@ -52,6 +52,16 @@ class SalesRepository:
         )
         return self._session.scalar(statement)
 
+    def get_by_uuids(self, listing_uuids: list[UUID]) -> list[SaleListing]:
+        if not listing_uuids:
+            return []
+        statement = (
+            select(SaleListing)
+            .where(SaleListing.uuid.in_(listing_uuids))
+            .options(selectinload(SaleListing.item))
+        )
+        return list(self._session.scalars(statement))
+
     def update_price(
         self,
         listing_uuid: UUID,
@@ -81,6 +91,17 @@ class SalesRepository:
             .values(date_sold=date_sold)
         )
         return result.rowcount == 1
+
+    def mark_sold_many(self, listing_uuids: list[UUID], date_sold: datetime) -> int:
+        result = self._session.execute(
+            update(SaleListing)
+            .where(
+                SaleListing.uuid.in_(listing_uuids),
+                SaleListing.date_sold.is_(None),
+            )
+            .values(date_sold=date_sold)
+        )
+        return result.rowcount
 
     def reopen(self, listing_uuid: UUID) -> bool:
         result = self._session.execute(

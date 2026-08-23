@@ -238,6 +238,27 @@ class SalesService:
             raise SaleListingNotFound(str(listing_uuid))
         return self._responses([listing])[0]
 
+    def mark_sold_many(self, listing_uuids: list[UUID]) -> list[SaleListingResponse]:
+        listings = self._selected_listings(listing_uuids)
+        if any(listing.date_sold is not None for listing in listings):
+            raise SaleListingConflict("only active listings can be marked as sold")
+        if self._sales.mark_sold_many(listing_uuids, datetime.now(UTC)) != len(listings):
+            self._session.rollback()
+            raise SaleListingConflict("selected listings changed before they were updated")
+        self._session.commit()
+        refreshed = self._selected_listings(listing_uuids)
+        return self._responses(refreshed)
+
+    def delete_active_many(self, listing_uuids: list[UUID]) -> list[SaleListingResponse]:
+        listings = self._selected_listings(listing_uuids)
+        if any(listing.date_sold is not None for listing in listings):
+            raise SaleListingConflict("only active listings can be deleted in bulk")
+        responses = self._responses(listings)
+        for listing in listings:
+            self._session.delete(listing)
+        self._session.commit()
+        return responses
+
     def reopen(self, listing_uuid: UUID) -> SaleListingResponse:
         if not self._sales.reopen(listing_uuid):
             self._session.rollback()
@@ -250,6 +271,16 @@ class SalesService:
         if listing is None:  # pragma: no cover - protected by successful update
             raise SaleListingNotFound(str(listing_uuid))
         return self._responses([listing])[0]
+
+    def _selected_listings(self, listing_uuids: list[UUID]) -> list[SaleListing]:
+        unique_uuids = list(dict.fromkeys(listing_uuids))
+        listings_by_uuid = {
+            listing.uuid: listing for listing in self._sales.get_by_uuids(unique_uuids)
+        }
+        missing_uuids = [value for value in unique_uuids if value not in listings_by_uuid]
+        if missing_uuids:
+            raise SaleListingNotFound(str(missing_uuids[0]))
+        return [listings_by_uuid[value] for value in unique_uuids]
 
     def _responses(self, listings: list[SaleListing]) -> list[SaleListingResponse]:
         costs = self._recipe_costs(listings)

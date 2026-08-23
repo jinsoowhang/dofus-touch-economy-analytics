@@ -59,10 +59,34 @@
       </span>
     </summary>
     {% if active_sales %}
+      <form
+        id="active-sales-bulk-form"
+        method="post"
+        action="/sales/bulk?{{ sales_sort_query }}"
+        class="bulk-actions"
+        data-preserve-scroll
+      >
+        <span id="active-sales-selection-count" class="bulk-selection-count" aria-live="polite">0 selected</span>
+        <button type="submit" name="action" value="mark_sold" disabled>Mark selected sold</button>
+        <button
+          type="submit"
+          name="action"
+          value="delete"
+          class="delete-button"
+          disabled
+        >Delete selected</button>
+      </form>
       <div class="sales-table-wrap">
         <table class="sales-table">
           <thead>
             <tr>
+              <th class="selection-column">
+                <input
+                  id="select-all-active-sales"
+                  type="checkbox"
+                  aria-label="Select all currently selling rows"
+                >
+              </th>
               {% for column in active_sort_columns %}
                 <th
                   {% if column.numeric %}class="numeric"{% endif %}
@@ -87,6 +111,16 @@
             {% for sale in active_sales %}
               {% set selling_started_at = sale.selling_started_at | pacific_time %}
               <tr>
+                <td class="selection-column">
+                  <input
+                    class="active-sale-checkbox"
+                    type="checkbox"
+                    name="listing_uuid"
+                    value="{{ sale.uuid }}"
+                    form="active-sales-bulk-form"
+                    aria-label="Select sale row for {{ sale.display_name }}"
+                  >
+                </td>
                 <td>
                   <a href="/items/{{ sale.item_uuid }}" class="item-label">
                     {% if sale.icon_url %}
@@ -97,7 +131,12 @@
                 </td>
                 <td>{{ (sale.category or "Uncategorized") | title }}</td>
                 <td>
-                  <form method="post" action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}" class="price-edit-form">
+                  <form
+                    method="post"
+                    action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}"
+                    class="price-edit-form"
+                    data-preserve-scroll
+                  >
                     <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
                       Sale Price for {{ sale.display_name }}
                     </label>
@@ -121,7 +160,12 @@
                 </td>
                 <td>
                   <div class="row-actions">
-                    <form method="post" action="/sales/{{ sale.uuid }}/duplicate?{{ sales_sort_query }}" class="inline-form">
+                    <form
+                      method="post"
+                      action="/sales/{{ sale.uuid }}/duplicate?{{ sales_sort_query }}"
+                      class="inline-form"
+                      data-preserve-scroll
+                    >
                       <button
                         type="submit"
                         class="action-icon-button secondary-button"
@@ -129,7 +173,12 @@
                         title="Duplicate listing"
                       ><span aria-hidden="true">⧉</span></button>
                     </form>
-                    <form method="post" action="/sales/{{ sale.uuid }}/sold?{{ sales_sort_query }}" class="inline-form">
+                    <form
+                      method="post"
+                      action="/sales/{{ sale.uuid }}/sold?{{ sales_sort_query }}"
+                      class="inline-form"
+                      data-preserve-scroll
+                    >
                       <button
                         type="submit"
                         class="action-icon-button"
@@ -141,6 +190,7 @@
                       method="post"
                       action="/sales/{{ sale.uuid }}/delete?{{ sales_sort_query }}"
                       class="inline-form"
+                      data-preserve-scroll
                       onsubmit="return window.confirm('Delete this sales row? This cannot be undone.')"
                     >
                       <button

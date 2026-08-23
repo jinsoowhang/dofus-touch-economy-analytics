@@ -112,6 +112,37 @@ def test_sale_cannot_be_marked_sold_twice(session, catalog_item) -> None:
         service.mark_sold(listing.uuid)
 
 
+def test_bulk_sale_mutations_are_atomic_and_limited_to_active_rows(
+    session,
+    catalog_item,
+) -> None:
+    service = SalesService(session, "Dodge")
+    listings = [
+        service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=price))
+        for price in (100, 200, 300)
+    ]
+
+    with pytest.raises(SaleListingNotFound):
+        service.mark_sold_many([listings[0].uuid, uuid4()])
+    assert len(service.active()) == 3
+    assert service.sold() == []
+
+    sold = service.mark_sold_many([listings[0].uuid, listings[1].uuid])
+    assert {listing.uuid for listing in sold} == {listings[0].uuid, listings[1].uuid}
+    assert len({listing.date_sold for listing in sold}) == 1
+    assert len(service.active()) == 1
+
+    with pytest.raises(SaleListingConflict):
+        service.delete_active_many([listings[0].uuid, listings[2].uuid])
+    assert len(service.active()) == 1
+    assert len(service.sold()) == 2
+
+    deleted = service.delete_active_many([listings[2].uuid])
+    assert [listing.uuid for listing in deleted] == [listings[2].uuid]
+    assert service.active() == []
+    assert len(service.sold()) == 2
+
+
 def test_active_sale_cannot_be_reopened(session, catalog_item) -> None:
     service = SalesService(session, "Dodge")
     listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))

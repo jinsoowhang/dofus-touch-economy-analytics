@@ -120,6 +120,88 @@ if (categorySelect && itemSelect) {
   updateSalePriceSuggestion(false);
 }
 
+const activeSalesBulkForm = document.querySelector("#active-sales-bulk-form");
+const activeSalesSelectAll = document.querySelector("#select-all-active-sales");
+const activeSaleCheckboxes = Array.from(
+  document.querySelectorAll(".active-sale-checkbox"),
+);
+
+if (activeSalesBulkForm && activeSalesSelectAll && activeSaleCheckboxes.length > 0) {
+  const bulkButtons = Array.from(
+    activeSalesBulkForm.querySelectorAll('button[name="action"]'),
+  );
+  const selectionCount = document.querySelector("#active-sales-selection-count");
+
+  const updateBulkSelection = () => {
+    const selectedCount = activeSaleCheckboxes.filter((checkbox) => checkbox.checked).length;
+    activeSalesSelectAll.checked = selectedCount === activeSaleCheckboxes.length;
+    activeSalesSelectAll.indeterminate =
+      selectedCount > 0 && selectedCount < activeSaleCheckboxes.length;
+    for (const button of bulkButtons) {
+      button.disabled = selectedCount === 0;
+    }
+    if (selectionCount) {
+      selectionCount.textContent = `${selectedCount} selected`;
+    }
+  };
+
+  activeSalesSelectAll.addEventListener("change", () => {
+    for (const checkbox of activeSaleCheckboxes) {
+      checkbox.checked = activeSalesSelectAll.checked;
+    }
+    updateBulkSelection();
+  });
+  for (const checkbox of activeSaleCheckboxes) {
+    checkbox.addEventListener("change", updateBulkSelection);
+  }
+  activeSalesBulkForm.addEventListener("submit", (event) => {
+    if (
+      event.submitter?.value === "delete" &&
+      !window.confirm("Delete the selected sales rows? This cannot be undone.")
+    ) {
+      event.preventDefault();
+    }
+  });
+  updateBulkSelection();
+}
+
+const salesScrollStorageKey = "dofus-sales-scroll-y";
+
+for (const form of document.querySelectorAll("form[data-preserve-scroll]")) {
+  form.addEventListener("submit", (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(salesScrollStorageKey, String(window.scrollY));
+      window.queueMicrotask(() => {
+        if (event.defaultPrevented) {
+          window.sessionStorage.removeItem(salesScrollStorageKey);
+        }
+      });
+    } catch {
+      // The server-side section anchor remains the fallback when storage is unavailable.
+    }
+  });
+}
+
+window.addEventListener("load", () => {
+  let savedScrollPosition = null;
+  try {
+    savedScrollPosition = window.sessionStorage.getItem(salesScrollStorageKey);
+    window.sessionStorage.removeItem(salesScrollStorageKey);
+  } catch {
+    return;
+  }
+  if (savedScrollPosition === null) {
+    return;
+  }
+  const scrollPosition = Number(savedScrollPosition);
+  if (Number.isFinite(scrollPosition) && scrollPosition >= 0) {
+    window.requestAnimationFrame(() => window.scrollTo(0, scrollPosition));
+  }
+});
+
 for (const form of document.querySelectorAll(".price-edit-form")) {
   const input = form.querySelector(
     'input[name="asking_price"], input[name="unit_price"], input[name="current_price"]',

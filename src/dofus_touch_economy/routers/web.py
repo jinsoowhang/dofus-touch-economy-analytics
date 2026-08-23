@@ -23,6 +23,7 @@ from dofus_touch_economy.schemas import (
     ItemCurrentPriceUpdate,
     PriceObservationCreate,
     RecipeIngredientPriceUpdate,
+    SaleBulkAction,
     SaleListingCreate,
     SalePriceUpdate,
 )
@@ -269,9 +270,18 @@ def _sales_context(
     }
 
 
-def _sales_redirect_url(sort_state: SalesSortState, notice: str) -> str:
+def _sales_redirect_url(
+    sort_state: SalesSortState,
+    notice: str,
+    *,
+    anchor: str | None = None,
+    count: int | None = None,
+) -> str:
     parameters = {**sort_state.parameters(), "notice": notice}
-    return f"/sales?{urlencode(parameters)}"
+    if count is not None:
+        parameters["count"] = str(count)
+    fragment = "" if anchor is None else f"#{anchor}"
+    return f"/sales?{urlencode(parameters)}{fragment}"
 
 
 def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | None:
@@ -525,6 +535,7 @@ def sales_page(
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
     notice: str | None = Query(default=None),
+    count: int | None = Query(default=None, ge=1, le=500),
 ) -> HTMLResponse:
     notifications = {
         "listing-added": "Sale listing has been added.",
@@ -533,6 +544,16 @@ def sales_page(
         "listing-sold": "Item has been marked as sold.",
         "listing-reopened": "Item has been returned to Currently Selling.",
         "listing-deleted": "Sale listing has been deleted.",
+        "listings-sold": (
+            f"{count} selected {'item has' if count == 1 else 'items have'} been marked as sold."
+            if count is not None
+            else "Selected items have been marked as sold."
+        ),
+        "listings-deleted": (
+            f"{count} selected {'listing has' if count == 1 else 'listings have'} been deleted."
+            if count is not None
+            else "Selected listings have been deleted."
+        ),
     }
     context = _sales_context(
         SalesService(session, settings.market_context),
@@ -582,6 +603,75 @@ async def start_sale(
         )
     return RedirectResponse(
         url=_sales_redirect_url(sort_state, "listing-added"),
+        status_code=303,
+    )
+
+
+@router.post("/sales/bulk", response_class=HTMLResponse, response_model=None)
+async def bulk_active_sales(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    service = SalesService(session, settings.market_context)
+    try:
+        command = SaleBulkAction.model_validate(
+            {
+                "action": form.get("action"),
+                "listing_uuids": form.getlist("listing_uuid"),
+            }
+        )
+    except ValidationError:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["Select at least one Currently Selling row and choose a bulk action."],
+            ),
+            status_code=422,
+        )
+
+    try:
+        if command.action == "mark_sold":
+            changed = service.mark_sold_many(command.listing_uuids)
+            notice = "listings-sold"
+        else:
+            changed = service.delete_active_many(command.listing_uuids)
+            notice = "listings-deleted"
+    except SaleListingNotFound:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["One or more selected sale listings could not be found."],
+            ),
+            status_code=404,
+        )
+    except SaleListingConflict:
+        return templates.TemplateResponse(
+            request,
+            "sales.html",
+            context=_sales_context(
+                service,
+                sort_state=sort_state,
+                errors=["One or more selected listings are no longer Currently Selling."],
+            ),
+            status_code=409,
+        )
+
+    return RedirectResponse(
+        url=_sales_redirect_url(
+            sort_state,
+            notice,
+            anchor="currently-selling",
+            count=len(changed),
+        ),
         status_code=303,
     )
 
@@ -746,7 +836,11 @@ def mark_sale_sold(
             status_code=409,
         )
     return RedirectResponse(
-        url=_sales_redirect_url(sort_state, "listing-sold"),
+        url=_sales_redirect_url(
+            sort_state,
+            "listing-sold",
+            anchor="currently-selling",
+        ),
         status_code=303,
     )
 

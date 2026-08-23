@@ -95,6 +95,16 @@ class SalePriceUpdate(BaseModel):
         return _parse_comma_separated_integer(value)
 
 
+class SaleBulkAction(BaseModel):
+    action: Literal["mark_sold", "delete"]
+    listing_uuids: list[UUID] = Field(min_length=1, max_length=500)
+
+    @field_validator("listing_uuids")
+    @classmethod
+    def deduplicate_listing_uuids(cls, values: list[UUID]) -> list[UUID]:
+        return list(dict.fromkeys(values))
+
+
 class RecipeIngredientPriceUpdate(BaseModel):
     unit_price: int = Field(gt=0)
 

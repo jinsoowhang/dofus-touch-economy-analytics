@@ -93,6 +93,11 @@ explicit override.
 
 The import command validates both CSV contracts before writing, stores accepted and rejected source-row provenance in SQLite, and writes an ignored report to `data/reports/latest-import.json`. A repeated dataset checksum is a no-op. A result containing rejected rows returns a nonzero exit code while retaining valid rows from the completed transaction.
 
+In **Currently Selling**, row actions restore the previous scroll position after the
+page refreshes. Checkboxes support selecting individual rows or the full table, then
+marking the selection as sold or deleting it as one atomic action. Bulk deletion
+requires confirmation.
+
 ## Publish analytics updates
 
 First preview the next immutable snapshot without contacting Google:
