@@ -897,6 +897,7 @@ def _recipe_calculator_context(
     selected_quantities: dict[UUID, int] | None = None,
     result=None,
     errors: list[str] | None = None,
+    notification: str | None = None,
 ) -> dict[str, object]:
     choices = service.choices()
     quantities = selected_quantities or {}
@@ -917,6 +918,7 @@ def _recipe_calculator_context(
         "selected_quantities": quantities,
         "result": result,
         "errors": errors or [],
+        "notification": notification,
     }
 
 
@@ -1045,6 +1047,7 @@ async def calculate_recipes(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
     form = await request.form()
     selections, errors = _parse_recipe_calculator_selections(form)
@@ -1063,8 +1066,55 @@ async def calculate_recipes(
             selected_quantities=selections,
             result=result,
             errors=errors,
+            notification=(
+                "Ingredient price updated and shopping list recalculated."
+                if updated is not None and not errors
+                else None
+            ),
         ),
         status_code=422 if errors else 200,
+    )
+
+
+@router.post(
+    "/recipe-calculator/ingredients/{ingredient_uuid}/price",
+    response_class=JSONResponse,
+    response_model=None,
+)
+async def update_recipe_calculator_ingredient_price(
+    request: Request,
+    ingredient_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> JSONResponse:
+    form = await request.form()
+    values = _form_values(form, ("unit_price",))
+    try:
+        command = RecipeIngredientPriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return JSONResponse(
+            {"errors": _validation_messages(error)},
+            status_code=422,
+        )
+
+    try:
+        PriceService(session, settings.market_context).record(
+            ingredient_uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=command.unit_price,
+                observed_at=datetime.now(UTC),
+                note="Recipe calculator ingredient price update",
+            ),
+        )
+    except ItemNotFound:
+        return JSONResponse({"errors": ["Ingredient not found."]}, status_code=404)
+
+    return JSONResponse(
+        {
+            "item_uuid": str(ingredient_uuid),
+            "unit_price": command.unit_price,
+        }
     )
 
 

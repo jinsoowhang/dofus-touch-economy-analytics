@@ -71,11 +71,13 @@ observations on Enter or blur, preserve the active recipe view, and recalculate 
 economics without creating Sales listings. Item-detail ingredient prices expose
 calendar-day age and become stale at seven days.
 
-The Recipe Calculator is a read-only operational projection over the latest recipe
-per crafted item and the latest valid ingredient prices. User-selected craft
+The Recipe Calculator is an operational projection over the latest recipe per
+crafted item and the latest valid ingredient prices. Resolved shopping-list prices
+can append quantity-one observations through an inline editor; a successful save
+recalculates the selected recipes without creating Sales listings. User-selected craft
 quantities remain browser-local cart state and request state only. Shared canonical ingredients are aggregated into
 one shopping-list row; unresolved identities and missing prices remain explicit, and
-the calculator never writes recipes, prices, or Sales listings.
+the calculator never writes recipes or Sales listings.
 
 BigQuery Sync is a process-local, single-run background controller around the same
 fixed snapshot loader used by the CLI. The loopback web page cannot supply commands

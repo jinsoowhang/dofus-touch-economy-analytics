@@ -104,6 +104,8 @@ it as **Missing price**, **Current price**, or **Stale price** at seven days old
 The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
 It combines shared ingredients into one shopping list with total quantities, current
 unit prices, extended costs, price coverage, and complete or known-cost totals.
+Resolved ingredient unit prices are editable directly in the shopping list; Enter or
+leaving the field appends a price observation and recalculates every affected total.
 Missing prices and unresolved ingredients remain explicit rather than becoming zero.
 
 Manual item names are whitespace-normalized and title-cased. The add form recognizes

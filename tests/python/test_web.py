@@ -998,6 +998,9 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "const addChoice = (choice, craftQuantity = 1)" in script.text
     assert "calculatorSelectedItems.append(row)" in script.text
     assert "window.localStorage.setItem(recipeCartStorageKey" in script.text
+    assert 'document.querySelectorAll(".calculator-ingredient-price-form")' in script.text
+    assert "await fetch(form.action" in script.text
+    assert "calculatorForm.requestSubmit()" in script.text
 
     response = client.post(
         "/recipe-calculator",
@@ -1018,6 +1021,63 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "190" in response.text
     assert "Alpha Sword, Beta Ring" in response.text
     assert "5" in response.text
+    assert 'id="recipe-calculator-form"' in response.text
+    assert (
+        f'action="/recipe-calculator/ingredients/{items["synthetic wood"].uuid}/price"'
+        in response.text
+    )
+    assert 'class="price-edit-form calculator-ingredient-price-form"' in response.text
+    assert 'name="unit_price"' in response.text
+
+    invalid_update = client.post(
+        f"/recipe-calculator/ingredients/{items['synthetic wood'].uuid}/price",
+        data={"unit_price": "0"},
+        headers={"accept": "application/json"},
+    )
+
+    assert invalid_update.status_code == 422
+    assert invalid_update.json()["errors"]
+
+    update = client.post(
+        f"/recipe-calculator/ingredients/{items['synthetic wood'].uuid}/price",
+        data={"unit_price": "25"},
+        headers={"accept": "application/json"},
+    )
+
+    assert update.status_code == 200
+    assert update.json() == {
+        "item_uuid": str(items["synthetic wood"].uuid),
+        "unit_price": 25,
+    }
+
+    recalculated = client.post(
+        "/recipe-calculator",
+        params={"updated": str(items["synthetic wood"].uuid)},
+        data={
+            "selected_item_uuid": [
+                str(items["alpha sword"].uuid),
+                str(items["beta ring"].uuid),
+            ],
+            f"quantity_{items['alpha sword'].uuid}": "2",
+            f"quantity_{items['beta ring'].uuid}": "3",
+        },
+    )
+
+    assert recalculated.status_code == 200
+    assert "Ingredient price updated and shopping list recalculated." in recalculated.text
+    assert re.search(r"Total Quantity</th>.*?>19</td>", recalculated.text, re.DOTALL)
+    assert "<strong>475</strong>" in recalculated.text
+    assert 'value="25"' in recalculated.text
+    with session_factory() as session:
+        ingredient = session.scalar(select(Item).where(Item.normalized_name == "synthetic wood"))
+        assert ingredient is not None
+        current_price = PriceService(session, "Dodge").current_for_item(ingredient.id)
+        history = PriceService(session, "Dodge").history_for_item(ingredient.id)
+        assert current_price is not None
+        assert current_price.lot_quantity == 1
+        assert current_price.total_price == 25
+        assert history[0].note == "Recipe calculator ingredient price update"
+        assert session.scalar(select(SaleListing.id)) is None
 
 
 def test_recipe_calculator_requires_a_valid_selection(client) -> None:

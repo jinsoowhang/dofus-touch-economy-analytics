@@ -454,3 +454,28 @@ after reviewing development lineage and costs.
 - All 61 focused web and static-asset tests passed.
 - The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 214 Python
   tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.
+
+## Editable Recipe Calculator Ingredient Prices
+
+### Work Completed
+
+- Replaced resolved Current Unit Price values in the Combined Shopping List with
+  inline editors that save on Enter or blur.
+- Added a calculator-scoped JSON mutation that validates comma-formatted positive
+  prices and appends a quantity-one price observation through the shared pricing
+  service without creating a Sales listing.
+- Resubmitted the current calculator selection after a successful edit so the shared
+  ingredient row, each selected recipe breakdown, price coverage, and combined cost
+  are recalculated immediately from the propagated price.
+- Kept unresolved ingredient prices read-only and added inline failure feedback plus
+  a successful recalculation notification.
+- Updated the public README and architecture description to reflect the calculator's
+  narrowly scoped append-only price write.
+
+### Verification
+
+- Focused calculator tests passed for inline controls, invalid-price rejection,
+  append-only propagation, a shared-ingredient total changing from 190 to 475, and
+  absence of Sales listings.
+- The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 214 Python
+  tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.

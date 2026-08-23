@@ -7,6 +7,7 @@ const calculatorSelectedItems = document.querySelector("#calculator-selected-ite
 const calculatorEmptySelection = document.querySelector("#calculator-empty-selection");
 const calculatorClearSelection = document.querySelector("#calculator-clear-selection");
 const calculatorSelectedCount = document.querySelector("#calculator-selected-count");
+const calculatorForm = document.querySelector("#recipe-calculator-form");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 
 if (
@@ -16,7 +17,8 @@ if (
   calculatorSelectedItems &&
   calculatorEmptySelection &&
   calculatorClearSelection &&
-  calculatorSelectedCount
+  calculatorSelectedCount &&
+  calculatorForm
 ) {
   const choices = JSON.parse(calculatorChoiceData.textContent);
   const choicesByUuid = new Map(choices.map((choice) => [choice.item_uuid, choice]));
@@ -215,4 +217,58 @@ if (
     }
   }
   updateSelectedCount();
+
+  for (const form of document.querySelectorAll(".calculator-ingredient-price-form")) {
+    const input = form.querySelector('input[name="unit_price"]');
+    const errorMessage = form.querySelector(".calculator-price-error");
+    if (!input || !errorMessage) {
+      continue;
+    }
+
+    const showError = (message) => {
+      errorMessage.textContent = message;
+      errorMessage.hidden = false;
+      form.dataset.saving = "false";
+    };
+
+    const savePrice = async () => {
+      if (form.dataset.saving === "true") {
+        return;
+      }
+      if (input.value.trim() === input.dataset.initialValue) {
+        return;
+      }
+      if (!input.reportValidity()) {
+        return;
+      }
+
+      form.dataset.saving = "true";
+      errorMessage.hidden = true;
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          body: new FormData(form),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          showError(payload.errors?.join(" ") || "Could not update this price.");
+          return;
+        }
+        input.dataset.initialValue = input.value.trim();
+        calculatorForm.action = `/recipe-calculator?updated=${encodeURIComponent(form.dataset.itemUuid)}`;
+        calculatorForm.requestSubmit();
+      } catch {
+        showError("Could not update this price. Try again.");
+      }
+    };
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        savePrice();
+      }
+    });
+    input.addEventListener("blur", savePrice);
+  }
 }
