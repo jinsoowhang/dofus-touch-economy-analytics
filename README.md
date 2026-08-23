@@ -80,8 +80,9 @@ price observations immediately. A later import reuses the same normalized
 name/category identity, or enriches a sole uncategorized manual item without changing
 its UUID or price history.
 
-The top navigation contains **Item Search**, **Recipes**, and **Sales** tabs. The item
-page lists the full catalog alphabetically beneath the search field, including
+The top navigation contains **Item** and **Sales**. Hovering over or selecting
+**Item** opens its **Item Search** and **Recipes** submenu. The item page lists the
+full catalog alphabetically beneath the search field, including
 category, latest unit price, observed lot, and observation time. Typing filters the
 table by item name. Clicking any row opens item detail, where a new audited price
 observation can be recorded.

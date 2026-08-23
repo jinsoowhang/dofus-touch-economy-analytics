@@ -47,3 +47,21 @@ def test_bulk_sale_buttons_share_text_button_geometry() -> None:
     assert "line-height: inherit;" in bulk_button_rule
     assert "min-height: 2.6rem;" in bulk_button_rule
     assert "padding: 0.55rem 0.7rem;" in bulk_button_rule
+
+
+def test_item_navigation_dropdown_supports_hover_click_and_focus() -> None:
+    stylesheet = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/app.css")
+        .read_text(encoding="utf-8")
+    )
+    template = (
+        resources.files("dofus_touch_economy")
+        .joinpath("templates/base.html")
+        .read_text(encoding="utf-8")
+    )
+
+    assert '<details class="site-menu">' in template
+    assert ".site-menu[open] .site-submenu" in stylesheet
+    assert ".site-menu:hover .site-submenu" in stylesheet
+    assert ".site-menu:focus-within .site-submenu" in stylesheet

@@ -75,6 +75,7 @@ a {
 }
 
 .site-tabs {
+  align-items: stretch;
   display: flex;
   gap: 0.35rem;
 }
@@ -85,6 +86,68 @@ a {
   font-weight: 700;
   padding: 0.8rem 0.9rem 0.55rem;
   text-decoration: none;
+}
+
+.site-menu {
+  position: relative;
+}
+
+.site-menu > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.35rem;
+  list-style: none;
+}
+
+.site-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.site-menu-caret {
+  display: inline-block;
+  transition: transform 120ms ease;
+}
+
+.site-menu[open] .site-menu-caret {
+  transform: rotate(180deg);
+}
+
+.site-submenu {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.5rem 1.25rem rgb(0 0 0 / 18%);
+  display: none;
+  gap: 0.15rem;
+  left: 0;
+  min-width: 10rem;
+  padding: 0.35rem;
+  position: absolute;
+  top: calc(100% - 0.15rem);
+  z-index: 10;
+}
+
+.site-menu[open] .site-submenu,
+.site-menu:hover .site-submenu,
+.site-menu:focus-within .site-submenu {
+  display: grid;
+}
+
+.site-submenu-link {
+  border-radius: 0.3rem;
+  color: var(--muted);
+  font-weight: 650;
+  padding: 0.55rem 0.7rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-submenu-link:hover,
+.site-submenu-link:focus-visible,
+.site-submenu-link.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
 }
 
 .site-tab:hover,

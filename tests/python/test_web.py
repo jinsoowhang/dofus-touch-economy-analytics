@@ -35,12 +35,15 @@ def test_item_search_renders_matching_synthetic_item(client, catalog_item) -> No
     assert str(catalog_item.uuid) in response.text
 
 
-def test_item_search_has_active_top_navigation_tab(client) -> None:
+def test_item_search_has_active_item_navigation(client) -> None:
     response = client.get("/items")
 
     assert response.status_code == 200
     assert 'aria-label="Primary navigation"' in response.text
-    assert 'class="site-tab is-active"' in response.text
+    assert '<details class="site-menu">' in response.text
+    assert "<span>Item</span>" in response.text
+    assert 'class="site-submenu" role="group" aria-label="Item navigation"' in (response.text)
+    assert 'class="site-submenu-link is-active"' in response.text
     assert 'aria-current="page"' in response.text
     assert ">Item Search</a>" in response.text
     assert 'href="/sales"' in response.text
@@ -826,7 +829,8 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
 
     assert response.status_code == 200
     assert ">Recipes</a>" in response.text
-    assert 'class="site-tab is-active"' in response.text
+    assert 'class="site-submenu-link is-active"' in response.text
+    assert "<span>Item</span>" in response.text
     assert '<option value="Crafting" selected>Crafting</option>' in response.text
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
     assert 'id="recipe-min-level"' in response.text

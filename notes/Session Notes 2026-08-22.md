@@ -299,3 +299,18 @@ after reviewing development lineage and costs.
 - Focused recipe, catalog, and web checks passed before the final full suite.
 - `./scripts/check.sh` passed, including Ruff, all 201 Python tests, package
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Hierarchical Item Navigation
+
+### Work Completed
+
+- Reduced the primary navigation to Item and Sales.
+- Grouped Item Search and Recipes beneath Item in a native disclosure menu that
+  opens on hover, click, or keyboard focus.
+- Preserved the active state for both the Item section and the exact submenu page.
+
+### Verification
+
+- Focused Item Search, Recipes, Sales, and static dropdown checks passed.
+- `./scripts/check.sh` passed, including Ruff, all 202 Python tests, package
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
