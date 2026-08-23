@@ -28,6 +28,7 @@ def test_main_pages_include_one_line_descriptions(client) -> None:
         "/recipes": "Filter craftable items, compare recipe economics",
         "/recipe-calculator": "Select the items and quantities you plan to craft",
         "/sales": "Track active listings, record completed sales",
+        "/best-sellers": "Compare every item with completed Sales history",
         "/out-of-stock-items": "Items appear here after at least one completed sale",
         "/bigquery-sync": "Manually publish one immutable snapshot",
     }
@@ -92,6 +93,7 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert 'class="site-tab is-active"' in response.text
     assert 'aria-current="page"' in response.text
     assert ">Sales Activity</a>" in response.text
+    assert ">Best Sellers</a>" in response.text
     assert ">Out of Stock Items</a>" in response.text
     assert "Currently Selling" in response.text
     assert "Sold History" in response.text
@@ -946,6 +948,99 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     )
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
     assert cart_script.status_code == 200
+
+
+def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        widget = session.scalar(select(Item).where(Item.normalized_name == "synthetic widget"))
+        assert widget is not None
+        rare_trophy = Item(
+            display_name="Rare Trophy",
+            normalized_name="rare trophy",
+            category="Trophy",
+            identity_category="trophy",
+        )
+        session.add(rare_trophy)
+        session.flush()
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=4_000,
+                    selling_started_at=datetime(2026, 8, 19, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 20, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=5_000,
+                    selling_started_at=datetime(2026, 8, 20, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=widget.id,
+                    lot_quantity=1,
+                    asking_price=4_500,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=rare_trophy.id,
+                    lot_quantity=1,
+                    asking_price=12_000,
+                    selling_started_at=datetime(2026, 8, 16, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 21, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+        PriceService(session, "Dodge").record(
+            widget.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=4_500,
+                observed_at=datetime(2026, 8, 22, tzinfo=UTC),
+            ),
+        )
+        widget_uuid = widget.uuid
+
+    response = client.get("/best-sellers")
+
+    assert response.status_code == 200
+    assert "Best Sellers" in response.text
+    assert 'aria-label="Sales navigation"' in response.text
+    assert 'href="/best-sellers"' in response.text
+    assert 'class="site-submenu-link is-active"' in response.text
+    assert "Completed Sales</span><strong>3</strong>" in response.text
+    assert "Items Sold</span><strong>2</strong>" in response.text
+    assert "Recorded Revenue</span>" in response.text
+    assert "21,000" in response.text
+    assert "Price Coverage</span>" in response.text
+    assert "3 of 3" in response.text
+    assert "3.0 days" in response.text
+    assert "Synthetic Widget · 2" in response.text
+    assert "Rare Trophy · 12,000" in response.text
+    assert "Average Sale Price" in response.text
+    assert "Average Days to Sell" in response.text
+    assert "Active Now" in response.text
+    assert "Estimated Profit" in response.text
+    assert "Estimated ROI" in response.text
+    assert "3,500" in response.text
+    assert "1,000" in response.text
+    assert "28.6%" in response.text
+    assert f'data-item-uuid="{widget_uuid}"' in response.text
+    assert '<table class="item-table best-sellers-table" data-sortable-table>' in response.text
+    table_body = response.text.split("<tbody>", maxsplit=1)[1]
+    assert table_body.index("Synthetic Widget") < table_body.index("Rare Trophy")
+    assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
 
 
 def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(

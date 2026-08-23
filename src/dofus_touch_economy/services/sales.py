@@ -68,6 +68,37 @@ class OutOfStockItem:
 
 
 @dataclass(frozen=True)
+class BestSellerItem:
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_url: str | None
+    sold_count: int
+    priced_sale_count: int
+    total_revenue: int
+    average_sale_price: Decimal | None
+    average_days_to_sell: Decimal
+    last_sold_at: datetime
+    active_listing_count: int
+    current_price: Decimal | None
+    recipe_cost: Decimal | None
+    estimated_profit: Decimal | None
+    estimated_roi: Decimal | None
+    is_craftable: bool
+
+
+@dataclass(frozen=True)
+class BestSellerReport:
+    items: tuple[BestSellerItem, ...]
+    total_sold_count: int
+    priced_sale_count: int
+    total_revenue: int
+    average_days_to_sell: Decimal | None
+    best_seller: BestSellerItem | None
+    top_revenue_item: BestSellerItem | None
+
+
+@dataclass(frozen=True)
 class SaleListingFilters:
     item_uuid: UUID | None = None
     item_query: str = ""
@@ -90,6 +121,14 @@ class _DailySalesAccumulator:
     priced_count: int = 0
     costed_count: int = 0
     profit_count: int = 0
+
+
+@dataclass
+class _BestSellerAccumulator:
+    sold_count: int = 0
+    priced_sale_count: int = 0
+    total_revenue: int = 0
+    total_seconds_to_sell: Decimal = Decimal(0)
 
 
 class SalesService:
@@ -187,6 +226,133 @@ class SalesService:
         return sorted(
             results,
             key=lambda item: (-item.last_sold_at.timestamp(), item.display_name.casefold()),
+        )
+
+    def best_sellers(self) -> BestSellerReport:
+        sold_listings = self._sales.sold()
+        if not sold_listings:
+            return BestSellerReport((), 0, 0, 0, None, None, None)
+
+        active_counts: dict[int, int] = defaultdict(int)
+        for listing in self._sales.active():
+            active_counts[listing.item_id] += 1
+
+        totals: dict[int, _BestSellerAccumulator] = {}
+        latest_sold_by_item: dict[int, SaleListing] = {}
+        for listing in sold_listings:
+            if listing.date_sold is None:  # pragma: no cover - sold query guarantees a date
+                continue
+            latest_sold_by_item.setdefault(listing.item_id, listing)
+            item_total = totals.setdefault(listing.item_id, _BestSellerAccumulator())
+            item_total.sold_count += 1
+            item_total.total_seconds_to_sell += Decimal(
+                str(
+                    (
+                        _as_utc(listing.date_sold) - _as_utc(listing.selling_started_at)
+                    ).total_seconds()
+                )
+            )
+            if listing.asking_price is not None:
+                item_total.priced_sale_count += 1
+                item_total.total_revenue += listing.asking_price
+
+        item_ids = list(latest_sold_by_item)
+        current_prices = PriceService(self._session, self._market_context).current_for_items(
+            item_ids
+        )
+        recipe_costs = self._recipe_costs(list(latest_sold_by_item.values()))
+        craftable_item_ids = set(
+            self._session.scalars(
+                select(Recipe.crafted_item_id)
+                .where(Recipe.crafted_item_id.in_(item_ids))
+                .distinct()
+            )
+        )
+
+        items: list[BestSellerItem] = []
+        for item_id, listing in latest_sold_by_item.items():
+            if listing.date_sold is None:  # pragma: no cover - sold query guarantees a date
+                continue
+            item_total = totals[item_id]
+            current = current_prices.get(item_id)
+            current_price = None if current is None else current.unit_price
+            recipe_cost = recipe_costs.get(item_id)
+            estimated_profit = (
+                None
+                if current_price is None or recipe_cost is None
+                else current_price - recipe_cost
+            )
+            estimated_roi = (
+                None
+                if estimated_profit is None or recipe_cost is None or recipe_cost == 0
+                else estimated_profit / recipe_cost
+            )
+            items.append(
+                BestSellerItem(
+                    item_uuid=listing.item.uuid,
+                    display_name=listing.item.display_name,
+                    category=listing.item.category,
+                    icon_url=_icon_url(listing.item),
+                    sold_count=item_total.sold_count,
+                    priced_sale_count=item_total.priced_sale_count,
+                    total_revenue=item_total.total_revenue,
+                    average_sale_price=(
+                        None
+                        if not item_total.priced_sale_count
+                        else Decimal(item_total.total_revenue)
+                        / Decimal(item_total.priced_sale_count)
+                    ),
+                    average_days_to_sell=(
+                        item_total.total_seconds_to_sell
+                        / Decimal(86_400)
+                        / Decimal(item_total.sold_count)
+                    ),
+                    last_sold_at=_as_utc(listing.date_sold),
+                    active_listing_count=active_counts[item_id],
+                    current_price=current_price,
+                    recipe_cost=recipe_cost,
+                    estimated_profit=estimated_profit,
+                    estimated_roi=estimated_roi,
+                    is_craftable=item_id in craftable_item_ids,
+                )
+            )
+
+        items.sort(
+            key=lambda item: (
+                -item.sold_count,
+                -item.total_revenue,
+                item.display_name.casefold(),
+            )
+        )
+        total_sold_count = sum(item.sold_count for item in items)
+        priced_sale_count = sum(item.priced_sale_count for item in items)
+        total_revenue = sum(item.total_revenue for item in items)
+        total_seconds_to_sell = sum(
+            (totals[item_id].total_seconds_to_sell for item_id in latest_sold_by_item),
+            start=Decimal(0),
+        )
+        top_revenue_item = (
+            None
+            if not priced_sale_count
+            else min(
+                items,
+                key=lambda item: (
+                    -item.total_revenue,
+                    -item.sold_count,
+                    item.display_name.casefold(),
+                ),
+            )
+        )
+        return BestSellerReport(
+            items=tuple(items),
+            total_sold_count=total_sold_count,
+            priced_sale_count=priced_sale_count,
+            total_revenue=total_revenue,
+            average_days_to_sell=(
+                total_seconds_to_sell / Decimal(86_400) / Decimal(total_sold_count)
+            ),
+            best_seller=items[0],
+            top_revenue_item=top_revenue_item,
         )
 
     def daily_totals(

@@ -1448,6 +1448,22 @@ def out_of_stock_items_page(
     )
 
 
+@router.get("/best-sellers", response_class=HTMLResponse)
+def best_sellers_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "best_sellers.html",
+        context={
+            "active_tab": "best_sellers",
+            "report": SalesService(session, settings.market_context).best_sellers(),
+        },
+    )
+
+
 @router.post("/sales", response_class=HTMLResponse, response_model=None)
 async def start_sale(
     request: Request,

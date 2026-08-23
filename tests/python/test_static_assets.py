@@ -51,6 +51,7 @@ def test_client_table_sorter_supports_typed_columns_and_missing_values() -> None
 def test_every_web_table_has_client_or_server_sorting() -> None:
     templates = resources.files("dofus_touch_economy").joinpath("templates")
     expected_server_sorted = {
+        "best_sellers.html": 0,
         "fragments/item_results.html": 1,
         "item_detail.html": 0,
         "fragments/price_panel.html": 0,

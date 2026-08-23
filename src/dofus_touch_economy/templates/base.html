@@ -40,7 +40,7 @@
           </details>
           <details class="site-menu">
             <summary
-              class="site-tab{% if active_tab in ['sales', 'out_of_stock'] %} is-active{% endif %}"
+              class="site-tab{% if active_tab in ['sales', 'best_sellers', 'out_of_stock'] %} is-active{% endif %}"
             >
               <span>Sales</span>
               <span class="site-menu-caret" aria-hidden="true">&#9662;</span>
@@ -51,6 +51,11 @@
                 class="site-submenu-link{% if active_tab == 'sales' %} is-active{% endif %}"
                 {% if active_tab == "sales" %}aria-current="page"{% endif %}
               >Sales Activity</a>
+              <a
+                href="/best-sellers"
+                class="site-submenu-link{% if active_tab == 'best_sellers' %} is-active{% endif %}"
+                {% if active_tab == "best_sellers" %}aria-current="page"{% endif %}
+              >Best Sellers</a>
               <a
                 href="/out-of-stock-items"
                 class="site-submenu-link{% if active_tab == 'out_of_stock' %} is-active{% endif %}"
@@ -66,7 +71,7 @@
         </nav>
       </div>
     </header>
-    <main class="page-shell{% if active_tab in ['recipes', 'recipe_calculator', 'out_of_stock'] %} page-shell--wide{% endif %}">
+    <main class="page-shell{% if active_tab in ['recipes', 'recipe_calculator', 'best_sellers', 'out_of_stock'] %} page-shell--wide{% endif %}">
       {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

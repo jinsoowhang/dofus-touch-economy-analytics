@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -82,6 +83,88 @@ def test_out_of_stock_requires_sales_history_and_no_active_listing(
     assert out_of_stock_again.sold_count == 2
     assert out_of_stock_again.last_sale_price == 200
     assert out_of_stock_again.current_price == 200
+
+
+def test_best_sellers_group_completed_sales_and_rank_decision_metrics(
+    session,
+    catalog_item,
+) -> None:
+    premium_hat = Item(
+        display_name="Premium Hat",
+        normalized_name="premium hat",
+        category="Hat",
+        identity_category="hat",
+    )
+    session.add(premium_hat)
+    session.flush()
+    session.add_all(
+        [
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=100,
+                selling_started_at=datetime(2026, 8, 10, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 11, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=300,
+                selling_started_at=datetime(2026, 8, 12, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 15, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=None,
+                selling_started_at=datetime(2026, 8, 16, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 18, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=500,
+                selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=premium_hat.id,
+                lot_quantity=1,
+                asking_price=1_000,
+                selling_started_at=datetime(2026, 8, 17, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 21, tzinfo=UTC),
+            ),
+        ]
+    )
+    session.commit()
+    PriceService(session, "Dodge").record(
+        catalog_item.uuid,
+        PriceObservationCreate(
+            lot_quantity=1,
+            total_price=500,
+            observed_at=datetime(2026, 8, 22, tzinfo=UTC),
+        ),
+    )
+
+    report = SalesService(session, "Dodge").best_sellers()
+
+    assert [item.display_name for item in report.items] == ["Synthetic Ore", "Premium Hat"]
+    ore, hat = report.items
+    assert ore.sold_count == 3
+    assert ore.priced_sale_count == 2
+    assert ore.total_revenue == 400
+    assert ore.average_sale_price == Decimal(200)
+    assert ore.average_days_to_sell == Decimal(2)
+    assert ore.active_listing_count == 1
+    assert ore.current_price == Decimal(500)
+    assert ore.last_sold_at == datetime(2026, 8, 18, tzinfo=UTC)
+    assert hat.sold_count == 1
+    assert hat.total_revenue == 1_000
+    assert report.total_sold_count == 4
+    assert report.priced_sale_count == 3
+    assert report.total_revenue == 1_400
+    assert report.average_days_to_sell == Decimal("2.5")
+    assert report.best_seller is ore
+    assert report.top_revenue_item is hat
 
 
 def test_priced_sale_updates_current_price_and_preserves_history(session, catalog_item) -> None:

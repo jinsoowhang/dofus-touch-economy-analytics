@@ -670,3 +670,28 @@ after reviewing development lineage and costs.
   order and a zero-day current-price assertion.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 225 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Best Sellers Sales Analysis
+
+### Work Completed
+
+- Added **Best Sellers** beneath the Sales navigation and gave it the same wide,
+  sortable decision-table treatment as the existing Sales companion pages.
+- Grouped every item with completed Sales history and ranked the initial view by sold
+  count, then recorded revenue. Active listings do not inflate completed-sale metrics.
+- Added completed-sale count, price coverage, recorded revenue, average recorded sale
+  price, average elapsed listing-to-sale days, latest Pacific sale date, and current
+  active-listing count.
+- Added clearly labeled current estimates for item price, recipe cost, profit, and ROI,
+  plus the shared Add-to-Recipe-Calculator action for craftable rows.
+- Added summary cards that distinguish the highest-volume item from the
+  highest-revenue item, while keeping missing historical prices explicit.
+- Updated the public README and durable project memory, and added service, route,
+  navigation, rendering, calculation, default-ranking, and sorting regressions.
+
+### Verification
+
+- Focused Best Sellers service, web, navigation, description, and sortable-table tests
+  passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 228 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

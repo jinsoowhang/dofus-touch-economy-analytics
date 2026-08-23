@@ -98,7 +98,7 @@ its UUID or price history.
 
 The top navigation contains **Item**, **Sales**, and **BigQuery Sync**. Hovering over
 or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator**
-submenu. **Sales** opens **Sales Activity** and **Out of Stock Items**.
+submenu. **Sales** opens **Sales Activity**, **Best Sellers**, and **Out of Stock Items**.
 The item page lists the full catalog in 100-row alphabetical pages beneath the search
 field, including category, weight, latest unit price, and observation time.
 Typing filters the table by item name. Clicking any row opens item detail, where a new
@@ -156,6 +156,11 @@ category, status, price, profit, or Pacific activity date while preserving the
 filters through sorting and row actions. Each item-detail page shows how many of that
 item are actively listed and how many have been sold through the application; the
 count cards link to the corresponding filtered Sales table.
+**Best Sellers** groups every item with completed Sales history and ranks by units
+sold, with recorded revenue, average sale price, average time to sell, last sale,
+active listings, and current crafting profit and ROI estimates. Its summary separates
+the highest-volume item from the highest-revenue item, and craftable rows can be added
+to the Recipe Calculator.
 **Out of Stock Items** lists each item with completed Sales history but no active
 listing, together with its latest sale, current price, recipe cost, estimated profit,
 and an Add-to-Calculator action when a recipe is available.

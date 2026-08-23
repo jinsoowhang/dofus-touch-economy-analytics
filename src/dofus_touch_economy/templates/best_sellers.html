@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Best Sellers · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Best Sellers</h1>
+  <p class="page-description">
+    Compare every item with completed Sales history to find proven sellers and evaluate
+    what may be worth listing next.
+  </p>
+
+  {% if report.items %}
+    <div class="calculator-summary best-seller-summary" aria-label="Sales performance summary">
+      <div><span>Completed Sales</span><strong>{{ report.total_sold_count }}</strong></div>
+      <div><span>Items Sold</span><strong>{{ report.items | length }}</strong></div>
+      <div>
+        <span>Recorded Revenue</span>
+        <strong>{{ "{:,}".format(report.total_revenue) if report.priced_sale_count else "—" }}</strong>
+      </div>
+      <div>
+        <span>Price Coverage</span>
+        <strong>{{ report.priced_sale_count }} of {{ report.total_sold_count }}</strong>
+      </div>
+      <div>
+        <span>Average Time to Sell</span>
+        <strong>{{ "{:.1f}".format(report.average_days_to_sell) }} days</strong>
+      </div>
+      <div>
+        <span>Most Units Sold</span>
+        <strong>{{ report.best_seller.display_name }} · {{ report.best_seller.sold_count }}</strong>
+      </div>
+      <div>
+        <span>Top Revenue</span>
+        <strong>
+          {% if report.top_revenue_item %}{{ report.top_revenue_item.display_name }} · {{ "{:,}".format(report.top_revenue_item.total_revenue) }}{% else %}No recorded prices{% endif %}
+        </strong>
+      </div>
+    </div>
+
+    <details class="collapsible-section" open>
+      <summary>
+        <span class="section-summary">
+          <h2>Sales Performance</h2>
+          <span>{{ report.items | length }} sold {{ "item" if report.items | length == 1 else "items" }}</span>
+        </span>
+      </summary>
+      <p class="table-context">
+        Revenue and sale price use recorded completed listings. Current Price, Recipe
+        Cost, Estimated Profit, and Estimated ROI use today’s latest valid prices.
+      </p>
+      <div class="recipe-cart-toolbar">
+        <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
+        <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+      </div>
+      <div class="item-table-wrap">
+        <table class="item-table best-sellers-table" data-sortable-table>
+          <thead>
+            <tr>
+              <th data-sort-type="text">Item</th>
+              <th data-sort-type="text">Category</th>
+              <th class="numeric" data-sort-type="number" aria-sort="descending">Sold Count</th>
+              <th class="numeric" data-sort-type="number">Total Revenue</th>
+              <th class="numeric" data-sort-type="number">Average Sale Price</th>
+              <th class="numeric" data-sort-type="number">Average Days to Sell</th>
+              <th data-sort-type="date">Last Sold</th>
+              <th class="numeric" data-sort-type="number">Active Now</th>
+              <th class="numeric" data-sort-type="number">Current Price</th>
+              <th class="numeric" data-sort-type="number">Recipe Cost</th>
+              <th class="numeric" data-sort-type="number">Estimated Profit</th>
+              <th class="numeric" data-sort-type="number">Estimated ROI</th>
+              <th data-sort-disabled>Calculator</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in report.items %}
+              {% set last_sold_at = item.last_sold_at | pacific_time %}
+              <tr>
+                <td>
+                  <a href="/items/{{ item.item_uuid }}" class="item-label">
+                    {% if item.icon_url %}<img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">{% endif %}
+                    <span>{{ item.display_name }}</span>
+                  </a>
+                </td>
+                <td>{{ (item.category or "Uncategorized") | title }}</td>
+                <td class="numeric">{{ item.sold_count }}</td>
+                <td class="numeric">{{ "{:,}".format(item.total_revenue) if item.priced_sale_count else "—" }}</td>
+                <td class="numeric">{{ "{:,.1f}".format(item.average_sale_price) if item.average_sale_price is not none else "—" }}</td>
+                <td class="numeric">{{ "{:.1f}".format(item.average_days_to_sell) }}</td>
+                <td>
+                  <time datetime="{{ last_sold_at.isoformat() }}">{{ last_sold_at.strftime("%Y-%m-%d") }}</time>
+                </td>
+                <td class="numeric">{{ item.active_listing_count }}</td>
+                <td class="numeric">{{ "{:,}".format(item.current_price) if item.current_price is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(item.recipe_cost) if item.recipe_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(item.estimated_profit) if item.estimated_profit is not none else "—" }}</td>
+                <td class="numeric">{{ "{:.1%}".format(item.estimated_roi) if item.estimated_roi is not none else "—" }}</td>
+                <td class="recipe-cart-action">
+                  {% if item.is_craftable %}
+                    <button
+                      type="button"
+                      class="recipe-cart-add secondary-button"
+                      data-item-uuid="{{ item.item_uuid }}"
+                      aria-label="Add {{ item.display_name }} to Recipe Calculator"
+                    >Add</button>
+                  {% else %}
+                    <span>No recipe</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% else %}
+    <p>No completed sales yet. Mark a listing as sold in Sales Activity to begin ranking items.</p>
+  {% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/recipe-cart.js" defer></script>{% endblock %}

@@ -602,6 +602,14 @@ th.numeric .client-sort-header {
   padding: 0.75rem;
 }
 
+.best-sellers-table {
+  min-width: 105rem;
+}
+
+.best-sellers-table td {
+  padding: 0.75rem;
+}
+
 .sales-table td,
 .sales-table th {
   padding: 0.75rem;
