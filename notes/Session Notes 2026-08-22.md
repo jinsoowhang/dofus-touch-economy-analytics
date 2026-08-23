@@ -405,3 +405,36 @@ after reviewing development lineage and costs.
   tests, compilation, dbt debug and parse, SQLFluff, and the public-file policy.
 - Read-only smoke rendering against the ignored real catalog returned HTTP 200 for
   both new pages; no BigQuery publication was started during verification.
+
+## Recipe Workflow Latency and Freshness
+
+### Work Completed
+
+- Profiled the ignored real catalog before changing behavior: Recipes hydrated 4,177
+  recipe objects plus 18,943 ingredient relationships on every request and rendered
+  a 10.3 MB HTML response; Item Search rendered 11,400 rows in 13.5 MB.
+- Replaced the Recipes and Recipe Calculator choice paths with a scalar recipe
+  projection, limited Recipe calculation hydration to selected items, and added
+  100-row server pages to Recipes and Item Search.
+- Enabled response compression for HTML and other responses above 1 KB.
+- Added Last Updated (Days) and the exact Missing price, Stale price, and Current
+  price states to item-detail recipe ingredients. Age uses UTC calendar dates, and a
+  price becomes stale at seven days.
+- Added synchronized numeric minimum and maximum inputs beside the dual-handle
+  profession-level slider.
+- Added row-level Recipe Calculator cart controls to Craftable Items. Browser-local
+  UUID/quantity state survives filters and page changes, and Open Recipe Calculator
+  submits the cart so the combined ingredient results render immediately.
+
+### Verification
+
+- Ninety-one focused recipe, catalog, and web tests passed, including pagination,
+  seven-day freshness, same-day age zero, existing economics, filter state, and
+  calculator aggregation behavior.
+- JavaScript syntax and Ruff checks passed for the changed files.
+- Real-catalog read-only smoke results improved Recipes from about 1.07 seconds and
+  10.3 MB to about 0.37 seconds and 307 KB of HTML (about 15 KB compressed). Item
+  Search dropped from 13.5 MB to 135 KB of HTML (about 10 KB compressed). The Recipe
+  Calculator dropped from about 0.88 seconds to about 0.37 seconds.
+- The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 214 Python
+  tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.

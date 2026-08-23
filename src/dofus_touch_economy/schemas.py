@@ -183,6 +183,8 @@ class RecipeIngredientResponse(BaseModel):
     current_price: CurrentPriceResponse | None
     extended_cost: DecimalString | None
     is_resolved: bool
+    price_age_days: int | None = Field(default=None, ge=0)
+    price_status: Literal["Missing price", "Stale price", "Current price"] = "Missing price"
 
 
 class RecipeResponse(BaseModel):

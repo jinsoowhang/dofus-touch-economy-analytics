@@ -58,19 +58,22 @@ The local browser interface uses server-rendered Jinja templates and a reviewed,
 
 The shared page layout exposes Item, Sales, and BigQuery Sync as top-level navigation.
 Item opens an accessible hover, click, and keyboard-focus submenu for Item Search,
-Recipes, and Recipe Calculator. Item Search renders alphabetical catalog summaries
-and uses one bulk latest-price query for the active market context. Filtering replaces
-only the table fragment. Item rows link to detail; price changes remain append-only
+Recipes, and Recipe Calculator. Item Search renders 100-row pages of alphabetical
+catalog summaries and uses one bulk latest-price query for the active market context.
+Filtering replaces only the table fragment. Item rows link to detail; price changes remain append-only
 observations rather than direct edits. Recipes selects the latest recipe per crafted
 item, resolves current prices in bulk, derives standard profession-slot requirements
-and crafting economics, and provides URL-backed filters—including one dual-handle
-profession-level range—and sortable columns without mutating recipe data. Its Current
-Price cells append quantity-one observations on Enter or blur, preserve the active
-recipe view, and recalculate row economics without creating Sales listings.
+and crafting economics through a scalar projection instead of hydrating every recipe
+ORM relationship. It provides 100-row pages, URL-backed filters—including one
+dual-handle profession-level range synchronized with numeric endpoints—and sortable
+columns without mutating recipe data. Its Current Price cells append quantity-one
+observations on Enter or blur, preserve the active recipe view, and recalculate row
+economics without creating Sales listings. Item-detail ingredient prices expose
+calendar-day age and become stale at seven days.
 
 The Recipe Calculator is a read-only operational projection over the latest recipe
 per crafted item and the latest valid ingredient prices. User-selected craft
-quantities are request state only. Shared canonical ingredients are aggregated into
+quantities remain browser-local cart state and request state only. Shared canonical ingredients are aggregated into
 one shopping-list row; unresolved identities and missing prices remain explicit, and
 the calculator never writes recipes, prices, or Sales listings.
 

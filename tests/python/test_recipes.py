@@ -167,6 +167,24 @@ def test_recipe_catalog_filters_profitability_and_sorts_missing_values_last(
     ]
 
 
+def test_recipe_catalog_paginates_after_filtering_and_sorting(session_factory) -> None:
+    seed_recipe_catalog(session_factory)
+
+    with session_factory() as session:
+        result = RecipeCatalogService(session, "Dodge").browse(
+            sort_field="name",
+            sort_direction="asc",
+            page=2,
+            page_size=2,
+        )
+
+    assert result.total_count == 3
+    assert result.filtered_count == 3
+    assert result.page == 2
+    assert result.page_count == 2
+    assert [row.display_name for row in result.rows] == ["Gamma Hat"]
+
+
 def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
     session_factory,
 ) -> None:

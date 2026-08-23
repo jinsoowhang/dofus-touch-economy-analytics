@@ -52,6 +52,7 @@
               <th class="numeric">Quantity</th>
               <th class="numeric">Per Unit Price</th>
               <th class="numeric">Total Cost</th>
+              <th class="numeric">Last Updated (Days)</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -101,9 +102,8 @@
               <td class="numeric">
                 {% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}
               </td>
-              <td class="status">
-                {% if not ingredient.is_resolved %}Unresolved item{% elif not ingredient.current_price %}Price missing{% else %}Priced{% endif %}
-              </td>
+              <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
+              <td class="status">{{ ingredient.price_status }}</td>
             </tr>
           {% endfor %}
           </tbody>

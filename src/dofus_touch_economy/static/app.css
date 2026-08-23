@@ -251,10 +251,14 @@ form .htmx-indicator {
   white-space: nowrap;
 }
 
-.level-range-filter output {
+.level-range-number {
   color: var(--accent);
   font-variant-numeric: tabular-nums;
   font-weight: 750;
+  min-height: 2.2rem;
+  padding: 0.3rem 0.45rem;
+  text-align: right;
+  width: 5rem;
 }
 
 .dual-range-slider {
@@ -480,6 +484,38 @@ button {
   min-width: 72rem;
 }
 
+.recipe-cart-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-block-end: 0.75rem;
+}
+
+.recipe-cart-toolbar span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.recipe-cart-toolbar a {
+  border: 1px solid var(--accent);
+  border-radius: 0.4rem;
+  font-weight: 700;
+  padding: 0.55rem 0.75rem;
+  text-decoration: none;
+}
+
+.recipe-cart-action {
+  padding: 0.45rem 0.75rem !important;
+  text-align: center;
+}
+
+.recipe-cart-add {
+  min-width: 5.5rem;
+  white-space: nowrap;
+}
+
 .item-table th,
 .sales-table th {
   border-bottom: 2px solid var(--border);
@@ -511,6 +547,24 @@ button {
 .sort-arrow {
   color: var(--accent);
   font-size: 0.65em;
+}
+
+.table-pagination {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  padding-block: 1rem 0.25rem;
+}
+
+.table-pagination a,
+.table-pagination span {
+  min-width: 5rem;
+  text-align: center;
+}
+
+.table-pagination [aria-disabled="true"] {
+  color: var(--muted);
 }
 
 .item-table td,

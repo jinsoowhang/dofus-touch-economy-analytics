@@ -63,6 +63,8 @@ from dofus_touch_economy.services.sales import (
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
 PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
+ITEM_PAGE_SIZE = 100
+RECIPE_PAGE_SIZE = 100
 
 
 def _pacific_time(value: datetime) -> datetime:
@@ -345,6 +347,7 @@ def _search_context(
     sort_field: ItemSortField = "name",
     sort_direction: SortDirection = "asc",
     category: str = "",
+    page: int = 1,
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
@@ -352,7 +355,7 @@ def _search_context(
     category_filter = normalize_item_name(category) if category.strip() else ""
     category_choices = catalog.category_choices()
     category_labels = {choice.key: choice.label for choice in category_choices}
-    items = catalog.search(
+    matching_items = catalog.search(
         query,
         limit=None,
         sort_field=sort_field,
@@ -361,9 +364,25 @@ def _search_context(
     )
     suggestions = (
         catalog.suggest(query, limit=5, category=category_filter)
-        if query.strip() and not items
+        if query.strip() and not matching_items
         else []
     )
+    page_count = max(1, (len(matching_items) + ITEM_PAGE_SIZE - 1) // ITEM_PAGE_SIZE)
+    resolved_page = min(page, page_count)
+    page_start = (resolved_page - 1) * ITEM_PAGE_SIZE
+    items = matching_items[page_start : page_start + ITEM_PAGE_SIZE]
+
+    def page_url(target_page: int) -> str:
+        parameters = {
+            "q": query,
+            "category": category_filter,
+            "sort": sort_field,
+            "direction": sort_direction,
+        }
+        if target_page > 1:
+            parameters["page"] = str(target_page)
+        return f"/items?{urlencode(parameters)}"
+
     proposed_display_name = catalog.format_display_name(query) if query.strip() else query
     recognized_category = category_labels.get(category_filter)
     if recognized_category is None and query.strip():
@@ -373,6 +392,13 @@ def _search_context(
         "category_filter": category_filter,
         "category_choices": category_choices,
         "items": items,
+        "item_filtered_count": len(matching_items),
+        "item_page": resolved_page,
+        "item_page_count": page_count,
+        "item_page_start": 0 if not matching_items else page_start + 1,
+        "item_page_end": min(resolved_page * ITEM_PAGE_SIZE, len(matching_items)),
+        "previous_page_url": page_url(resolved_page - 1) if resolved_page > 1 else None,
+        "next_page_url": (page_url(resolved_page + 1) if resolved_page < page_count else None),
         "active_tab": "items",
         "suggestions": suggestions,
         "proposed_display_name": proposed_display_name,
@@ -796,6 +822,7 @@ def _recipe_page_context(
     filter_state: RecipeFilterState,
     sort_field: RecipeSortField,
     sort_direction: RecipeSortDirection,
+    page: int = 1,
     *,
     notification: str | None = None,
     price_errors: list[str] | None = None,
@@ -806,6 +833,8 @@ def _recipe_page_context(
         filter_state.catalog_filters(),
         sort_field,
         sort_direction,
+        page=page,
+        page_size=RECIPE_PAGE_SIZE,
     )
     minimum_level = filter_state.minimum_level or result.minimum_available_level
     maximum_level = filter_state.maximum_level or result.maximum_available_level
@@ -815,11 +844,29 @@ def _recipe_page_context(
         "sort": sort_field,
         "direction": sort_direction,
     }
+    if result.page > 1:
+        view_parameters["page"] = str(result.page)
+
+    def page_url(target_page: int) -> str:
+        parameters = {**filter_parameters, "sort": sort_field, "direction": sort_direction}
+        if target_page > 1:
+            parameters["page"] = str(target_page)
+        return f"/recipes?{urlencode(parameters)}#recipe-catalog"
+
     return {
         "active_tab": "recipes",
         "market_context": market_context,
         "recipes": result.rows,
         "recipe_total_count": result.total_count,
+        "recipe_filtered_count": result.filtered_count,
+        "recipe_page": result.page,
+        "recipe_page_count": result.page_count,
+        "recipe_page_start": (
+            0 if result.filtered_count == 0 else (result.page - 1) * result.page_size + 1
+        ),
+        "recipe_page_end": min(result.page * result.page_size, result.filtered_count),
+        "previous_page_url": page_url(result.page - 1) if result.page > 1 else None,
+        "next_page_url": (page_url(result.page + 1) if result.page < result.page_count else None),
         "profession_choices": result.professions,
         "category_choices": result.categories,
         "minimum_available_level": result.minimum_available_level,
@@ -953,6 +1000,7 @@ def recipes_page(
     filter_state: Annotated[RecipeFilterState, Depends(_recipe_filter_state)],
     sort: Annotated[RecipeSortField, Query()] = "name",
     direction: Annotated[RecipeSortDirection, Query()] = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
     updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
     notification = None
@@ -972,6 +1020,7 @@ def recipes_page(
             filter_state,
             sort,
             direction,
+            page,
             notification=notification,
         ),
     )
@@ -1070,6 +1119,7 @@ async def update_recipe_item_current_price(
     filter_state: Annotated[RecipeFilterState, Depends(_recipe_filter_state)],
     sort: Annotated[RecipeSortField, Query()] = "name",
     direction: Annotated[RecipeSortDirection, Query()] = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     values = _form_values(form, ("current_price",))
@@ -1085,6 +1135,7 @@ async def update_recipe_item_current_price(
                 filter_state,
                 sort,
                 direction,
+                page,
                 price_errors=_validation_messages(error),
                 price_item_uuid=item_uuid,
                 price_form_value=values["current_price"],
@@ -1111,6 +1162,8 @@ async def update_recipe_item_current_price(
         "direction": direction,
         "updated": str(item_uuid),
     }
+    if page > 1:
+        parameters["page"] = str(page)
     return RedirectResponse(
         url=f"/recipes?{urlencode(parameters)}#recipe-catalog",
         status_code=303,
@@ -1531,6 +1584,7 @@ def search_items(
     category: str = Query(default=""),
     sort: Annotated[ItemSortField, Query()] = "name",
     direction: Annotated[SortDirection, Query()] = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
     updated: Annotated[UUID | None, Query()] = None,
 ) -> HTMLResponse:
     catalog = CatalogService(session, settings.market_context)
@@ -1549,6 +1603,7 @@ def search_items(
         sort_field=sort,
         sort_direction=direction,
         category=category,
+        page=page,
         notification=notification,
     )
     if _is_htmx(request):

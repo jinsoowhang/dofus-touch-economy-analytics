@@ -10,7 +10,9 @@
     <summary>
       <span class="section-summary">
         <h2>Items</h2>
-        <span>{{ items | length }} shown</span>
+        <span>
+          {{ item_page_start }}–{{ item_page_end }} of {{ item_filtered_count }} shown
+        </span>
       </span>
     </summary>
     <div class="item-table-wrap">
@@ -85,6 +87,13 @@
       </tbody>
       </table>
     </div>
+    {% if item_page_count > 1 %}
+      <nav class="table-pagination" aria-label="Item table pages">
+        {% if previous_page_url %}<a href="{{ previous_page_url }}">Previous</a>{% else %}<span aria-disabled="true">Previous</span>{% endif %}
+        <span>Page {{ item_page }} of {{ item_page_count }}</span>
+        {% if next_page_url %}<a href="{{ next_page_url }}">Next</a>{% else %}<span aria-disabled="true">Next</span>{% endif %}
+      </nav>
+    {% endif %}
   </details>
 {% elif query %}
   {% if suggestions %}

@@ -82,20 +82,24 @@ its UUID or price history.
 
 The top navigation contains **Item**, **Sales**, and **BigQuery Sync**. Hovering over
 or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator** submenu.
-The item page lists the full catalog alphabetically beneath the search field, including
-category, latest unit price, observed lot, and observation time. Typing filters the
-table by item name. Clicking any row opens item detail, where a new audited price
-observation can be recorded.
+The item page lists the full catalog in 100-row alphabetical pages beneath the search
+field, including category, latest unit price, observed lot, and observation time.
+Typing filters the table by item name. Clicking any row opens item detail, where a new
+audited price observation can be recorded.
 
 The Recipes page lists the latest recipe for each craftable item with its profession,
 standard required profession level, current item price, recipe cost, profit, and ROI.
 It supports item, category, profession, profitability, and a single dual-handle
-profession-level range filter plus sorting on every displayed field. Current Price is
-editable directly in each row; Enter or leaving the field appends a price observation
-and refreshes the calculated economics without creating a Sales listing. Required
+profession-level range filter with synchronized numeric endpoints, plus sorting on
+every displayed field. Craftable Items are returned in 100-row pages, and each row can
+be added to the browser-local Recipe Calculator cart. Current Price is editable
+directly in each row; Enter or leaving the field appends a price observation and
+refreshes the calculated economics without creating a Sales listing. Required
 profession level follows the standard Dofus Touch ingredient-slot unlocks: levels 1,
 10, 20, 40, 60, 80, and 100 for increasing recipe sizes through eight ingredients.
 Item detail shows the same level beside the recipe profession.
+Ingredient rows show calendar days since the current price observation and classify
+it as **Missing price**, **Current price**, or **Stale price** at seven days old.
 
 The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
 It combines shared ingredients into one shopping list with total quantities, current

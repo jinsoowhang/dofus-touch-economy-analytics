@@ -62,18 +62,39 @@
       <fieldset class="level-range-filter">
         <legend>Required profession level</legend>
         <div class="level-range-values">
-          <label for="recipe-min-level">
-            Minimum <output id="recipe-min-level-output" for="recipe-min-level">{{ selected_minimum_level }}</output>
+          <label for="recipe-min-level-number">
+            Minimum
+            <input
+              id="recipe-min-level-number"
+              class="level-range-number"
+              name="min_level"
+              type="number"
+              inputmode="numeric"
+              min="{{ minimum_available_level }}"
+              max="{{ maximum_available_level }}"
+              value="{{ selected_minimum_level }}"
+              aria-label="Minimum required profession level number"
+            >
           </label>
-          <label for="recipe-max-level">
-            Maximum <output id="recipe-max-level-output" for="recipe-max-level">{{ selected_maximum_level }}</output>
+          <label for="recipe-max-level-number">
+            Maximum
+            <input
+              id="recipe-max-level-number"
+              class="level-range-number"
+              name="max_level"
+              type="number"
+              inputmode="numeric"
+              min="{{ minimum_available_level }}"
+              max="{{ maximum_available_level }}"
+              value="{{ selected_maximum_level }}"
+              aria-label="Maximum required profession level number"
+            >
           </label>
         </div>
         <div class="dual-range-slider">
           <div class="dual-range-track" aria-hidden="true"></div>
           <input
             id="recipe-min-level"
-            name="min_level"
             type="range"
             min="{{ minimum_available_level }}"
             max="{{ maximum_available_level }}"
@@ -82,7 +103,6 @@
           >
           <input
             id="recipe-max-level"
-            name="max_level"
             type="range"
             min="{{ minimum_available_level }}"
             max="{{ maximum_available_level }}"
@@ -107,10 +127,17 @@
     <summary>
       <span class="section-summary">
         <h2>Craftable Items</h2>
-        <span>{{ recipes | length }} of {{ recipe_total_count }} shown</span>
+        <span>
+          {% if recipe_filtered_count %}{{ recipe_page_start }}–{{ recipe_page_end }} of {{ recipe_filtered_count }}{% else %}0{% endif %}
+          shown{% if recipe_filtered_count != recipe_total_count %} · {{ recipe_total_count }} total{% endif %}
+        </span>
       </span>
     </summary>
     {% if recipes %}
+      <div class="recipe-cart-toolbar">
+        <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
+        <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+      </div>
       <div class="item-table-wrap">
         <table class="item-table recipe-catalog-table">
           <thead>
@@ -132,6 +159,7 @@
                   </a>
                 </th>
               {% endfor %}
+              <th scope="col">Calculator</th>
             </tr>
           </thead>
           <tbody>
@@ -177,11 +205,26 @@
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.recipe_cost) if recipe.recipe_cost is not none else "—" }}</a></td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.profit) if recipe.profit is not none else "—" }}</a></td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:.1%}".format(recipe.roi) if recipe.roi is not none else "—" }}</a></td>
+                <td class="recipe-cart-action">
+                  <button
+                    type="button"
+                    class="recipe-cart-add secondary-button"
+                    data-item-uuid="{{ recipe.item_uuid }}"
+                    aria-label="Add {{ recipe.display_name }} to Recipe Calculator"
+                  >Add</button>
+                </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% if recipe_page_count > 1 %}
+        <nav class="table-pagination" aria-label="Recipe table pages">
+          {% if previous_page_url %}<a href="{{ previous_page_url }}">Previous</a>{% else %}<span aria-disabled="true">Previous</span>{% endif %}
+          <span>Page {{ recipe_page }} of {{ recipe_page_count }}</span>
+          {% if next_page_url %}<a href="{{ next_page_url }}">Next</a>{% else %}<span aria-disabled="true">Next</span>{% endif %}
+        </nav>
+      {% endif %}
     {% else %}
       <p>No recipes match these filters.</p>
     {% endif %}

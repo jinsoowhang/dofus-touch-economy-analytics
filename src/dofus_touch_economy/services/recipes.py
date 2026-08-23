@@ -4,9 +4,9 @@ from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, aliased, selectinload
 
-from dofus_touch_economy.models import Recipe, RecipeIngredient
+from dofus_touch_economy.models import Item, Recipe, RecipeIngredient
 from dofus_touch_economy.normalization import format_item_display_name, normalize_item_name
 from dofus_touch_economy.services.pricing import (
     IngredientPrice,
@@ -71,10 +71,14 @@ class RecipeCategoryChoice:
 class RecipeCatalogResult:
     rows: list[RecipeCatalogRow]
     total_count: int
+    filtered_count: int
     professions: list[str]
     categories: list[RecipeCategoryChoice]
     minimum_available_level: int
     maximum_available_level: int
+    page: int
+    page_size: int
+    page_count: int
 
 
 @dataclass(frozen=True)
@@ -134,6 +138,18 @@ class _IngredientAccumulator:
     used_by: set[str]
 
 
+@dataclass
+class _CatalogRecipe:
+    recipe_uuid: UUID
+    crafted_item_id: int
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_source_url: str | None
+    profession: str
+    ingredients: list[tuple[int | None, int]]
+
+
 class RecipeCatalogService:
     def __init__(self, session: Session, market_context: str) -> None:
         self._session = session
@@ -144,7 +160,12 @@ class RecipeCatalogService:
         filters: RecipeCatalogFilters | None = None,
         sort_field: RecipeSortField = "name",
         sort_direction: RecipeSortDirection = "asc",
+        *,
+        page: int = 1,
+        page_size: int = 100,
     ) -> RecipeCatalogResult:
+        if page < 1 or page_size < 1:
+            raise ValueError("page and page size must be positive")
         rows = self._rows()
         levels = [row.profession_level for row in rows if row.profession_level is not None]
         category_labels: dict[str, str] = {}
@@ -153,9 +174,14 @@ class RecipeCatalogService:
                 key = normalize_item_name(row.category)
                 category_labels.setdefault(key, format_item_display_name(row.category))
         filtered_rows = _filter_rows(rows, filters or RecipeCatalogFilters())
+        ordered_rows = _sort_rows(filtered_rows, sort_field, sort_direction)
+        page_count = max(1, (len(ordered_rows) + page_size - 1) // page_size)
+        resolved_page = min(page, page_count)
+        page_start = (resolved_page - 1) * page_size
         return RecipeCatalogResult(
-            rows=_sort_rows(filtered_rows, sort_field, sort_direction),
+            rows=ordered_rows[page_start : page_start + page_size],
             total_count=len(rows),
+            filtered_count=len(ordered_rows),
             professions=sorted({row.profession for row in rows}, key=str.casefold),
             categories=[
                 RecipeCategoryChoice(key=key, label=label)
@@ -166,16 +192,19 @@ class RecipeCatalogService:
             ],
             minimum_available_level=min(levels, default=1),
             maximum_available_level=max(levels, default=300),
+            page=resolved_page,
+            page_size=page_size,
+            page_count=page_count,
         )
 
     def _rows(self) -> list[RecipeCatalogRow]:
-        recipes = _latest_recipes(self._session)
+        recipes = _latest_recipe_catalog(self._session)
         item_ids = {
             item_id
             for recipe in recipes
             for item_id in [
                 recipe.crafted_item_id,
-                *(ingredient.item_id for ingredient in recipe.ingredients),
+                *(item_id for item_id, _quantity in recipe.ingredients),
             ]
             if item_id is not None
         }
@@ -187,27 +216,26 @@ class RecipeCatalogService:
                 None if crafted_price is None else crafted_price.unit_price,
                 [
                     IngredientPrice(
-                        quantity=ingredient.quantity,
+                        quantity=quantity,
                         unit_price=(
                             None
-                            if ingredient.item_id is None
-                            or ingredient.item_id not in current_prices
-                            else current_prices[ingredient.item_id].unit_price
+                            if item_id is None or item_id not in current_prices
+                            else current_prices[item_id].unit_price
                         ),
                     )
-                    for ingredient in recipe.ingredients
+                    for item_id, quantity in recipe.ingredients
                 ],
             )
             rows.append(
                 RecipeCatalogRow(
-                    recipe_uuid=recipe.uuid,
-                    item_uuid=recipe.crafted_item.uuid,
-                    display_name=recipe.crafted_item.display_name,
-                    category=recipe.crafted_item.category,
+                    recipe_uuid=recipe.recipe_uuid,
+                    item_uuid=recipe.item_uuid,
+                    display_name=recipe.display_name,
+                    category=recipe.category,
                     icon_url=(
                         None
-                        if recipe.crafted_item.icon_source_url is None
-                        else f"/item-icons/{recipe.crafted_item.uuid}.png"
+                        if recipe.icon_source_url is None
+                        else f"/item-icons/{recipe.item_uuid}.png"
                     ),
                     profession=recipe.profession,
                     profession_level=required_profession_level(len(recipe.ingredients)),
@@ -225,20 +253,23 @@ class RecipeCalculatorService:
     def __init__(self, session: Session, market_context: str) -> None:
         self._session = session
         self._prices = PriceService(session, market_context)
-        self._cached_recipes: list[Recipe] | None = None
 
     def choices(self) -> list[RecipeCalculatorChoice]:
         return sorted(
             (
                 RecipeCalculatorChoice(
-                    item_uuid=recipe.crafted_item.uuid,
-                    display_name=recipe.crafted_item.display_name,
-                    category=recipe.crafted_item.category,
-                    icon_url=_icon_url(recipe.crafted_item),
+                    item_uuid=recipe.item_uuid,
+                    display_name=recipe.display_name,
+                    category=recipe.category,
+                    icon_url=(
+                        None
+                        if recipe.icon_source_url is None
+                        else f"/item-icons/{recipe.item_uuid}.png"
+                    ),
                     profession=recipe.profession,
                     profession_level=required_profession_level(len(recipe.ingredients)),
                 )
-                for recipe in self._recipes()
+                for recipe in _latest_recipe_catalog(self._session)
             ),
             key=lambda choice: choice.display_name.casefold(),
         )
@@ -251,7 +282,10 @@ class RecipeCalculatorService:
         if any(quantity < 1 or quantity > 1000 for quantity in selections.values()):
             raise RecipeCalculatorSelectionError("Each craft quantity must be between 1 and 1,000.")
 
-        recipes_by_item_uuid = {recipe.crafted_item.uuid: recipe for recipe in self._recipes()}
+        recipes_by_item_uuid = {
+            recipe.crafted_item.uuid: recipe
+            for recipe in _latest_recipes_for_items(self._session, tuple(selections))
+        }
         missing = set(selections).difference(recipes_by_item_uuid)
         if missing:
             raise RecipeCalculatorSelectionError(
@@ -370,13 +404,58 @@ class RecipeCalculatorService:
             total_cost=(known_total_cost if priced_ingredient_count == len(ingredients) else None),
         )
 
-    def _recipes(self) -> list[Recipe]:
-        if self._cached_recipes is None:
-            self._cached_recipes = _latest_recipes(self._session)
-        return self._cached_recipes
+
+def _latest_recipe_ids():
+    return (
+        select(func.max(Recipe.id).label("recipe_id")).group_by(Recipe.crafted_item_id).subquery()
+    )
 
 
-def _latest_recipes(session: Session) -> list[Recipe]:
+def _latest_recipe_catalog(session: Session) -> list[_CatalogRecipe]:
+    crafted_item = aliased(Item)
+    latest_recipe_ids = _latest_recipe_ids()
+    rows = session.execute(
+        select(
+            Recipe.id.label("recipe_id"),
+            Recipe.uuid.label("recipe_uuid"),
+            Recipe.crafted_item_id,
+            Recipe.profession,
+            crafted_item.uuid.label("item_uuid"),
+            crafted_item.display_name,
+            crafted_item.category,
+            crafted_item.icon_source_url,
+            RecipeIngredient.id.label("ingredient_id"),
+            RecipeIngredient.item_id.label("ingredient_item_id"),
+            RecipeIngredient.quantity.label("ingredient_quantity"),
+        )
+        .join(latest_recipe_ids, latest_recipe_ids.c.recipe_id == Recipe.id)
+        .join(crafted_item, crafted_item.id == Recipe.crafted_item_id)
+        .outerjoin(RecipeIngredient, RecipeIngredient.recipe_id == Recipe.id)
+        .order_by(Recipe.id, RecipeIngredient.position)
+    )
+    recipes_by_id: dict[int, _CatalogRecipe] = {}
+    for row in rows:
+        recipe = recipes_by_id.get(row.recipe_id)
+        if recipe is None:
+            recipe = _CatalogRecipe(
+                recipe_uuid=row.recipe_uuid,
+                crafted_item_id=row.crafted_item_id,
+                item_uuid=row.item_uuid,
+                display_name=row.display_name,
+                category=row.category,
+                icon_source_url=row.icon_source_url,
+                profession=row.profession,
+                ingredients=[],
+            )
+            recipes_by_id[row.recipe_id] = recipe
+        if row.ingredient_id is not None:
+            recipe.ingredients.append((row.ingredient_item_id, row.ingredient_quantity))
+    return list(recipes_by_id.values())
+
+
+def _latest_recipes_for_items(session: Session, item_uuids: tuple[UUID, ...]) -> list[Recipe]:
+    if not item_uuids:
+        return []
     latest_recipe_ids = (
         select(func.max(Recipe.id).label("recipe_id"))
         .group_by(Recipe.crafted_item_id)
@@ -385,7 +464,8 @@ def _latest_recipes(session: Session) -> list[Recipe]:
     return list(
         session.scalars(
             select(Recipe)
-            .where(Recipe.id.in_(latest_recipe_ids))
+            .join(Recipe.crafted_item)
+            .where(Recipe.id.in_(latest_recipe_ids), Item.uuid.in_(item_uuids))
             .options(
                 selectinload(Recipe.crafted_item),
                 selectinload(Recipe.ingredients).selectinload(RecipeIngredient.item),

@@ -7,6 +7,7 @@ const calculatorSelectedItems = document.querySelector("#calculator-selected-ite
 const calculatorEmptySelection = document.querySelector("#calculator-empty-selection");
 const calculatorClearSelection = document.querySelector("#calculator-clear-selection");
 const calculatorSelectedCount = document.querySelector("#calculator-selected-count");
+const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 
 if (
   calculatorSearch &&
@@ -19,6 +20,30 @@ if (
 ) {
   const choices = JSON.parse(calculatorChoiceData.textContent);
   const choicesByUuid = new Map(choices.map((choice) => [choice.item_uuid, choice]));
+
+  const readCart = () => {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(recipeCartStorageKey) || "{}");
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const persistCart = () => {
+    const cart = {};
+    for (const row of calculatorSelectedItems.querySelectorAll("[data-item-uuid]")) {
+      const quantity = Number(row.querySelector(".calculator-quantity")?.value);
+      if (Number.isInteger(quantity) && quantity >= 1 && quantity <= 1000) {
+        cart[row.dataset.itemUuid] = quantity;
+      }
+    }
+    try {
+      window.localStorage.setItem(recipeCartStorageKey, JSON.stringify(cart));
+    } catch {
+      // The server-rendered calculator remains usable without browser storage.
+    }
+  };
 
   const updateSelectedCount = () => {
     const count = calculatorSelectedItems.children.length;
@@ -33,7 +58,7 @@ if (
     return cell;
   };
 
-  const addChoice = (choice) => {
+  const addChoice = (choice, craftQuantity = 1) => {
     if (calculatorSelectedItems.querySelector(`[data-item-uuid="${choice.item_uuid}"]`)) {
       return;
     }
@@ -81,7 +106,7 @@ if (
     quantity.inputMode = "numeric";
     quantity.min = "1";
     quantity.max = "1000";
-    quantity.value = "1";
+    quantity.value = String(craftQuantity);
     quantity.required = true;
     quantityCell.append(quantityLabel, quantity);
     row.append(quantityCell);
@@ -96,6 +121,7 @@ if (
     row.append(actionCell);
     calculatorSelectedItems.append(row);
     updateSelectedCount();
+    persistCart();
   };
 
   const renderSearchResults = () => {
@@ -155,14 +181,38 @@ if (
     }
     button.closest("tr").remove();
     updateSelectedCount();
+    persistCart();
     renderSearchResults();
+  });
+
+  calculatorSelectedItems.addEventListener("input", (event) => {
+    if (event.target.matches(".calculator-quantity")) {
+      persistCart();
+    }
   });
 
   calculatorClearSelection.addEventListener("click", () => {
     calculatorSelectedItems.replaceChildren();
     updateSelectedCount();
+    persistCart();
     renderSearchResults();
   });
 
+  if (calculatorSelectedItems.children.length > 0) {
+    persistCart();
+  } else {
+    for (const [itemUuid, quantity] of Object.entries(readCart())) {
+      const choice = choicesByUuid.get(itemUuid);
+      const parsedQuantity = Number(quantity);
+      if (
+        choice &&
+        Number.isInteger(parsedQuantity) &&
+        parsedQuantity >= 1 &&
+        parsedQuantity <= 1000
+      ) {
+        addChoice(choice, parsedQuantity);
+      }
+    }
+  }
   updateSelectedCount();
 }

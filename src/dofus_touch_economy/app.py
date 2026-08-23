@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
@@ -78,6 +79,7 @@ def create_app(
         TrustedHostMiddleware,
         allowed_hosts=list(resolved_settings.allowed_hosts),
     )
+    application.add_middleware(GZipMiddleware, minimum_size=1_000)
     static_directory = Path(__file__).resolve().parent / "static"
     application.mount(
         "/static",

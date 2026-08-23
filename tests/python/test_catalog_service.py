@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -278,6 +278,55 @@ def test_fully_priced_recipe_returns_exact_decimal_metrics(session_factory, fixt
     assert detail.metrics.profit == Decimal("45")
     assert detail.metrics.roi == Decimal("0.5625")
     assert detail.metrics.is_complete is True
+
+
+def test_recipe_ingredient_price_freshness_uses_calendar_days(
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory).import_files(
+        fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
+    )
+    as_of = datetime(2026, 8, 22, 12, tzinfo=UTC)
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        missing_detail = CatalogService(session, "Dodge", as_of=as_of).detail(
+            items["synthetic widget"].uuid
+        )
+        assert missing_detail.recipe is not None
+        assert all(
+            (ingredient.price_age_days, ingredient.price_status) == (None, "Missing price")
+            for ingredient in missing_detail.recipe.ingredients
+        )
+        prices = PriceService(session, "Dodge")
+        prices.record(
+            items["synthetic ore"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=10,
+                observed_at=as_of,
+            ),
+        )
+        prices.record(
+            items["synthetic fiber"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=20,
+                observed_at=as_of - timedelta(days=7),
+            ),
+        )
+
+        detail = CatalogService(session, "Dodge", as_of=as_of).detail(
+            items["synthetic widget"].uuid
+        )
+
+    assert detail.recipe is not None
+    freshness = {
+        ingredient.display_name: (ingredient.price_age_days, ingredient.price_status)
+        for ingredient in detail.recipe.ingredients
+    }
+    assert freshness["Synthetic Ore"] == (0, "Current price")
+    assert freshness["Synthetic Fiber"] == (7, "Stale price")
 
 
 def test_price_command_requires_timezone() -> None:

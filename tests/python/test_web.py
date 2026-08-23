@@ -31,6 +31,7 @@ def test_item_search_renders_matching_synthetic_item(client, catalog_item) -> No
     response = client.get("/items", params={"q": "ore"})
 
     assert response.status_code == 200
+    assert response.headers["content-encoding"] == "gzip"
     assert "Dofus Touch Economy" in response.text
     assert catalog_item.display_name in response.text
     assert str(catalog_item.uuid) in response.text
@@ -836,8 +837,12 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
     assert 'id="recipe-min-level"' in response.text
     assert 'name="min_level"' in response.text
+    assert 'id="recipe-min-level-number"' in response.text
+    assert 'aria-label="Minimum required profession level number"' in response.text
     assert 'id="recipe-max-level"' in response.text
     assert 'name="max_level"' in response.text
+    assert 'id="recipe-max-level-number"' in response.text
+    assert 'aria-label="Maximum required profession level number"' in response.text
     assert response.text.count('class="dual-range-track"') == 1
     assert 'class="dual-range-slider"' in response.text
     assert 'aria-label="Minimum required profession level"' in response.text
@@ -851,6 +856,8 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     ) in response.text
     assert 'name="current_price"' in response.text
     assert 'class="price-edit-form recipe-current-price-form"' in response.text
+    assert 'class="recipe-cart-add secondary-button"' in response.text
+    assert 'id="recipe-open-calculator"' in response.text
     assert 'aria-label="Sort recipes by Required Level, ascending"' in response.text
     assert (
         "profession=Crafting&amp;min_level=1&amp;max_level=1&amp;economics=unknown&amp;"
@@ -859,11 +866,14 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert '<script src="/static/recipes.js" defer></script>' in response.text
     assert script.status_code == 200
     assert 'minimumLevel.addEventListener("input"' in script.text
+    assert 'minimumLevelNumber.addEventListener("input"' in script.text
     assert 'levelRangeSlider.style.setProperty("--range-minimum-position"' in script.text
     assert 'levelRangeSlider.style.setProperty("--range-maximum-position"' in script.text
     assert 'document.querySelectorAll(".recipe-current-price-form")' in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert "window.sessionStorage.setItem(recipeScrollStorageKey" in script.text
+    assert 'const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1"' in script.text
+    assert 'form.action = "/recipe-calculator"' in script.text
 
 
 def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
@@ -984,8 +994,9 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Alpha Sword" in page.text
     assert script.status_code == 200
     assert 'calculatorSearch.addEventListener("input"' in script.text
-    assert "const addChoice = (choice)" in script.text
+    assert "const addChoice = (choice, craftQuantity = 1)" in script.text
     assert "calculatorSelectedItems.append(row)" in script.text
+    assert "window.localStorage.setItem(recipeCartStorageKey" in script.text
 
     response = client.post(
         "/recipe-calculator",
@@ -1093,6 +1104,33 @@ def test_blank_search_lists_catalog_alphabetically(client, session_factory, cata
     assert '<details class="collapsible-section" open>' in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
     assert response.text.index(catalog_item.display_name) < response.text.index("Zeta Item")
+
+
+def test_blank_item_catalog_is_paginated(client, session_factory) -> None:
+    with session_factory() as session:
+        session.add_all(
+            Item(
+                display_name=f"Paged Item {index:03d}",
+                normalized_name=f"paged item {index:03d}",
+                identity_category="",
+            )
+            for index in range(105)
+        )
+        session.commit()
+
+    first_page = client.get("/items")
+    second_page = client.get("/items", params={"page": 2})
+
+    assert first_page.status_code == 200
+    assert first_page.text.count('class="item-row"') == 100
+    assert "1–100 of 105 shown" in first_page.text
+    assert "Page 1 of 2" in first_page.text
+    assert "Paged Item 000" in first_page.text
+    assert "Paged Item 100" not in first_page.text
+    assert second_page.status_code == 200
+    assert second_page.text.count('class="item-row"') == 5
+    assert "101–105 of 105 shown" in second_page.text
+    assert "Paged Item 100" in second_page.text
 
 
 def test_search_field_reduces_catalog_table(client, session_factory, catalog_item) -> None:
@@ -1438,6 +1476,11 @@ def test_recipe_unit_price_edit_updates_history_without_starting_sale(
     assert "Synthetic Ore price has been updated." in updated_page.text
     assert 'value="1,250"' in updated_page.text
     assert re.search(r'<td class="numeric">\s*2,500\s*</td>', updated_page.text)
+    assert "Last Updated (Days)" in updated_page.text
+    assert re.search(r'<td class="numeric">\s*0\s*</td>', updated_page.text)
+    assert '<td class="status">Current price</td>' in updated_page.text
+    assert "Price missing" not in updated_page.text
+    assert ">Priced<" not in updated_page.text
 
     with session_factory() as session:
         detail = CatalogService(session, "Dodge").detail(items["synthetic widget"].uuid)
