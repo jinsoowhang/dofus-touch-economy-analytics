@@ -12,6 +12,7 @@
       {% if detail.icon_url %}<img class="item-icon item-icon-large" src="{{ detail.icon_url }}" alt="">{% endif %}
       <span>{{ detail.display_name }}</span>
     </h1>
+    <p class="page-description">Review this item's current price, sales activity, and crafting economics.</p>
     <p>
       {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
       Weight: {{ "{:,} pods".format(detail.weight) if detail.weight is not none else "Unknown" }} ·

@@ -104,12 +104,11 @@ if (
   };
 
   const updateSelectedCount = () => {
-    const cartCount = calculatorSelectedItems.children.length;
     const selectedCount = calculatorSelectedItems.querySelectorAll(
       ".calculator-item-checkbox:checked",
     ).length;
-    calculatorSelectedCount.textContent = `${selectedCount} selected · ${cartCount} in cart`;
-    calculatorEmptySelection.hidden = cartCount > 0;
+    calculatorSelectedCount.textContent = `${selectedCount} selected`;
+    calculatorEmptySelection.hidden = calculatorSelectedItems.children.length > 0;
   };
 
   const createCell = (text, className = "") => {

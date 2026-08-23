@@ -22,6 +22,24 @@ def test_root_redirects_to_items(client) -> None:
     assert response.headers["location"] == "/items"
 
 
+def test_main_pages_include_one_line_descriptions(client) -> None:
+    expected_descriptions = {
+        "/items": "Search the catalog, compare current prices and weights",
+        "/recipes": "Filter craftable items, compare recipe economics",
+        "/recipe-calculator": "Select the items and quantities you plan to craft",
+        "/sales": "Track active listings, record completed sales",
+        "/out-of-stock-items": "Items appear here after at least one completed sale",
+        "/bigquery-sync": "Manually publish one immutable snapshot",
+    }
+
+    for path, description in expected_descriptions.items():
+        response = client.get(path)
+
+        assert response.status_code == 200
+        assert 'class="page-description"' in response.text
+        assert description in response.text
+
+
 def test_rejects_untrusted_host(client) -> None:
     response = client.get("/items", headers={"host": "example.com"})
 
@@ -920,8 +938,12 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     assert f'data-item-uuid="{widget_uuid}"' in response.text
     assert 'class="recipe-cart-add secondary-button"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
-    assert '<table class="item-table" data-sortable-table>' in response.text
+    assert '<table class="item-table out-of-stock-table" data-sortable-table>' in response.text
     assert '<th data-sort-type="date">Last Sold</th>' in response.text
+    assert re.search(
+        r'<td class="numeric">1</td>\s*<td>\s*<time datetime=',
+        response.text,
+    )
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
     assert cart_script.status_code == 200
 
@@ -1046,6 +1068,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'id="calculator-select-all"' in page.text
     assert 'id="calculator-select-none"' in page.text
     assert 'id="calculator-remove-all"' in page.text
+    assert "0 selected" in page.text
+    assert "in cart" not in page.text
     assert "Calculate Selected" in page.text
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
@@ -1056,6 +1080,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         "shouldPersist = true)" in script.text
     )
     assert "calculatorSelectedItems.append(row)" in script.text
+    assert "calculatorSelectedCount.textContent = `${selectedCount} selected`" in script.text
+    assert "in cart" not in script.text
     assert "window.localStorage.setItem(recipeCartStorageKey" in script.text
     assert 'const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1"' in (
         script.text
@@ -1085,6 +1111,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     )
 
     assert response.status_code == 200
+    assert "2 selected" in response.text
+    assert "in cart" not in response.text
     assert "Combined Shopping List" in response.text
     assert "Total Weight" in response.text
     assert "<strong>38 pods</strong>" in response.text
@@ -1377,6 +1405,9 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
 
     detail = client.get(item_url)
     assert detail.status_code == 200
+    assert (
+        "Review this item's current price, sales activity, and crafting economics." in detail.text
+    )
     assert "Weight: Unknown" in detail.text
     assert "<summary><h2>Current Price</h2></summary>" in detail.text
     assert "Price Observations" not in detail.text

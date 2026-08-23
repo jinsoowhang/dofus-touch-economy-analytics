@@ -2,7 +2,7 @@
 {% block title %}Recipe Calculator · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Recipe Calculator</h1>
-  <p>Select the items and quantities you plan to craft to build one combined ingredient shopping list.</p>
+  <p class="page-description">Select the items and quantities you plan to craft to build one combined ingredient shopping list.</p>
 
   {% if notification %}
     <p class="notification" role="status">{{ notification }}</p>
@@ -32,7 +32,7 @@
         <button type="button" id="calculator-select-none" class="secondary-button">Select none</button>
         <button type="button" id="calculator-remove-all" class="secondary-button">Remove all</button>
         <span id="calculator-selected-count" aria-live="polite">
-          {{ selected_quantities | length }} selected · {{ selected_quantities | length }} in cart
+          {{ selected_quantities | length }} selected
         </span>
       </div>
       <script id="calculator-choice-data" type="application/json">{{ choice_data | tojson }}</script>

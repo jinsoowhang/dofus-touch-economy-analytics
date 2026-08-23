@@ -554,3 +554,25 @@ after reviewing development lineage and costs.
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
 - No BigQuery publication or dbt Cloud build was started; those remain manual actions
   from the BigQuery Sync page and dbt Studio respectively.
+
+## Page Descriptions and Restock Table Readability
+
+### Work Completed
+
+- Simplified the Recipe Calculator toolbar to report only the number of checked items,
+  removing the redundant cart-size phrase.
+- Added concise purpose statements beneath the H1 on Item Search, Recipes, Sales,
+  Recipe Calculator, Out of Stock Items, BigQuery Sync, and item detail. Market context
+  and item metadata remain separate factual lines.
+- Diagnosed the concatenated Restock Candidates values as inherited zero cell padding
+  intended for Item Search's full-cell links. Added a table-specific spacing rule so
+  Sold Count, Last Sold, and the remaining read-only values remain visibly distinct.
+- Added regression coverage for the descriptions, simplified count, separate Restock
+  cells, and the table-specific spacing rule.
+
+### Verification
+
+- JavaScript syntax validation passed for Recipe Calculator.
+- All 66 focused static-asset and web tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 223 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
