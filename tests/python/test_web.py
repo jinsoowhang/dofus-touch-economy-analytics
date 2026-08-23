@@ -773,6 +773,31 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert "<summary><h2>Crafting Metrics</h2></summary>" in detail.text
 
 
+def test_item_detail_shows_active_and_sold_listing_counts(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": "100"},
+    )
+    client.post(
+        "/sales",
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": "200"},
+    )
+    with session_factory() as session:
+        sold_uuid = session.scalar(select(SaleListing.uuid).order_by(SaleListing.id.desc()))
+    client.post(f"/sales/{sold_uuid}/sold")
+
+    response = client.get(f"/items/{catalog_item.uuid}")
+
+    assert response.status_code == 200
+    assert 'class="item-sales-counts"' in response.text
+    assert "<span>Currently Selling</span><strong>1</strong>" in response.text
+    assert "<span>Sold</span><strong>1</strong>" in response.text
+
+
 def test_catalog_and_static_route_show_cached_item_icon(
     client,
     session_factory,

@@ -7,9 +7,10 @@ from sqlalchemy import select
 
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item
-from dofus_touch_economy.schemas import ItemCreate, PriceObservationCreate
+from dofus_touch_economy.schemas import ItemCreate, PriceObservationCreate, SaleListingCreate
 from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
 from dofus_touch_economy.services.pricing import PriceService
+from dofus_touch_economy.services.sales import SalesService
 
 
 def price_command(total_price: int) -> PriceObservationCreate:
@@ -155,6 +156,29 @@ def test_search_summary_includes_current_price(session_factory, catalog_item) ->
     assert result.current_price.unit_price == Decimal("125")
 
 
+def test_detail_counts_active_and_sold_listings(session_factory, catalog_item) -> None:
+    with session_factory() as session:
+        sales = SalesService(session, "Dodge")
+        active = sales.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
+        sold = sales.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=200))
+        sales.mark_sold(sold.uuid)
+        other_item = Item(
+            display_name="Other Item",
+            normalized_name="other item",
+            identity_category="",
+        )
+        session.add(other_item)
+        session.commit()
+        other_sale = sales.start(SaleListingCreate(item_uuid=other_item.uuid, asking_price=300))
+        sales.mark_sold(other_sale.uuid)
+
+        detail = CatalogService(session, "Dodge").detail(catalog_item.uuid)
+
+    assert active.uuid != sold.uuid
+    assert detail.active_sale_count == 1
+    assert detail.sold_sale_count == 1
+
+
 def test_creates_normalized_manual_catalog_item(session_factory) -> None:
     with session_factory() as session:
         detail = CatalogService(session, "Dodge").create_manual(
@@ -164,6 +188,8 @@ def test_creates_normalized_manual_catalog_item(session_factory) -> None:
     assert detail.display_name == "New Blade"
     assert detail.category == "Sword"
     assert detail.created_source == "manual"
+    assert detail.active_sale_count == 0
+    assert detail.sold_sale_count == 0
     with session_factory() as session:
         result = CatalogService(session, "Dodge").search("new blade")
     assert [item.uuid for item in result] == [detail.uuid]

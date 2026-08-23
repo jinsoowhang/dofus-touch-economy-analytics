@@ -96,7 +96,8 @@ The import command validates both CSV contracts before writing, stores accepted 
 In **Currently Selling**, row actions restore the previous scroll position after the
 page refreshes. Checkboxes support selecting individual rows or the full table, then
 marking the selection as sold or deleting it as one atomic action. Bulk deletion
-requires confirmation.
+requires confirmation. Each item-detail page shows how many of that item are actively
+listed and how many have been sold through the application.
 
 ## Publish analytics updates
 

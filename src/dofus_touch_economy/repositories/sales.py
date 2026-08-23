@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from dofus_touch_economy.models import SaleListing
@@ -43,6 +43,15 @@ class SalesRepository:
             for item_id, asking_price in self._session.execute(statement)
             if asking_price is not None
         ]
+
+    def counts_for_item(self, item_id: int) -> tuple[int, int]:
+        total_count, sold_count = self._session.execute(
+            select(
+                func.count(SaleListing.id),
+                func.count(SaleListing.date_sold),
+            ).where(SaleListing.item_id == item_id)
+        ).one()
+        return total_count - sold_count, sold_count
 
     def get_by_uuid(self, listing_uuid: UUID) -> SaleListing | None:
         statement = (

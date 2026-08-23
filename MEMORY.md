@@ -38,6 +38,9 @@
 - Bulk-toolbar text buttons explicitly override compact row-icon geometry so Mark
   selected sold and Delete selected share the same height, padding, line height, and
   alignment without enlarging row-level delete buttons.
+- Item detail shows item-scoped Currently Selling and Sold counts derived from
+  normalized application `sale_listings`. Counts are always visible, including zero,
+  and exclude listings for other catalog items.
 - For small application iterations, avoid broad README/design-document edits unless a public contract changes or the user asks; still maintain the required `MEMORY.md` and dated session note at session end.
 - A later cost import may enrich a sole uncategorized manual item with its category while preserving the stable UUID, manual creation provenance, recipes, and price observations.
 - The application importer validates both file contracts before writes, is idempotent by dataset checksum, preserves accepted and rejected raw-row provenance locally, and reports how many unique cost prices were seeded.

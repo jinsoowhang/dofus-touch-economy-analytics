@@ -205,6 +205,8 @@ class ItemDetailResponse(BaseModel):
     icon_url: str | None
     created_source: Literal["imported", "manual"]
     market_context: str
+    active_sale_count: int = Field(ge=0)
+    sold_sale_count: int = Field(ge=0)
     current_price: CurrentPriceResponse | None
     recipe: RecipeResponse | None
     metrics: RecipeMetricsResponse | None

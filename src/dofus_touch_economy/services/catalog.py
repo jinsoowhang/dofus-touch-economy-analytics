@@ -14,6 +14,7 @@ from dofus_touch_economy.normalization import (
     normalize_item_name,
 )
 from dofus_touch_economy.repositories.catalog import CatalogRepository
+from dofus_touch_economy.repositories.sales import SalesRepository
 from dofus_touch_economy.schemas import (
     CurrentPriceResponse,
     ItemCreate,
@@ -50,6 +51,7 @@ class CatalogService:
     def __init__(self, session: Session, market_context: str) -> None:
         self._session = session
         self._catalog = CatalogRepository(session)
+        self._sales = SalesRepository(session)
         self._prices = PriceService(session, market_context)
         self._market_context = market_context
 
@@ -171,6 +173,7 @@ class CatalogService:
             raise ItemNotFound(str(item_uuid))
 
         current_price = self._prices.current_for_item(item.id)
+        active_sale_count, sold_sale_count = self._sales.counts_for_item(item.id)
         recipe_response = None
         metrics_response = None
         if item.recipes:
@@ -237,6 +240,8 @@ class CatalogService:
             icon_url=_icon_url(item),
             created_source=item.created_source,
             market_context=self._market_context,
+            active_sale_count=active_sale_count,
+            sold_sale_count=sold_sale_count,
             current_price=current_price,
             recipe=recipe_response,
             metrics=metrics_response,

@@ -16,6 +16,10 @@
       {{ (detail.category or "Uncategorized") | title }} · Market: {{ detail.market_context }} ·
       Catalog Source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
     </p>
+    <div class="item-sales-counts" aria-label="Sales activity for this item">
+      <div><span>Currently Selling</span><strong>{{ detail.active_sale_count }}</strong></div>
+      <div><span>Sold</span><strong>{{ detail.sold_sale_count }}</strong></div>
+    </div>
     {% include "fragments/price_panel.html" %}
 
     {% if detail.recipe %}

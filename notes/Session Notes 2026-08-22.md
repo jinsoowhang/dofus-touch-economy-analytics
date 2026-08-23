@@ -228,3 +228,21 @@ after reviewing development lineage and costs.
   line height, minimum height, padding, and centered inline-flex alignment without
   changing compact row-level delete icons.
 - Added a static-asset regression test for the shared bulk-button geometry.
+
+## Item-detail Sales Counts
+
+### Work Completed
+
+- Added item-scoped active and sold listing counts to the item-detail response.
+- Displayed zero-safe Currently Selling and Sold cards beneath each item's catalog
+  metadata.
+- Used one aggregate query that derives active count from total listings minus
+  listings with a non-null `date_sold`.
+
+### Verification
+
+- Focused Ruff checks passed.
+- All 64 catalog service and web tests passed before the final item-isolation and
+  zero-count regression assertions were added.
+- `./scripts/check.sh` passed after formatting, including Ruff, all 183 Python tests,
+  package compilation, dbt debug and parse, SQLFluff, and the public-file policy.
