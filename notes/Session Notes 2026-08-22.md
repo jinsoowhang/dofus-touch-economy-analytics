@@ -621,3 +621,21 @@ after reviewing development lineage and costs.
 - Focused Ruff checks and all 10 catalog/icon tests passed before final verification.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 225 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Combined Shopping List Price Age
+
+### Work Completed
+
+- Restored the sortable `Last Updated (Days)` ingredient column in Combined Shopping
+  List and placed it between Status and Used By as requested.
+- Reused the existing calendar-day price age, including zero for an observation made
+  today and an em dash when no current price exists.
+- Increased the shopping-list minimum width from 72rem to 78rem to prevent the added
+  column from crowding the existing values while preserving small-screen overflow.
+
+### Verification
+
+- Both focused Recipe Calculator web tests passed, including the requested header
+  order and a zero-day current-price assertion.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 225 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

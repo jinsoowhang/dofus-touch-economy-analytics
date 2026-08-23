@@ -129,6 +129,7 @@
                 <th class="numeric" data-sort-type="number">Current Unit Price</th>
                 <th class="numeric" data-sort-type="number">Total Cost</th>
                 <th data-sort-type="number">Status</th>
+                <th class="numeric" data-sort-type="number">Last Updated (Days)</th>
                 <th data-sort-type="text">Used By</th>
               </tr>
             </thead>
@@ -176,6 +177,7 @@
                     class="status"
                     data-sort-value="{{ 0 if ingredient.price_status == 'Missing price' else (1 if ingredient.price_status == 'Stale price' else 2) }}"
                   >{{ ingredient.price_status }}</td>
+                  <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
                   <td>{{ ingredient.used_by | join(", ") }}</td>
                 </tr>
               {% endfor %}

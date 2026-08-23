@@ -122,11 +122,11 @@ The Recipe Calculator accepts multiple craftable items and a craft quantity for 
 Items remain in its browser-local cart until removed, while row checkboxes, **Select
 all**, and **Select none** control which cart items are included in the next calculation.
 It combines shared ingredients into one shopping list with category, total quantity,
-total weight, current unit price, extended cost, price freshness status, and consuming
-recipes. Summary cards report complete total weight when every weight
-is known, otherwise the known subtotal remains explicit alongside the incomplete
-state. Price coverage and complete or known-cost totals remain independent of weight
-coverage.
+total weight, current unit price, extended cost, price freshness status, price age in
+days, and consuming recipes. Summary cards report complete total weight when every
+weight is known, otherwise the known subtotal remains explicit alongside the
+incomplete state. Price coverage and complete or known-cost totals remain independent
+of weight coverage.
 Resolved ingredient unit prices are editable directly in the shopping list; Enter or
 leaving the field appends a price observation, restores the previous scroll position,
 and recalculates every affected total.

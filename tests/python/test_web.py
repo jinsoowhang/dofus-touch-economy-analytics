@@ -1119,7 +1119,11 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Category" in response.text
     assert "Total Crafts" not in response.text
     assert "Unit Weight" not in response.text
-    assert "Last Updated (Days)" not in response.text
+    assert re.search(
+        r">Status</th>\s*<th[^>]*>Last Updated \(Days\)</th>\s*<th[^>]*>Used By</th>",
+        response.text,
+    )
+    assert re.search(r'>Current price</td>\s*<td class="numeric">0</td>', response.text)
     assert "Current price" in response.text
     assert '<table class="calculator-selected-table" data-sortable-table>' in response.text
     assert (
