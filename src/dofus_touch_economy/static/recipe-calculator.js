@@ -13,6 +13,68 @@ const calculatorForm = document.querySelector("#recipe-calculator-form");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
 const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position";
+const recipeCalculatorShoppingListSortStorageKey =
+  "dofus-recipe-calculator-shopping-list-sort";
+
+const saveRecipeCalculatorShoppingListSort = () => {
+  const table = document.querySelector(".calculator-shopping-list-table");
+  const headers = Array.from(table?.tHead?.rows[0]?.cells || []);
+  const columnIndex = headers.findIndex((header) =>
+    ["ascending", "descending"].includes(header.getAttribute("aria-sort")),
+  );
+  try {
+    if (columnIndex < 0) {
+      window.sessionStorage.removeItem(recipeCalculatorShoppingListSortStorageKey);
+      return;
+    }
+    window.sessionStorage.setItem(
+      recipeCalculatorShoppingListSortStorageKey,
+      JSON.stringify({
+        columnIndex,
+        direction: headers[columnIndex].getAttribute("aria-sort"),
+      }),
+    );
+  } catch {
+    // The recalculated shopping list keeps its server-provided order without storage.
+  }
+};
+
+const restoreRecipeCalculatorShoppingListSort = () => {
+  let savedSortState = null;
+  try {
+    savedSortState = window.sessionStorage.getItem(
+      recipeCalculatorShoppingListSortStorageKey,
+    );
+    window.sessionStorage.removeItem(recipeCalculatorShoppingListSortStorageKey);
+  } catch {
+    return;
+  }
+  if (savedSortState === null) {
+    return;
+  }
+
+  try {
+    const sortState = JSON.parse(savedSortState);
+    if (
+      !Number.isInteger(sortState.columnIndex) ||
+      !["ascending", "descending"].includes(sortState.direction)
+    ) {
+      return;
+    }
+    const table = document.querySelector(".calculator-shopping-list-table");
+    const header = table?.tHead?.rows[0]?.cells[sortState.columnIndex];
+    const button = header?.querySelector(".client-sort-header");
+    if (!button) {
+      return;
+    }
+    button.click();
+    if (sortState.direction === "descending") {
+      button.click();
+    }
+  } catch {
+    // Ignore stale or malformed transient sort state.
+  }
+};
 
 if (
   calculatorSearch &&
@@ -367,6 +429,7 @@ if (
           return;
         }
         input.dataset.initialValue = input.value.trim();
+        saveRecipeCalculatorShoppingListSort();
         try {
           window.sessionStorage.setItem(
             recipeCalculatorScrollStorageKey,
@@ -393,6 +456,7 @@ if (
 }
 
 window.addEventListener("load", () => {
+  restoreRecipeCalculatorShoppingListSort();
   let savedScrollPosition = null;
   try {
     savedScrollPosition = window.sessionStorage.getItem(recipeCalculatorScrollStorageKey);

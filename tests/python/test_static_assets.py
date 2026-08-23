@@ -48,6 +48,21 @@ def test_client_table_sorter_supports_typed_columns_and_missing_values() -> None
     assert 'button.addEventListener("click"' in script
 
 
+def test_recipe_calculator_preserves_shopping_list_sort_during_price_reload() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipe-calculator.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert '"dofus-recipe-calculator-shopping-list-sort"' in script
+    assert 'document.querySelector(".calculator-shopping-list-table")' in script
+    assert 'header.getAttribute("aria-sort")' in script
+    assert "saveRecipeCalculatorShoppingListSort();" in script
+    assert "restoreRecipeCalculatorShoppingListSort();" in script
+    assert 'sortState.direction === "descending"' in script
+
+
 def test_every_web_table_has_client_or_server_sorting() -> None:
     templates = resources.files("dofus_touch_economy").joinpath("templates")
     expected_server_sorted = {
