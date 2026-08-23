@@ -56,11 +56,13 @@ FastAPI reads and writes SQLite through repositories and services. Routers trans
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
-The shared page layout owns a top-level tab navigation that can accept later pages.
-The item-search tab renders alphabetical catalog summaries and uses one bulk latest-price
+The shared page layout exposes Item Search, Recipes, and Sales as top-level tabs. The
+item-search tab renders alphabetical catalog summaries and uses one bulk latest-price
 query for the active market context. Filtering replaces only the table fragment. Item
 rows link to detail; price changes remain append-only observations rather than direct
-edits.
+edits. The Recipes tab selects the latest recipe per crafted item, resolves current
+prices in bulk, derives standard profession-slot requirements and crafting economics,
+and provides URL-backed filters and sortable columns without mutating recipe data.
 
 Missing items may be created through the HTML or JSON interface. Similar-name results
 are advisory and never establish identity. A later source import may enrich a sole

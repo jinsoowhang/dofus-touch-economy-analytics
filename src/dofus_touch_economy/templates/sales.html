@@ -12,9 +12,49 @@
   {% endif %}
 
   <details class="collapsible-section" open>
+    <summary><h2>Add an Item to Sell</h2></summary>
+    <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
+      <label for="sale-category">Category (Optional)</label>
+      <select id="sale-category" name="category">
+        <option value="">All categories</option>
+        {% for category in category_choices %}
+          <option
+            value="{{ category.key }}"
+            {% if form_values.get('category') == category.key %}selected{% endif %}
+          >{{ category.label }}</option>
+        {% endfor %}
+      </select>
+      <label for="sale-item">Item</label>
+      <select id="sale-item" name="item_uuid" required>
+        <option value="">Choose an item</option>
+        {% for item in item_choices %}
+          <option
+            value="{{ item.uuid }}"
+            data-category="{{ item.category_key }}"
+            data-name="{{ item.display_name }}"
+            data-suggested-price="{{ '{:,}'.format(item.suggested_price) if item.suggested_price is not none else '' }}"
+            data-sold-count="{{ item.sold_count }}"
+            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
+          >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
+        {% endfor %}
+      </select>
+      <p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>
+      <label for="sale-asking-price">Sale Price</label>
+      <input
+        id="sale-asking-price"
+        name="asking_price"
+        inputmode="numeric"
+        value="{{ form_values.get('asking_price', '') }}"
+        required
+      >
+      <button type="submit">Add listing</button>
+    </form>
+  </details>
+
+  <details class="collapsible-section">
     <summary>
       <span class="section-summary">
-        <h2>Filter Sales</h2>
+        <h2>Filter Items</h2>
         {% if has_sales_filters %}<span>Filters applied</span>{% endif %}
       </span>
     </summary>
@@ -75,46 +115,6 @@
         <button type="submit">Apply filters</button>
         <a href="/sales">Clear filters</a>
       </div>
-    </form>
-  </details>
-
-  <details class="collapsible-section" open>
-    <summary><h2>Add an Item to Sell</h2></summary>
-    <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
-      <label for="sale-category">Category (Optional)</label>
-      <select id="sale-category" name="category">
-        <option value="">All categories</option>
-        {% for category in category_choices %}
-          <option
-            value="{{ category.key }}"
-            {% if form_values.get('category') == category.key %}selected{% endif %}
-          >{{ category.label }}</option>
-        {% endfor %}
-      </select>
-      <label for="sale-item">Item</label>
-      <select id="sale-item" name="item_uuid" required>
-        <option value="">Choose an item</option>
-        {% for item in item_choices %}
-          <option
-            value="{{ item.uuid }}"
-            data-category="{{ item.category_key }}"
-            data-name="{{ item.display_name }}"
-            data-suggested-price="{{ '{:,}'.format(item.suggested_price) if item.suggested_price is not none else '' }}"
-            data-sold-count="{{ item.sold_count }}"
-            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
-          >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
-        {% endfor %}
-      </select>
-      <p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>
-      <label for="sale-asking-price">Sale Price</label>
-      <input
-        id="sale-asking-price"
-        name="asking_price"
-        inputmode="numeric"
-        value="{{ form_values.get('asking_price', '') }}"
-        required
-      >
-      <button type="submit">Add listing</button>
     </form>
   </details>
 

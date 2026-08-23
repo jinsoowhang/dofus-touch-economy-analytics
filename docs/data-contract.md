@@ -77,6 +77,13 @@ Invalidated observations remain in history but never participate in current-pric
 
 ## Governed crafting calculations
 
+The website derives the standard minimum profession level from the number of
+populated recipe ingredient slots: one or two ingredients require level 1, then
+three through eight ingredients require levels 10, 20, 40, 60, 80, and 100. This is
+a governed display rule, not a source field. The live payload's `resultLevel` is the
+recipe result level and must not be relabeled as a profession requirement. A recipe
+without ingredients has an unknown required profession level.
+
 ```text
 ingredient cost = required quantity * current ingredient unit price
 recipe cost = sum of ingredient costs

@@ -188,6 +188,7 @@ class RecipeIngredientResponse(BaseModel):
 class RecipeResponse(BaseModel):
     uuid: UUID
     profession: str
+    profession_level: int | None = Field(ge=1)
     ingredients: list[RecipeIngredientResponse]
 
 

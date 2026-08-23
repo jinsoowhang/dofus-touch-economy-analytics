@@ -30,6 +30,7 @@ from dofus_touch_economy.services.pricing import (
     PriceService,
     calculate_recipe_metrics,
 )
+from dofus_touch_economy.services.recipes import required_profession_level
 
 ItemSortField = Literal["name", "category", "price", "observed"]
 SortDirection = Literal["asc", "desc"]
@@ -224,6 +225,7 @@ class CatalogService:
             recipe_response = RecipeResponse(
                 uuid=recipe.uuid,
                 profession=recipe.profession,
+                profession_level=required_profession_level(len(recipe.ingredients)),
                 ingredients=ingredient_responses,
             )
             metrics_response = RecipeMetricsResponse(

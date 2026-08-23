@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Recipes · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Recipes</h1>
+  <p>Market: {{ market_context }}</p>
+  {% if errors %}
+    <div role="alert">
+      <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Filter Recipes</h2>
+        {% if has_recipe_filters %}<span>Filters applied</span>{% endif %}
+      </span>
+    </summary>
+    <form method="get" action="/recipes" class="recipe-filter-form">
+      <input type="hidden" name="sort" value="{{ sort_field }}">
+      <input type="hidden" name="direction" value="{{ sort_direction }}">
+      <label>
+        Item name
+        <input name="q" value="{{ filter_state.item_query }}" placeholder="Contains…">
+      </label>
+      <label>
+        Category
+        <select name="category">
+          <option value="">All categories</option>
+          {% for category in category_choices %}
+            <option value="{{ category.key }}"{% if filter_state.category == category.key %} selected{% endif %}>{{ category.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Profession
+        <select name="profession">
+          <option value="">All professions</option>
+          {% for profession in profession_choices %}
+            <option value="{{ profession }}"{% if filter_state.profession == profession %} selected{% endif %}>{{ profession }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Economics
+        <select name="economics">
+          <option value="all"{% if filter_state.economics == "all" %} selected{% endif %}>All</option>
+          <option value="profitable"{% if filter_state.economics == "profitable" %} selected{% endif %}>Profitable</option>
+          <option value="non_profitable"{% if filter_state.economics == "non_profitable" %} selected{% endif %}>Break-even or loss</option>
+          <option value="unknown"{% if filter_state.economics == "unknown" %} selected{% endif %}>Profit unknown</option>
+        </select>
+      </label>
+      <fieldset class="level-range-filter">
+        <legend>Required profession level</legend>
+        <label for="recipe-min-level">
+          Minimum <output id="recipe-min-level-output" for="recipe-min-level">{{ selected_minimum_level }}</output>
+        </label>
+        <input
+          id="recipe-min-level"
+          name="min_level"
+          type="range"
+          min="{{ minimum_available_level }}"
+          max="{{ maximum_available_level }}"
+          value="{{ selected_minimum_level }}"
+        >
+        <label for="recipe-max-level">
+          Maximum <output id="recipe-max-level-output" for="recipe-max-level">{{ selected_maximum_level }}</output>
+        </label>
+        <input
+          id="recipe-max-level"
+          name="max_level"
+          type="range"
+          min="{{ minimum_available_level }}"
+          max="{{ maximum_available_level }}"
+          value="{{ selected_maximum_level }}"
+        >
+      </fieldset>
+      <p class="filter-help">
+        Required level follows the ingredient-slot unlocks for standard recipes.
+        Profit uses the current crafted-item price minus current ingredient costs.
+        Applying a level range omits recipes without ingredients.
+      </p>
+      <div class="filter-actions">
+        <button type="submit">Apply filters</button>
+        <a href="/recipes">Clear filters</a>
+      </div>
+    </form>
+  </details>
+
+  <details id="recipe-catalog" class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Craftable Items</h2>
+        <span>{{ recipes | length }} of {{ recipe_total_count }} shown</span>
+      </span>
+    </summary>
+    {% if recipes %}
+      <div class="item-table-wrap">
+        <table class="item-table recipe-catalog-table">
+          <thead>
+            <tr>
+              {% for column in sort_columns %}
+                <th
+                  {% if column.numeric %}class="numeric"{% endif %}
+                  aria-sort="{% if column.active %}{{ 'ascending' if column.direction == 'asc' else 'descending' }}{% else %}none{% endif %}"
+                >
+                  <a
+                    class="sort-header"
+                    href="{{ column.url }}"
+                    aria-label="Sort recipes by {{ column.label }}, {{ 'descending' if column.next_direction == 'desc' else 'ascending' }}"
+                  >
+                    <span>{{ column.label }}</span>
+                    {% if column.active %}
+                      <span class="sort-arrow" aria-hidden="true">{{ '▲' if column.direction == 'asc' else '▼' }}</span>
+                    {% endif %}
+                  </a>
+                </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for recipe in recipes %}
+              {% set item_url = "/items/" ~ recipe.item_uuid ~ "#recipe" %}
+              <tr class="item-row">
+                <td class="item-name">
+                  <a class="item-cell-link" href="{{ item_url }}">
+                    <span class="item-label">
+                      {% if recipe.icon_url %}
+                        <img class="item-icon" src="{{ recipe.icon_url }}" alt="" loading="lazy">
+                      {% endif %}
+                      <span>{{ recipe.display_name }}</span>
+                    </span>
+                  </a>
+                </td>
+                <td><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ (recipe.category or "Uncategorized") | title }}</a></td>
+                <td><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ recipe.profession }}</a></td>
+                <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ recipe.profession_level if recipe.profession_level is not none else "—" }}</a></td>
+                <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.current_price) if recipe.current_price is not none else "—" }}</a></td>
+                <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.recipe_cost) if recipe.recipe_cost is not none else "—" }}</a></td>
+                <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.profit) if recipe.profit is not none else "—" }}</a></td>
+                <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:.1%}".format(recipe.roi) if recipe.roi is not none else "—" }}</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No recipes match these filters.</p>
+    {% endif %}
+  </details>
+{% endblock %}
+{% block scripts %}<script src="/static/recipes.js" defer></script>{% endblock %}

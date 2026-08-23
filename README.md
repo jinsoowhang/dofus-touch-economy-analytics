@@ -80,11 +80,19 @@ price observations immediately. A later import reuses the same normalized
 name/category identity, or enriches a sole uncategorized manual item without changing
 its UUID or price history.
 
-The top navigation contains an **Item Search** tab and is ready for additional pages.
-The item page lists the full catalog alphabetically beneath the search field, including
+The top navigation contains **Item Search**, **Recipes**, and **Sales** tabs. The item
+page lists the full catalog alphabetically beneath the search field, including
 category, latest unit price, observed lot, and observation time. Typing filters the
 table by item name. Clicking any row opens item detail, where a new audited price
 observation can be recorded.
+
+The Recipes page lists the latest recipe for each craftable item with its profession,
+standard required profession level, current item price, recipe cost, profit, and ROI.
+It supports item, category, profession, level-range, and profitability filters plus
+sorting on every displayed field. Required profession level follows the standard
+Dofus Touch ingredient-slot unlocks: levels 1, 10, 20, 40, 60, 80, and 100 for
+increasing recipe sizes through eight ingredients. Item detail shows the same level
+beside the recipe profession.
 
 Manual item names are whitespace-normalized and title-cased. The add form recognizes
 common equipment types from a complete final word, so `chouquish belt` previews and
@@ -96,7 +104,8 @@ The import command validates both CSV contracts before writing, stores accepted 
 In **Currently Selling**, row actions restore the previous scroll position after the
 page refreshes. Checkboxes support selecting individual rows or the full table, then
 marking the selection as sold or deleting it as one atomic action. Bulk deletion
-requires confirmation. The Sales filter toolbar narrows listings by item name,
+requires confirmation. The collapsed **Filter Items** panel below the add form
+narrows Sales listings by item name,
 category, status, price, profit, or Pacific activity date while preserving the
 filters through sorting and row actions. Each item-detail page shows how many of that
 item are actively listed and how many have been sold through the application; the

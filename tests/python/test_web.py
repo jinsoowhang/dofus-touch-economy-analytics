@@ -5,7 +5,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from dofus_touch_economy.importers.service import ImportService
-from dofus_touch_economy.models import Item, SaleListing
+from dofus_touch_economy.models import Item, Recipe, SaleListing
 from dofus_touch_economy.schemas import PriceObservationCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
@@ -44,6 +44,7 @@ def test_item_search_has_active_top_navigation_tab(client) -> None:
     assert 'aria-current="page"' in response.text
     assert ">Item Search</a>" in response.text
     assert 'href="/sales"' in response.text
+    assert 'href="/recipes"' in response.text
 
 
 def test_sales_page_has_active_tab_and_alphabetical_item_choices(
@@ -183,7 +184,14 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert '<span aria-hidden="true">✓</span>' in active_page.text
     assert ">Duplicate</button>" not in active_page.text
     assert ">Mark sold</button>" not in active_page.text
-    assert active_page.text.count('class="collapsible-section" open') == 5
+    assert active_page.text.count('class="collapsible-section" open') == 4
+    assert active_page.text.index("Add an Item to Sell") < active_page.text.index("Filter Items")
+    assert active_page.text.index("Filter Items") < active_page.text.index("Currently Selling")
+    assert "Filter Sales" not in active_page.text
+    filter_summary = active_page.text.split("<h2>Filter Items</h2>", maxsplit=1)[0]
+    assert filter_summary.rsplit("<details", maxsplit=1)[1].startswith(
+        ' class="collapsible-section">'
+    )
     assert '<button type="submit">Update</button>' not in active_page.text
     assert 'data-initial-value="50,000"' in active_page.text
     assert "Press Enter or leave the field to save." in active_page.text
@@ -789,6 +797,63 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     assert 'value="4,000"' not in active_section
 
 
+def test_recipes_page_filters_sorts_and_links_to_item_detail(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        recipe = session.scalar(select(Recipe))
+        assert recipe is not None
+        item_uuid = recipe.crafted_item.uuid
+
+    response = client.get(
+        "/recipes",
+        params={
+            "profession": "Crafting",
+            "min_level": "1",
+            "max_level": "1",
+            "economics": "unknown",
+            "sort": "level",
+            "direction": "desc",
+        },
+    )
+    script = client.get("/static/recipes.js")
+
+    assert response.status_code == 200
+    assert ">Recipes</a>" in response.text
+    assert 'class="site-tab is-active"' in response.text
+    assert '<option value="Crafting" selected>Crafting</option>' in response.text
+    assert '<option value="unknown" selected>Profit unknown</option>' in response.text
+    assert 'id="recipe-min-level"' in response.text
+    assert 'name="min_level"' in response.text
+    assert 'value="1"' in response.text
+    assert "Synthetic Widget" in response.text
+    assert f'href="/items/{item_uuid}#recipe"' in response.text
+    assert 'aria-label="Sort recipes by Required Level, ascending"' in response.text
+    assert (
+        "profession=Crafting&amp;min_level=1&amp;max_level=1&amp;economics=unknown&amp;"
+        "sort=name&amp;direction=desc#recipe-catalog"
+    ) in response.text
+    assert '<script src="/static/recipes.js" defer></script>' in response.text
+    assert script.status_code == 200
+    assert 'minimumLevel.addEventListener("input"' in script.text
+
+
+def test_recipes_page_shows_inline_reversed_level_error(client) -> None:
+    response = client.get(
+        "/recipes",
+        params={"min_level": "100", "max_level": "20"},
+    )
+
+    assert response.status_code == 200
+    assert "Minimum level cannot be greater than maximum level." in response.text
+
+
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:
     with session_factory() as session:
         session.add_all(
@@ -1109,6 +1174,9 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     response = client.get(f"/items/{items['synthetic widget'].uuid}")
 
     assert response.status_code == 200
+    assert "Recipe · Crafting ·" in response.text
+    assert "Required Level 1" in response.text
+    assert "2 ingredient slots" in response.text
     assert "Per Unit Price" in response.text
     assert "Total Cost" in response.text
     assert (

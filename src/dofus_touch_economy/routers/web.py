@@ -39,6 +39,13 @@ from dofus_touch_economy.services.pricing import (
     ObservationNotFound,
     PriceService,
 )
+from dofus_touch_economy.services.recipes import (
+    RecipeCatalogFilters,
+    RecipeCatalogService,
+    RecipeEconomicsFilter,
+    RecipeSortDirection,
+    RecipeSortField,
+)
 from dofus_touch_economy.services.sales import (
     DailySalesTotal,
     SaleItemNotFound,
@@ -160,6 +167,51 @@ class SalesFilterState:
 DEFAULT_SALES_FILTER_STATE = SalesFilterState()
 
 
+@dataclass(frozen=True)
+class RecipeFilterState:
+    item_query: str = ""
+    category: str = ""
+    profession: str = ""
+    minimum_level: int | None = None
+    maximum_level: int | None = None
+    economics: RecipeEconomicsFilter = "all"
+
+    def parameters(self) -> dict[str, str]:
+        parameters: dict[str, str] = {}
+        if self.item_query:
+            parameters["q"] = self.item_query
+        if self.category:
+            parameters["category"] = self.category
+        if self.profession:
+            parameters["profession"] = self.profession
+        if self.minimum_level is not None:
+            parameters["min_level"] = str(self.minimum_level)
+        if self.maximum_level is not None:
+            parameters["max_level"] = str(self.maximum_level)
+        if self.economics != "all":
+            parameters["economics"] = self.economics
+        return parameters
+
+    def catalog_filters(self) -> RecipeCatalogFilters:
+        return RecipeCatalogFilters(
+            item_query=self.item_query,
+            category=self.category,
+            profession=self.profession,
+            minimum_level=self.minimum_level,
+            maximum_level=self.maximum_level,
+            economics=self.economics,
+        )
+
+    def errors(self) -> list[str]:
+        if (
+            self.minimum_level is not None
+            and self.maximum_level is not None
+            and self.minimum_level > self.maximum_level
+        ):
+            return ["Minimum level cannot be greater than maximum level."]
+        return []
+
+
 def _sales_sort_state(
     active_sort: Annotated[SaleSortField, Query()] = "started",
     active_direction: Annotated[SaleSortDirection, Query()] = "desc",
@@ -194,6 +246,24 @@ def _sales_filter_state(
         date_from=_optional_date_filter(date_from, "From date", errors),
         date_to=_optional_date_filter(date_to, "Through date", errors),
         validation_errors=tuple(errors),
+    )
+
+
+def _recipe_filter_state(
+    q: Annotated[str, Query(max_length=200)] = "",
+    category: Annotated[str, Query(max_length=200)] = "",
+    profession: Annotated[str, Query(max_length=200)] = "",
+    min_level: Annotated[int | None, Query(ge=1, le=1000)] = None,
+    max_level: Annotated[int | None, Query(ge=1, le=1000)] = None,
+    economics: Annotated[RecipeEconomicsFilter, Query()] = "all",
+) -> RecipeFilterState:
+    return RecipeFilterState(
+        item_query=q.strip(),
+        category=category.strip(),
+        profession=profession.strip(),
+        minimum_level=min_level,
+        maximum_level=max_level,
+        economics=economics,
     )
 
 
@@ -679,6 +749,44 @@ def _sales_sort_columns(
     return result
 
 
+def _recipe_sort_columns(
+    sort_field: RecipeSortField,
+    sort_direction: RecipeSortDirection,
+    filter_parameters: dict[str, str],
+) -> list[dict[str, object]]:
+    columns = (
+        ("name", "Item", False),
+        ("category", "Category", False),
+        ("profession", "Profession", False),
+        ("level", "Required Level", True),
+        ("price", "Current Price", True),
+        ("cost", "Recipe Cost", True),
+        ("profit", "Profit", True),
+        ("roi", "ROI", True),
+    )
+    result: list[dict[str, object]] = []
+    for field, label, numeric in columns:
+        active = field == sort_field
+        next_direction = "asc" if active and sort_direction == "desc" else "desc"
+        parameters = {
+            **filter_parameters,
+            "sort": field,
+            "direction": next_direction,
+        }
+        result.append(
+            {
+                "field": field,
+                "label": label,
+                "numeric": numeric,
+                "active": active,
+                "direction": sort_direction if active else None,
+                "next_direction": next_direction,
+                "url": f"/recipes?{urlencode(parameters)}#recipe-catalog",
+            }
+        )
+    return result
+
+
 def _form_values(form, fields: tuple[str, ...]) -> dict[str, str]:
     return {
         field: value if isinstance((value := form.get(field, "")), str) else "" for field in fields
@@ -716,6 +824,47 @@ def _mutation_response(
 @router.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
     return RedirectResponse(url="/items", status_code=307)
+
+
+@router.get("/recipes", response_class=HTMLResponse)
+def recipes_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    filter_state: Annotated[RecipeFilterState, Depends(_recipe_filter_state)],
+    sort: Annotated[RecipeSortField, Query()] = "name",
+    direction: Annotated[RecipeSortDirection, Query()] = "asc",
+) -> HTMLResponse:
+    result = RecipeCatalogService(session, settings.market_context).browse(
+        filter_state.catalog_filters(),
+        sort,
+        direction,
+    )
+    minimum_level = filter_state.minimum_level or result.minimum_available_level
+    maximum_level = filter_state.maximum_level or result.maximum_available_level
+    filter_parameters = filter_state.parameters()
+    return templates.TemplateResponse(
+        request,
+        "recipes.html",
+        context={
+            "active_tab": "recipes",
+            "market_context": settings.market_context,
+            "recipes": result.rows,
+            "recipe_total_count": result.total_count,
+            "profession_choices": result.professions,
+            "category_choices": result.categories,
+            "minimum_available_level": result.minimum_available_level,
+            "maximum_available_level": result.maximum_available_level,
+            "selected_minimum_level": minimum_level,
+            "selected_maximum_level": maximum_level,
+            "filter_state": filter_state,
+            "has_recipe_filters": bool(filter_parameters),
+            "sort_field": sort,
+            "sort_direction": direction,
+            "sort_columns": _recipe_sort_columns(sort, direction, filter_parameters),
+            "errors": filter_state.errors(),
+        },
+    )
 
 
 @router.get("/sales", response_class=HTMLResponse)

@@ -18,6 +18,11 @@
             {% if active_tab == "items" %}aria-current="page"{% endif %}
           >Item Search</a>
           <a
+            href="/recipes"
+            class="site-tab{% if active_tab == 'recipes' %} is-active{% endif %}"
+            {% if active_tab == "recipes" %}aria-current="page"{% endif %}
+          >Recipes</a>
+          <a
             href="/sales"
             class="site-tab{% if active_tab == 'sales' %} is-active{% endif %}"
             {% if active_tab == "sales" %}aria-current="page"{% endif %}

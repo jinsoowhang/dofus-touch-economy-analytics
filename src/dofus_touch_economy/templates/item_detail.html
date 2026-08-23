@@ -28,7 +28,16 @@
 
     {% if detail.recipe %}
       <details id="recipe" class="collapsible-section" open>
-        <summary><h2>Recipe · {{ detail.recipe.profession }}</h2></summary>
+        <summary>
+          <h2>
+            Recipe · {{ detail.recipe.profession }} ·
+            {% if detail.recipe.profession_level is not none %}Required Level {{ detail.recipe.profession_level }}{% else %}Required Level Unknown{% endif %}
+          </h2>
+        </summary>
+        <p class="filter-help">
+          Standard profession requirement based on this recipe's
+          {{ detail.recipe.ingredients | length }} ingredient {{ "slot" if detail.recipe.ingredients | length == 1 else "slots" }}.
+        </p>
         {% if recipe_errors %}
           <div role="alert">
             <p>Could not save the ingredient price:</p>

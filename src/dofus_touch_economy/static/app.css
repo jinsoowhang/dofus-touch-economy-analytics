@@ -147,15 +147,53 @@ form .htmx-indicator {
   grid-column: 1 / -1;
 }
 
-.sales-filter-form {
+.sales-filter-form,
+.recipe-filter-form {
   align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
-.sales-filter-form label {
+.sales-filter-form label,
+.recipe-filter-form > label {
   display: grid;
   gap: 0.3rem;
   grid-column: auto;
+}
+
+.level-range-filter {
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  display: grid;
+  gap: 0.35rem;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(10rem, 1fr);
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.level-range-filter legend {
+  font-weight: 700;
+  padding-inline: 0.3rem;
+}
+
+.level-range-filter label {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+  grid-column: auto;
+  white-space: nowrap;
+}
+
+.level-range-filter output {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.level-range-filter input[type="range"] {
+  min-height: auto;
+  padding: 0;
+  width: 100%;
 }
 
 .filter-help,
@@ -289,6 +327,10 @@ button {
   border-collapse: collapse;
   min-width: 50rem;
   width: 100%;
+}
+
+.recipe-catalog-table {
+  min-width: 72rem;
 }
 
 .item-table th,

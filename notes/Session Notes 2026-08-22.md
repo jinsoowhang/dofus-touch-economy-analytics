@@ -270,3 +270,32 @@ after reviewing development lineage and costs.
   and item-detail links.
 - `./scripts/check.sh` passed, including Ruff, all 187 Python tests, package
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Recipe Profession Levels and Catalog Page
+
+### Work Completed
+
+- Added the standard required profession level beside the profession on item-detail
+  recipes. The value is derived from ingredient-slot unlocks rather than incorrectly
+  relabeling the live payload's `resultLevel`, which describes the recipe result.
+- Added a Recipes top-navigation page that selects the latest recipe for each crafted
+  item and derives current item price, recipe cost, profit, and ROI with bulk price
+  resolution.
+- Added URL-backed filters for item name, category, profession, a two-ended required
+  level slider, and profitable, break-even/loss, or unknown economics.
+- Made Item, Category, Profession, Required Level, Current Price, Recipe Cost, Profit,
+  and ROI independently sortable, with missing values last and rows linking to item
+  detail at the recipe section.
+- Moved the Sales filter panel below Add an Item to Sell, renamed it Filter Items,
+  and made it collapsed by default without changing its persistent filter behavior.
+- Kept the operational and BigQuery schemas unchanged because required profession
+  level is a governed derivation from existing ordered recipe ingredients.
+
+### Verification
+
+- The real ignored SQLite database rendered all 4,177 latest recipe items in about
+  1.3 seconds; a Sword Smith level-filtered response rendered successfully as a much
+  smaller page.
+- Focused recipe, catalog, and web checks passed before the final full suite.
+- `./scripts/check.sh` passed, including Ruff, all 201 Python tests, package
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
