@@ -359,8 +359,9 @@ after reviewing development lineage and costs.
 
 ### Work Completed
 
-- Added Recipe Calculator beneath Item navigation with a searchable craftable-item
-  selector, multi-select checkboxes, and per-item craft quantities.
+- Added Recipe Calculator beneath Item navigation with a compact searchable
+  craftable-item picker, a removable selected-items table, and per-item craft
+  quantities.
 - Aggregated repeated resolved ingredients by canonical item identity across every
   selected latest recipe and multiplied their quantities by the requested crafts.
 - Added an Ingredients to Buy table with total quantity, current unit price, total
@@ -376,3 +377,31 @@ after reviewing development lineage and costs.
   aggregation, quantity multiplication, current costs, invalid selection handling,
   and rendered shopping-list behavior.
 - JavaScript syntax, Ruff, and diff checks passed for the scoped implementation.
+
+## Manual BigQuery Sync Control
+
+### Work Completed
+
+- Added BigQuery Sync as a top-level local page with fixed project, US location,
+  `dofus_dev` and `dofus_prod` targets, confirmation, current status, and a
+  terminal-style progress panel.
+- Wrapped the existing snapshot loader in a process-local background manager that
+  rejects overlapping runs, caps the latest timestamped log, and records idle,
+  running, succeeded, or failed state.
+- Kept command construction server-owned and fixed; the browser cannot submit shell
+  commands, database paths, project IDs, dataset IDs, or credentials.
+- Added real loader progress at dataset check, raw-table load, manifest publication,
+  completion, and already-loaded stages without logging source values.
+- Preserved the content-addressed, manifest-last, 1 GB guarded loader behavior and
+  documented that dbt Cloud builds remain separate manual actions.
+
+### Verification
+
+- Seventeen focused manager, loader, configuration, and web tests passed without
+  contacting Google, covering single-run enforcement, fixed arguments, streamed
+  output, success/failure state, manifest-last progress, and absence of source values.
+- JavaScript syntax and Ruff checks passed for the scoped implementation.
+- The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 211 Python
+  tests, compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+- Read-only smoke rendering against the ignored real catalog returned HTTP 200 for
+  both new pages; no BigQuery publication was started during verification.

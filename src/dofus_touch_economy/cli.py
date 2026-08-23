@@ -5,7 +5,7 @@ import ipaddress
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import uvicorn
@@ -15,13 +15,20 @@ from dofus_touch_economy.database import create_engine_for_url, create_session_f
 from dofus_touch_economy.importers.service import ImportService
 
 
-def load_bigquery_main(argv: Sequence[str] | None = None) -> int:
+def load_bigquery_main(
+    argv: Sequence[str] | None = None,
+    *,
+    emit: Callable[[str], None] | None = None,
+    emit_error: Callable[[str], None] | None = None,
+) -> int:
     from google.api_core.exceptions import GoogleAPIError
     from google.auth.exceptions import GoogleAuthError
 
     from dofus_touch_economy.analytics_snapshot import extract_operational_snapshot
     from dofus_touch_economy.bigquery_loader import BigQuerySnapshotLoader
 
+    output = emit or print
+    error_output = emit_error or (lambda message: print(message, file=sys.stderr))
     parser = argparse.ArgumentParser(
         description="Load an immutable operational SQLite snapshot into BigQuery"
     )
@@ -45,33 +52,37 @@ def load_bigquery_main(argv: Sequence[str] | None = None) -> int:
     database_path = arguments.database_path or settings.database_path
     snapshot = extract_operational_snapshot(database_path)
     counts = " ".join(f"{table_name}={count}" for table_name, count in snapshot.row_counts.items())
-    print(f"snapshot={snapshot.snapshot_id} schema={snapshot.source_schema_version} {counts}")
+    output(f"snapshot={snapshot.snapshot_id} schema={snapshot.source_schema_version} {counts}")
     if arguments.dry_run:
-        print("dry-run: no BigQuery changes made")
+        output("dry-run: no BigQuery changes made")
         return 0
 
     datasets = tuple(arguments.datasets or ("dofus_dev", "dofus_prod"))
+    output(
+        f"target project={arguments.project_id} location={arguments.location} "
+        f"datasets={','.join(datasets)}"
+    )
     try:
         loader = BigQuerySnapshotLoader(
             arguments.project_id,
             arguments.location,
             maximum_bytes_billed=arguments.maximum_bytes_billed,
+            progress=output,
         )
         results = loader.load(snapshot, datasets)
     except GoogleAuthError:
-        print(
+        error_output(
             "Google Application Default Credentials are unavailable or invalid. "
-            "Run 'gcloud auth application-default login' and retry.",
-            file=sys.stderr,
+            "Run 'gcloud auth application-default login' and retry."
         )
         return 2
     except GoogleAPIError as error:
-        print(f"BigQuery load failed: {error}", file=sys.stderr)
+        error_output(f"BigQuery load failed: {error}")
         return 2
 
     for result in results:
         action = "loaded" if result.loaded else "already-loaded"
-        print(
+        output(
             f"dataset={result.dataset} action={action} "
             f"snapshot={result.snapshot_id} rows={result.row_count}"
         )

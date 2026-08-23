@@ -56,23 +56,30 @@ FastAPI reads and writes SQLite through repositories and services. Routers trans
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
-The shared page layout exposes Item and Sales as top-level navigation. Item opens an
-accessible hover, click, and keyboard-focus submenu for Item Search and Recipes. Item
-Search renders alphabetical catalog summaries and uses one bulk latest-price query
-for the active market context. Filtering replaces only the table fragment. Item rows
-link to detail; price changes remain append-only observations rather than direct
-edits. Recipes selects the latest recipe per crafted item, resolves current prices in
-bulk, derives standard profession-slot requirements and crafting economics, and
-provides URL-backed filters—including one dual-handle profession-level range—and
-sortable columns without mutating recipe data. Its Current Price cells append
-quantity-one observations on Enter or blur, preserve the active recipe view, and
-recalculate row economics without creating Sales listings.
+The shared page layout exposes Item, Sales, and BigQuery Sync as top-level navigation.
+Item opens an accessible hover, click, and keyboard-focus submenu for Item Search,
+Recipes, and Recipe Calculator. Item Search renders alphabetical catalog summaries
+and uses one bulk latest-price query for the active market context. Filtering replaces
+only the table fragment. Item rows link to detail; price changes remain append-only
+observations rather than direct edits. Recipes selects the latest recipe per crafted
+item, resolves current prices in bulk, derives standard profession-slot requirements
+and crafting economics, and provides URL-backed filters—including one dual-handle
+profession-level range—and sortable columns without mutating recipe data. Its Current
+Price cells append quantity-one observations on Enter or blur, preserve the active
+recipe view, and recalculate row economics without creating Sales listings.
 
 The Recipe Calculator is a read-only operational projection over the latest recipe
 per crafted item and the latest valid ingredient prices. User-selected craft
 quantities are request state only. Shared canonical ingredients are aggregated into
 one shopping-list row; unresolved identities and missing prices remain explicit, and
 the calculator never writes recipes, prices, or Sales listings.
+
+BigQuery Sync is a process-local, single-run background controller around the same
+fixed snapshot loader used by the CLI. The loopback web page cannot supply commands
+or targets. It polls capped, timestamped progress output that contains schema IDs,
+table names, and counts but no source rows or credentials. The controller inherits
+the local process's Application Default Credentials, retains only the latest run in
+memory, and publishes BigQuery raw snapshots without invoking dbt Cloud.
 
 Missing items may be created through the HTML or JSON interface. Similar-name results
 are advisory and never establish identity. A later source import may enrich a sole

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,6 +31,7 @@ class BigQuerySnapshotLoader:
         *,
         maximum_bytes_billed: int = 1_000_000_000,
         client: bigquery.Client | None = None,
+        progress: Callable[[str], None] | None = None,
     ) -> None:
         if "`" in project_id:
             raise ValueError("project ID contains an invalid character")
@@ -39,6 +41,7 @@ class BigQuerySnapshotLoader:
         self.location = location
         self.maximum_bytes_billed = maximum_bytes_billed
         self.client = client or bigquery.Client(project=project_id)
+        self._progress = progress or (lambda _message: None)
 
     def load(
         self,
@@ -57,10 +60,12 @@ class BigQuerySnapshotLoader:
         dataset: str,
     ) -> DatasetLoadResult:
         self._validate_dataset(dataset)
+        self._progress(f"dataset={dataset} status=checking")
         self._require_dataset(dataset)
         self._ensure_manifest_table(dataset)
         total_row_count = sum(snapshot.row_counts.values())
         if self._manifest_exists(dataset, snapshot.snapshot_id):
+            self._progress(f"dataset={dataset} status=already-loaded")
             return DatasetLoadResult(
                 dataset=dataset,
                 snapshot_id=snapshot.snapshot_id,
@@ -81,9 +86,12 @@ class BigQuerySnapshotLoader:
                 }
                 for row in snapshot_table.rows
             ]
+            self._progress(f"dataset={dataset} table={table_name} status=loading rows={len(rows)}")
             self._append_rows(dataset, table_name, schema, rows)
 
+        self._progress(f"dataset={dataset} status=publishing-manifest")
         self._append_manifest(dataset, snapshot, total_row_count)
+        self._progress(f"dataset={dataset} status=complete")
         return DatasetLoadResult(
             dataset=dataset,
             snapshot_id=snapshot.snapshot_id,

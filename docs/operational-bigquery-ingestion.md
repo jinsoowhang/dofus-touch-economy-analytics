@@ -94,6 +94,25 @@ project daily query quota is another enforcement control. The $10 monthly budget
 an alert, not a hard spending cap; BigQuery storage and any other enabled Google
 Cloud services can still accrue charges.
 
+## Run from the local website
+
+Open the FastAPI website and choose **BigQuery Sync** in the top navigation. Review
+the fixed project, location, datasets, and source, then select **Update BigQuery
+Now** and confirm the publication. A terminal-style panel polls the in-process job
+and shows snapshot, dataset, table, row-count, manifest, success, or failure progress.
+
+The page uses the same content-addressed, manifest-last loader as the command above.
+Only one run can be active in a web-server process, and the browser cannot provide a
+command or override the configured targets. Output is capped in memory and does not
+include source rows or credentials. The latest run state disappears when the web
+server restarts.
+
+The web server inherits local Google Application Default Credentials. If the panel
+reports that credentials are unavailable, stop and run the `gcloud auth
+application-default login` procedure above in the same operating environment before
+retrying. A successful page run updates raw snapshots only; it does not invoke dbt
+Cloud or refresh development or production marts.
+
 ## Verify in the Google Cloud sidebar
 
 1. Open the Google Cloud console and select project `claude-projects-489306` in the

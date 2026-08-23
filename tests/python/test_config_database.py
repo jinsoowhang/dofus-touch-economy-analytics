@@ -15,6 +15,9 @@ def test_settings_defaults_are_deterministic(
     monkeypatch.delenv("DOFUS_APP_DATABASE_PATH", raising=False)
     monkeypatch.delenv("DOFUS_MARKET_CONTEXT", raising=False)
     monkeypatch.delenv("DOFUS_ALLOWED_HOSTS", raising=False)
+    monkeypatch.delenv("DOFUS_BIGQUERY_PROJECT_ID", raising=False)
+    monkeypatch.delenv("DOFUS_BIGQUERY_LOCATION", raising=False)
+    monkeypatch.delenv("DOFUS_BIGQUERY_DATASETS", raising=False)
 
     settings = Settings.from_env()
 
@@ -25,6 +28,9 @@ def test_settings_defaults_are_deterministic(
     )
     assert settings.market_context == "unspecified"
     assert settings.allowed_hosts == ("127.0.0.1", "localhost")
+    assert settings.bigquery_project_id == "claude-projects-489306"
+    assert settings.bigquery_location == "US"
+    assert settings.bigquery_datasets == ("dofus_dev", "dofus_prod")
 
 
 def test_database_paths_resolve_relative_to_project_root(

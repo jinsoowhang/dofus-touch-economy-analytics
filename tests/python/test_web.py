@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
+from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item, Recipe, SaleListing
 from dofus_touch_economy.schemas import PriceObservationCreate
@@ -1012,6 +1013,58 @@ def test_recipe_calculator_requires_a_valid_selection(client) -> None:
 
     assert response.status_code == 422
     assert "Select at least one craftable item." in response.text
+
+
+def test_bigquery_sync_page_starts_fixed_job_and_streams_status(
+    app,
+    client,
+    tmp_path,
+) -> None:
+    captured_arguments = []
+
+    def runner(arguments, emit) -> int:
+        captured_arguments.extend(arguments)
+        emit("dataset=dofus_dev table=raw_items status=loading rows=3")
+        emit("dataset=dofus_prod status=complete")
+        return 0
+
+    manager = BigQuerySyncManager(
+        "claude-projects-489306",
+        "US",
+        ("dofus_dev", "dofus_prod"),
+        tmp_path / "application.sqlite3",
+        runner=runner,
+    )
+    app.state.bigquery_sync_manager = manager
+
+    page = client.get("/bigquery-sync")
+    script = client.get("/static/bigquery-sync.js")
+
+    assert page.status_code == 200
+    assert "BigQuery Sync" in page.text
+    assert 'class="site-tab is-active"' in page.text
+    assert "claude-projects-489306" in page.text
+    assert "dofus_dev, dofus_prod" in page.text
+    assert "Update BigQuery Now" in page.text
+    assert "dbt build" in page.text
+    assert script.status_code == 200
+    assert 'window.fetch("/bigquery-sync/status"' in script.text
+
+    started = client.post("/bigquery-sync", follow_redirects=False)
+    assert started.status_code == 303
+    assert started.headers["location"] == "/bigquery-sync?notice=started"
+    completed = manager.wait(timeout=2)
+    assert completed.status == "succeeded"
+    assert "--project-id=claude-projects-489306" in captured_arguments
+    assert "--dataset=dofus_dev" in captured_arguments
+    assert "--dataset=dofus_prod" in captured_arguments
+
+    status = client.get("/bigquery-sync/status")
+    assert status.status_code == 200
+    payload = status.json()
+    assert payload["status"] == "succeeded"
+    assert payload["exit_code"] == 0
+    assert any("raw_items" in line for line in payload["lines"])
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:

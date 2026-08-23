@@ -13,6 +13,9 @@ class Settings:
     database_path: Path
     market_context: str
     allowed_hosts: tuple[str, ...]
+    bigquery_project_id: str = "claude-projects-489306"
+    bigquery_location: str = "US"
+    bigquery_datasets: tuple[str, ...] = ("dofus_dev", "dofus_prod")
 
     @property
     def database_url(self) -> URL:
@@ -42,9 +45,32 @@ class Settings:
         if not allowed_hosts:
             raise ValueError("DOFUS_ALLOWED_HOSTS must contain at least one host")
 
+        bigquery_project_id = os.environ.get(
+            "DOFUS_BIGQUERY_PROJECT_ID", "claude-projects-489306"
+        ).strip()
+        if not bigquery_project_id:
+            raise ValueError("DOFUS_BIGQUERY_PROJECT_ID must not be empty")
+        bigquery_location = os.environ.get("DOFUS_BIGQUERY_LOCATION", "US").strip()
+        if not bigquery_location:
+            raise ValueError("DOFUS_BIGQUERY_LOCATION must not be empty")
+        bigquery_datasets = tuple(
+            dataset.strip()
+            for dataset in os.environ.get("DOFUS_BIGQUERY_DATASETS", "dofus_dev,dofus_prod").split(
+                ","
+            )
+            if dataset.strip()
+        )
+        if not bigquery_datasets:
+            raise ValueError("DOFUS_BIGQUERY_DATASETS must contain at least one dataset")
+        if len(set(bigquery_datasets)) != len(bigquery_datasets):
+            raise ValueError("DOFUS_BIGQUERY_DATASETS must not contain duplicates")
+
         return cls(
             project_root=project_root,
             database_path=database_path,
             market_context=market_context,
             allowed_hosts=allowed_hosts,
+            bigquery_project_id=bigquery_project_id,
+            bigquery_location=bigquery_location,
+            bigquery_datasets=bigquery_datasets,
         )

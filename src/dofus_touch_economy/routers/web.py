@@ -9,12 +9,13 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from dofus_touch_economy.app import get_session, get_settings
+from dofus_touch_economy.app import get_bigquery_sync_manager, get_session, get_settings
+from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.config import Settings
 from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.schemas import (
@@ -1016,6 +1017,44 @@ async def calculate_recipes(
         ),
         status_code=422 if errors else 200,
     )
+
+
+@router.get("/bigquery-sync", response_class=HTMLResponse)
+def bigquery_sync_page(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    manager: Annotated[BigQuerySyncManager, Depends(get_bigquery_sync_manager)],
+    notice: str | None = Query(default=None),
+) -> HTMLResponse:
+    notifications = {
+        "started": "BigQuery snapshot publication has started.",
+        "already-running": "A BigQuery snapshot publication is already running.",
+    }
+    return templates.TemplateResponse(
+        request,
+        "bigquery_sync.html",
+        context={
+            "active_tab": "bigquery_sync",
+            "settings": settings,
+            "sync": manager.snapshot(),
+            "notification": notifications.get(notice),
+        },
+    )
+
+
+@router.post("/bigquery-sync", response_model=None)
+def start_bigquery_sync(
+    manager: Annotated[BigQuerySyncManager, Depends(get_bigquery_sync_manager)],
+) -> RedirectResponse:
+    notice = "started" if manager.start() else "already-running"
+    return RedirectResponse(url=f"/bigquery-sync?notice={notice}", status_code=303)
+
+
+@router.get("/bigquery-sync/status", response_class=JSONResponse)
+def bigquery_sync_status(
+    manager: Annotated[BigQuerySyncManager, Depends(get_bigquery_sync_manager)],
+) -> JSONResponse:
+    return JSONResponse(manager.snapshot().to_dict())
 
 
 @router.post(

@@ -162,7 +162,13 @@ def test_bigquery_loader_publishes_manifest_last_and_is_idempotent(tmp_path: Pat
     _create_database(database_path)
     snapshot = extract_operational_snapshot(database_path)
     client = _FakeBigQueryClient()
-    loader = BigQuerySnapshotLoader("example-project", "US", client=client)
+    progress = []
+    loader = BigQuerySnapshotLoader(
+        "example-project",
+        "US",
+        client=client,
+        progress=progress.append,
+    )
 
     first = loader.load(snapshot, ("dofus_dev",))
     second = loader.load(snapshot, ("dofus_dev",))
@@ -173,3 +179,9 @@ def test_bigquery_loader_publishes_manifest_last_and_is_idempotent(tmp_path: Pat
     manifests = client.rows["example-project.dofus_dev.raw_snapshot_manifest"]
     assert len(manifests) == 1
     assert manifests[0]["snapshot_id"] == snapshot.snapshot_id
+    assert "dataset=dofus_dev table=raw_items status=loading rows=1" in progress
+    assert progress.index("dataset=dofus_dev status=publishing-manifest") < progress.index(
+        "dataset=dofus_dev status=complete"
+    )
+    assert "dataset=dofus_dev status=already-loaded" in progress
+    assert all("Synthetic Ore" not in message for message in progress)

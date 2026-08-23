@@ -1061,6 +1061,92 @@ button {
   margin-block-end: 0.75rem;
 }
 
+.sync-target-details {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  margin-block: 1rem;
+}
+
+.sync-target-details > div {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  padding: 0.75rem;
+}
+
+.sync-target-details dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sync-target-details dd {
+  font-weight: 700;
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.sync-run-form {
+  display: block;
+  margin-block-start: 1rem;
+}
+
+.sync-run-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sync-progress-heading {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.sync-progress-heading h2 {
+  margin: 0;
+}
+
+.sync-status {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 750;
+  padding: 0.2rem 0.65rem;
+}
+
+.sync-status--idle {
+  color: var(--muted);
+}
+
+.sync-status--running {
+  color: var(--warning);
+}
+
+.sync-status--succeeded {
+  color: var(--accent);
+}
+
+.sync-status--failed {
+  color: var(--danger);
+}
+
+.sync-terminal {
+  background: #101410;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  color: #cce8d8;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin-block: 1rem;
+  max-height: 28rem;
+  min-height: 14rem;
+  overflow: auto;
+  padding: 0.9rem;
+  white-space: pre-wrap;
+}
+
 .recipe-table th,
 .recipe-table td {
   border-bottom: 1px solid var(--border);

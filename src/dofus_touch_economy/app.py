@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.config import Settings
 from dofus_touch_economy.database import create_engine_for_url, create_session_factory
 
@@ -28,9 +29,14 @@ def get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
+def get_bigquery_sync_manager(request: Request) -> BigQuerySyncManager:
+    return request.app.state.bigquery_sync_manager
+
+
 def create_app(
     settings: Settings | None = None,
     session_factory: sessionmaker[Session] | None = None,
+    bigquery_sync_manager: BigQuerySyncManager | None = None,
 ) -> FastAPI:
     from dofus_touch_economy.routers import api, web
 
@@ -49,6 +55,12 @@ def create_app(
     application = FastAPI(title="Dofus Touch Economy", lifespan=lifespan)
     application.state.settings = resolved_settings
     application.state.session_factory = session_factory
+    application.state.bigquery_sync_manager = bigquery_sync_manager or BigQuerySyncManager(
+        resolved_settings.bigquery_project_id,
+        resolved_settings.bigquery_location,
+        resolved_settings.bigquery_datasets,
+        resolved_settings.database_path,
+    )
 
     @application.middleware("http")
     async def enforce_same_origin(request: Request, call_next):

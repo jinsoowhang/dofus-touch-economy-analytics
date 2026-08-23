@@ -80,8 +80,8 @@ price observations immediately. A later import reuses the same normalized
 name/category identity, or enriches a sole uncategorized manual item without changing
 its UUID or price history.
 
-The top navigation contains **Item** and **Sales**. Hovering over or selecting
-**Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator** submenu.
+The top navigation contains **Item**, **Sales**, and **BigQuery Sync**. Hovering over
+or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator** submenu.
 The item page lists the full catalog alphabetically beneath the search field, including
 category, latest unit price, observed lot, and observation time. Typing filters the
 table by item name. Clicking any row opens item detail, where a new audited price
@@ -120,6 +120,11 @@ item are actively listed and how many have been sold through the application; th
 count cards link to the corresponding filtered Sales table.
 
 ## Publish analytics updates
+
+The **BigQuery Sync** page runs the same guarded loader in the background and shows
+timestamped dataset and table progress. It permits only one run at a time and never
+accepts browser-supplied commands, project IDs, dataset IDs, or credential values.
+The local web server must have valid Google Application Default Credentials.
 
 First preview the next immutable snapshot without contacting Google:
 

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}BigQuery Sync · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>BigQuery Sync</h1>
+  <p>
+    Manually publish one immutable snapshot of the current SQLite application data
+    to the configured BigQuery raw datasets.
+  </p>
+
+  {% if notification %}<p class="notification" role="status">{{ notification }}</p>{% endif %}
+
+  <section class="collapsible-section" aria-labelledby="sync-target-heading">
+    <h2 id="sync-target-heading">Publication Target</h2>
+    <dl class="sync-target-details">
+      <div><dt>Project</dt><dd>{{ settings.bigquery_project_id }}</dd></div>
+      <div><dt>Location</dt><dd>{{ settings.bigquery_location }}</dd></div>
+      <div><dt>Datasets</dt><dd>{{ settings.bigquery_datasets | join(", ") }}</dd></div>
+      <div><dt>Source</dt><dd>Current local SQLite application database</dd></div>
+    </dl>
+    <p class="filter-help">
+      The loader is content-addressed and safe to retry. An unchanged snapshot is a
+      no-op. It publishes the manifest last so an interrupted upload cannot become
+      the current dbt source.
+    </p>
+    <form
+      method="post"
+      action="/bigquery-sync"
+      class="sync-run-form"
+      onsubmit="return window.confirm('Publish the current SQLite snapshot to the configured BigQuery datasets?')"
+    >
+      <button id="sync-run-button" type="submit" {% if sync.status == "running" %}disabled{% endif %}>
+        {% if sync.status == "running" %}Sync in progress…{% else %}Update BigQuery Now{% endif %}
+      </button>
+    </form>
+  </section>
+
+  <section class="collapsible-section" aria-labelledby="sync-progress-heading">
+    <div class="sync-progress-heading">
+      <h2 id="sync-progress-heading">Sync Progress</h2>
+      <span id="sync-status" class="sync-status sync-status--{{ sync.status }}">{{ sync.status | title }}</span>
+    </div>
+    <pre
+      id="sync-terminal"
+      class="sync-terminal"
+      role="log"
+      aria-live="polite"
+      data-running="{{ 'true' if sync.status == 'running' else 'false' }}"
+    >{% if sync.lines %}{{ sync.lines | join('\n') }}{% else %}[ready] No BigQuery sync has run since this web server started.{% endif %}</pre>
+    <p class="filter-help">
+      This updates BigQuery raw snapshots only. After a successful upload, run
+      <code>dbt build</code> in dbt Studio to refresh development marts; production
+      marts still require the separate manual deployment job.
+    </p>
+  </section>
+{% endblock %}
+{% block scripts %}<script src="/static/bigquery-sync.js" defer></script>{% endblock %}
