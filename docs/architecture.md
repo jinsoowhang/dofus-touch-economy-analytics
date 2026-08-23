@@ -48,8 +48,8 @@ SQLite owns transactional application state:
 
 - import batches and accepted or rejected source-row provenance;
 - imported or manually created canonical catalog identities, their creation source,
-  Dofus Touch carrying weight when live-catalog matched, and explicit source-name
-  resolution decisions;
+  Dofus Touch carrying weight and exact-match resource subtype when available, and
+  explicit source-name resolution decisions;
 - normalized recipes and ordered ingredients;
 - append-only manual lot-price observations and audit-preserving invalidation.
 

@@ -59,6 +59,13 @@ valid or unambiguous live match keep a null weight; missing weight is never conv
 to zero. This enrichment preserves item identity, provenance, recipes, prices, and
 Sales history.
 
+The same sync may refine only the catch-all `Resource` display category. It prefers
+the exact current Dofus Touch item type, then an exact DofusDB legacy-item match when
+every returned candidate has the same non-generic type. A missing or conflicting
+match remains `Resource`; specific existing categories are never overwritten. The
+normalized import category remains `identity_category`, so later source imports
+continue to resolve the same stable item rather than creating a new identity.
+
 ## Operational price observations
 
 Manual observations persisted by the application contain:

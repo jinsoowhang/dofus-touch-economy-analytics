@@ -74,16 +74,21 @@ uv run dofus-fetch-icons
 The command may report catalog entries whose public upstream image is unavailable;
 successfully downloaded icons remain usable.
 
-The live catalog sync also stores each matched item's official carrying weight in
-pods from the Dofus Touch `realWeight` field. Run it after migrating a restored or
-older database:
+The live catalog sync stores each matched item's official carrying weight in pods
+from the Dofus Touch `realWeight` field. It also replaces an imported catch-all
+**Resource** display category with a more specific exact-match type such as **Skin**,
+**Plant**, **Flower**, or **Seed**. Run it after migrating a restored or older
+database:
 
 ```bash
 uv run dofus-sync-catalog
 ```
 
 Zero is a valid upstream weight. Items without an unambiguous live catalog match
-retain an unknown weight instead of being assigned zero.
+retain an unknown weight instead of being assigned zero. Category refinement prefers
+the current Dofus Touch type, then uses an exact DofusDB legacy-item match only when
+all returned candidates agree. Missing or conflicting matches remain **Resource**;
+the original normalized import category remains the stable identity key.
 
 Search is normalized and case-insensitive. When no catalog item matches, the page shows
 advisory spelling suggestions and an **Add item** form. Manually added items can receive

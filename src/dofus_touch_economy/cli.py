@@ -204,7 +204,8 @@ def sync_catalog_main(argv: Sequence[str] | None = None) -> int:
 
     print(
         f"source={summary.source_count} matched={summary.matched_count} "
-        f"created={summary.created_count} catalog={summary.catalog_count} "
+        f"created={summary.created_count} categories_refined={summary.category_refined_count} "
+        f"catalog={summary.catalog_count} "
         f"cached={summary.cached_count} downloaded={summary.downloaded_count} "
         f"failed={len(summary.failed_names)}"
     )

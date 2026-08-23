@@ -80,6 +80,7 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
     assert summary.source_count == 2
     assert summary.matched_count == 1
     assert summary.created_count == 1
+    assert summary.category_refined_count == 0
     assert summary.catalog_count == 2
     assert summary.cached_count == 0
     assert summary.downloaded_count == 2
@@ -106,6 +107,7 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
 
     assert repeated.matched_count == 2
     assert repeated.created_count == 0
+    assert repeated.category_refined_count == 0
     assert repeated.catalog_count == 2
     assert repeated.cached_count == 2
     assert repeated.downloaded_count == 0
@@ -152,6 +154,159 @@ def test_sync_preserves_existing_category_for_unique_exact_name(
     assert item.uuid == catalog_item.uuid
     assert item.category == "Ore"
     assert item.weight == 7
+
+
+def test_sync_refines_only_generic_resource_categories(
+    session_factory,
+    catalog_item,
+    tmp_path,
+) -> None:
+    with session_factory() as session:
+        generic_resource = Item(
+            display_name="Blue Larva Skin",
+            normalized_name="blue larva skin",
+            category="Resource",
+            identity_category="resource",
+            created_source="imported",
+        )
+        uncategorized_item = Item(
+            display_name="Uncategorized Item",
+            normalized_name="uncategorized item",
+            category=None,
+            identity_category="",
+            created_source="manual",
+        )
+        session.add_all((generic_resource, uncategorized_item))
+        session.commit()
+
+    def fetch_json(url, payload):
+        if "config.json" in url:
+            return {
+                "dataUrl": "https://data.ankama-games.com",
+                "assetsUrl": "https://touch.cdn.ankama.com/assets/version",
+            }
+        if payload == {"class": "Items", "lang": "en"}:
+            return {
+                "1": {
+                    "id": 1,
+                    "iconId": 100,
+                    "nameId": catalog_item.display_name,
+                    "typeId": 10,
+                    "exchangeable": True,
+                    "realWeight": 1,
+                },
+                "2": {
+                    "id": 2,
+                    "iconId": 200,
+                    "nameId": generic_resource.display_name,
+                    "typeId": 20,
+                    "exchangeable": True,
+                    "realWeight": 2,
+                },
+                "3": {
+                    "id": 3,
+                    "iconId": 300,
+                    "nameId": uncategorized_item.display_name,
+                    "typeId": 30,
+                    "exchangeable": True,
+                    "realWeight": 3,
+                },
+            }
+        if payload == {"class": "ItemTypes", "lang": "en"}:
+            return {
+                "10": {"id": 10, "nameId": "Resource"},
+                "20": {"id": 20, "nameId": "Skin"},
+                "30": {"id": 30, "nameId": "Miscellaneous"},
+            }
+        raise AssertionError(f"unexpected request: {url} {payload}")
+
+    summary = sync_touch_catalog(
+        session_factory,
+        tmp_path / "icons",
+        json_fetcher=fetch_json,
+        bytes_fetcher=lambda _url: PNG_SIGNATURE,
+    )
+
+    assert summary.category_refined_count == 1
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+    assert items["blue larva skin"].category == "Skin"
+    assert items["blue larva skin"].identity_category == "resource"
+    assert items[catalog_item.normalized_name].category == catalog_item.category
+    assert items["uncategorized item"].category is None
+
+
+def test_sync_refines_legacy_resource_from_unambiguous_exact_fallback(
+    session_factory,
+    tmp_path,
+) -> None:
+    with session_factory() as session:
+        legacy_resource = Item(
+            display_name="Spifoux Skin",
+            normalized_name="spifoux skin",
+            category="Resource",
+            identity_category="resource",
+            created_source="imported",
+        )
+        ambiguous_resource = Item(
+            display_name="Ambiguous Resource",
+            normalized_name="ambiguous resource",
+            category="Resource",
+            identity_category="resource",
+            created_source="imported",
+        )
+        session.add_all((legacy_resource, ambiguous_resource))
+        session.commit()
+
+    def fetch_json(url, payload):
+        if "config.json" in url:
+            return {
+                "dataUrl": "https://data.ankama-games.com",
+                "assetsUrl": "https://touch.cdn.ankama.com/assets/version",
+            }
+        if payload == {"class": "Items", "lang": "en"}:
+            return {}
+        if payload == {"class": "ItemTypes", "lang": "en"}:
+            return {}
+        if "api.dofusdb.fr" in url:
+            return {
+                "total": 3,
+                "data": [
+                    {
+                        "id": 1,
+                        "iconId": 100,
+                        "name": {"en": "Spitfoux Skin"},
+                        "type": {"name": {"en": "Skin"}},
+                    },
+                    {
+                        "id": 2,
+                        "iconId": 200,
+                        "name": {"en": "Ambiguous Resource"},
+                        "type": {"name": {"en": "Plant"}},
+                    },
+                    {
+                        "id": 3,
+                        "iconId": 300,
+                        "name": {"en": "Ambiguous Resource"},
+                        "type": {"name": {"en": "Skin"}},
+                    },
+                ],
+            }
+        raise AssertionError(f"unexpected request: {url} {payload}")
+
+    summary = sync_touch_catalog(
+        session_factory,
+        tmp_path / "icons",
+        json_fetcher=fetch_json,
+        bytes_fetcher=lambda _url: PNG_SIGNATURE,
+    )
+
+    assert summary.category_refined_count == 1
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+    assert items["spifoux skin"].category == "Skin"
+    assert items["spifoux skin"].identity_category == "resource"
+    assert items["ambiguous resource"].category == "Resource"
 
 
 def test_fetches_exact_touch_and_dofusdb_fallback_icons(

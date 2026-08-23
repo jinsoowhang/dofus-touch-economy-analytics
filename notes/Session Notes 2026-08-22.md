@@ -595,3 +595,29 @@ after reviewing development lineage and costs.
 - The focused Recipe Calculator rendering and sortable-table coverage tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 223 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Granular Resource Categories
+
+### Work Completed
+
+- Verified that the live Dofus Touch item-type catalog exposes granular resource
+  types such as Skin, Plant, Flower, Seed, Fruit, Wood, and Ore rather than one
+  exchangeable `Resource` type.
+- Updated the catalog sync to refine only existing catch-all `Resource` display
+  categories. Exact current Dofus Touch matches take precedence; legacy items may use
+  an exact DofusDB match only when every returned candidate agrees on one non-generic
+  category. Missing and conflicting matches remain explicit `Resource` values.
+- Preserved each item's original `identity_category`, UUID, provenance, recipes,
+  prices, and Sales history so a later cost import still resolves the same record.
+- Added the refined count to catalog-sync output and regression coverage for current
+  matches, reviewed legacy-name aliases, conflicting categories, specific existing
+  categories, and uncategorized rows.
+- Ran the live sync against the ignored canonical SQLite database. It refined 683 of
+  726 generic resource rows, leaving 43 unresolved rather than guessing. The ten
+  already-known unavailable icon downloads remained independent failures.
+
+### Verification
+
+- Focused Ruff checks and all 10 catalog/icon tests passed before final verification.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 225 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

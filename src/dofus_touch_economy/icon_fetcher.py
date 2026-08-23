@@ -69,6 +69,7 @@ class CatalogSyncSummary:
     source_count: int
     matched_count: int
     created_count: int
+    category_refined_count: int
     catalog_count: int
     cached_count: int
     downloaded_count: int
@@ -91,6 +92,7 @@ class _Candidate:
     normalized_name: str
     source_url: str
     source: str
+    category: str | None = None
 
 
 @dataclass(frozen=True)
@@ -134,9 +136,15 @@ def sync_touch_catalog(
         types_payload,
         f"{assets_url.rstrip('/')}/gfx/items",
     )
-    targets, matched_count, created_count, catalog_count = _sync_catalog_items(
+    targets, matched_count, created_count, category_refined_count, catalog_count = (
+        _sync_catalog_items(
+            session_factory,
+            candidates,
+        )
+    )
+    category_refined_count += _refine_generic_resource_categories(
         session_factory,
-        candidates,
+        fetch_json,
     )
     icon_directory.mkdir(parents=True, exist_ok=True)
     cached_targets = [
@@ -176,6 +184,7 @@ def sync_touch_catalog(
         source_count=len(candidates),
         matched_count=matched_count,
         created_count=created_count,
+        category_refined_count=category_refined_count,
         catalog_count=catalog_count,
         cached_count=len(cached_targets),
         downloaded_count=len(successful_sources) - len(cached_targets),
@@ -373,7 +382,7 @@ def _touch_catalog_candidates(
 def _sync_catalog_items(
     session_factory: sessionmaker[Session],
     candidates: list[_CatalogCandidate],
-) -> tuple[list[_Target], int, int, int]:
+) -> tuple[list[_Target], int, int, int, int]:
     candidate_name_counts = Counter(candidate.normalized_name for candidate in candidates)
     with session_factory() as session:
         existing_items = list(session.scalars(select(Item).order_by(Item.id)))
@@ -386,6 +395,7 @@ def _sync_catalog_items(
 
         matched_count = 0
         created_count = 0
+        category_refined_count = 0
         targets: list[_Target] = []
         for candidate in candidates:
             identity = (candidate.normalized_name, candidate.identity_category)
@@ -413,6 +423,12 @@ def _sync_catalog_items(
             else:
                 matched_count += 1
                 item.weight = candidate.weight
+                if (
+                    _normalized_optional_label(item.category) == "resource"
+                    and candidate.identity_category != "resource"
+                ):
+                    item.category = candidate.category
+                    category_refined_count += 1
             targets.append(
                 _Target(
                     item_id=item.id,
@@ -423,7 +439,65 @@ def _sync_catalog_items(
                 )
             )
         session.commit()
-        return targets, matched_count, created_count, len(existing_items) + created_count
+        return (
+            targets,
+            matched_count,
+            created_count,
+            category_refined_count,
+            len(existing_items) + created_count,
+        )
+
+
+def _refine_generic_resource_categories(
+    session_factory: sessionmaker[Session],
+    fetch_json: JsonFetcher,
+) -> int:
+    targets = _load_generic_resource_targets(session_factory)
+    if not targets:
+        return 0
+
+    candidates_by_name = _fallback_candidates(targets, fetch_json, include_categories=True)
+    refinements: dict[int, str] = {}
+    for target in targets:
+        candidates = _candidates_for_target(candidates_by_name, target)
+        categories = {
+            _normalized_optional_label(candidate.category): candidate.category.strip()
+            for candidate in candidates
+            if candidate.category is not None and candidate.category.strip()
+        }
+        if len(categories) == 1 and "resource" not in categories:
+            refinements[target.item_id] = next(iter(categories.values()))
+
+    if not refinements:
+        return 0
+    with session_factory() as session:
+        items = session.scalars(select(Item).where(Item.id.in_(refinements))).all()
+        refined_count = 0
+        for item in items:
+            if _normalized_optional_label(item.category) != "resource":
+                continue
+            item.category = refinements[item.id]
+            refined_count += 1
+        session.commit()
+    return refined_count
+
+
+def _load_generic_resource_targets(
+    session_factory: sessionmaker[Session],
+) -> list[_Target]:
+    with session_factory() as session:
+        rows = session.execute(
+            select(
+                Item.id,
+                Item.uuid,
+                Item.display_name,
+                Item.normalized_name,
+                Item.icon_source_url,
+            )
+            .where(Item.category.is_not(None), Item.category.collate("NOCASE") == "resource")
+            .order_by(Item.normalized_name, Item.id)
+        )
+        return [_Target(*row) for row in rows]
 
 
 def _touch_candidates(payload: Any, assets_url: str) -> dict[str, list[_Candidate]]:
@@ -447,6 +521,8 @@ def _touch_candidates(payload: Any, assets_url: str) -> dict[str, list[_Candidat
 def _fallback_candidates(
     targets: list[_Target],
     fetch_json: JsonFetcher,
+    *,
+    include_categories: bool = False,
 ) -> dict[str, list[_Candidate]]:
     names = sorted({_query_name(target) for target in targets})
     candidates: defaultdict[str, list[_Candidate]] = defaultdict(list)
@@ -460,6 +536,7 @@ def _fallback_candidates(
                 ("$select[]", "id"),
                 ("$select[]", "iconId"),
                 ("$select[]", "name"),
+                *((("$select[]", "typeId"),) if include_categories else ()),
                 *(("name.en[$in][]", name) for name in batch),
             ]
             payload = fetch_json(f"{DOFUSDB_ITEMS_URL}?{urlencode(parameters)}", None)
@@ -473,6 +550,15 @@ def _fallback_candidates(
                 english_name = (
                     localized_names.get("en") if isinstance(localized_names, dict) else None
                 )
+                item_type = value.get("type")
+                localized_categories = (
+                    item_type.get("name") if isinstance(item_type, dict) else None
+                )
+                english_category = (
+                    localized_categories.get("en")
+                    if isinstance(localized_categories, dict)
+                    else None
+                )
                 _append_candidate(
                     candidates,
                     value.get("id"),
@@ -480,6 +566,7 @@ def _fallback_candidates(
                     english_name,
                     "https://api.dofusdb.fr/img/items",
                     "dofusdb",
+                    english_category,
                 )
             skip += len(rows)
             total = payload.get("total")
@@ -600,6 +687,10 @@ def _query_name(target: _Target) -> str:
     return LEGACY_NAME_ALIASES.get(target.normalized_name, target.display_name)
 
 
+def _normalized_optional_label(value: str | None) -> str:
+    return normalize_item_name(value) if value is not None and value.strip() else ""
+
+
 def _candidates_for_target(
     candidates: dict[str, list[_Candidate]],
     target: _Target,
@@ -622,6 +713,7 @@ def _append_candidate(
     name: object,
     base_url: str,
     source: str,
+    category: object = None,
 ) -> None:
     if (
         not isinstance(item_id, int)
@@ -638,6 +730,7 @@ def _append_candidate(
             normalized_name=normalized_name,
             source_url=f"{base_url.rstrip('/')}/{icon_id}.png",
             source=source,
+            category=category.strip() if isinstance(category, str) and category.strip() else None,
         )
     )
 
