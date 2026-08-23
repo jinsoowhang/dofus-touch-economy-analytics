@@ -68,6 +68,12 @@ sortable columns without mutating recipe data. Its Current Price cells append
 quantity-one observations on Enter or blur, preserve the active recipe view, and
 recalculate row economics without creating Sales listings.
 
+The Recipe Calculator is a read-only operational projection over the latest recipe
+per crafted item and the latest valid ingredient prices. User-selected craft
+quantities are request state only. Shared canonical ingredients are aggregated into
+one shopping-list row; unresolved identities and missing prices remain explicit, and
+the calculator never writes recipes, prices, or Sales listings.
+
 Missing items may be created through the HTML or JSON interface. Similar-name results
 are advisory and never establish identity. A later source import may enrich a sole
 uncategorized manual item when its normalized name is unambiguous; stable UUIDs and

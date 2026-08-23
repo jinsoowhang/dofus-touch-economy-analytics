@@ -354,3 +354,25 @@ after reviewing development lineage and costs.
 - JavaScript syntax and focused recipe-page rendering and validation tests passed.
 - `./scripts/check.sh` passed, including Ruff, all 204 Python tests, package
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Multi-item Recipe Calculator
+
+### Work Completed
+
+- Added Recipe Calculator beneath Item navigation with a searchable craftable-item
+  selector, multi-select checkboxes, and per-item craft quantities.
+- Aggregated repeated resolved ingredients by canonical item identity across every
+  selected latest recipe and multiplied their quantities by the requested crafts.
+- Added an Ingredients to Buy table with total quantity, current unit price, total
+  cost, and consuming items plus an expandable selected-craft cost breakdown.
+- Added selected-item, total-craft, unique-ingredient, price-coverage, complete-total,
+  and known-cost summary metrics.
+- Kept missing prices and unresolved identities explicit and made the calculator a
+  read-only request projection with no database migration or operational writes.
+
+### Verification
+
+- Sixteen focused recipe service and web tests passed, including duplicate ingredient
+  aggregation, quantity multiplication, current costs, invalid selection handling,
+  and rendered shopping-list behavior.
+- JavaScript syntax, Ruff, and diff checks passed for the scoped implementation.

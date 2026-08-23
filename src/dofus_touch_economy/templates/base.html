@@ -14,7 +14,7 @@
         <nav class="site-tabs" aria-label="Primary navigation">
           <details class="site-menu">
             <summary
-              class="site-tab{% if active_tab in ['items', 'recipes'] %} is-active{% endif %}"
+              class="site-tab{% if active_tab in ['items', 'recipes', 'recipe_calculator'] %} is-active{% endif %}"
             >
               <span>Item</span>
               <span class="site-menu-caret" aria-hidden="true">&#9662;</span>
@@ -30,6 +30,11 @@
                 class="site-submenu-link{% if active_tab == 'recipes' %} is-active{% endif %}"
                 {% if active_tab == "recipes" %}aria-current="page"{% endif %}
               >Recipes</a>
+              <a
+                href="/recipe-calculator"
+                class="site-submenu-link{% if active_tab == 'recipe_calculator' %} is-active{% endif %}"
+                {% if active_tab == "recipe_calculator" %}aria-current="page"{% endif %}
+              >Recipe Calculator</a>
             </div>
           </details>
           <a

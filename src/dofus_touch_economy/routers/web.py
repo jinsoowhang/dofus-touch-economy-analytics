@@ -40,6 +40,8 @@ from dofus_touch_economy.services.pricing import (
     PriceService,
 )
 from dofus_touch_economy.services.recipes import (
+    RecipeCalculatorSelectionError,
+    RecipeCalculatorService,
     RecipeCatalogFilters,
     RecipeCatalogService,
     RecipeEconomicsFilter,
@@ -841,6 +843,55 @@ def _recipe_page_context(
     }
 
 
+def _recipe_calculator_context(
+    service: RecipeCalculatorService,
+    *,
+    selected_quantities: dict[UUID, int] | None = None,
+    result=None,
+    errors: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "active_tab": "recipe_calculator",
+        "choices": service.choices(),
+        "selected_quantities": selected_quantities or {},
+        "result": result,
+        "errors": errors or [],
+    }
+
+
+def _parse_recipe_calculator_selections(form) -> tuple[dict[UUID, int], list[str]]:
+    selected_values = form.getlist("selected_item_uuid")
+    errors: list[str] = []
+    if not selected_values:
+        return {}, ["Select at least one craftable item."]
+    if len(selected_values) > 100:
+        return {}, ["Select no more than 100 craftable items."]
+
+    selections: dict[UUID, int] = {}
+    for raw_item_uuid in selected_values:
+        if not isinstance(raw_item_uuid, str):
+            errors.append("A selected item identifier is invalid.")
+            continue
+        try:
+            item_uuid = UUID(raw_item_uuid)
+        except ValueError:
+            errors.append("A selected item identifier is invalid.")
+            continue
+        if item_uuid in selections:
+            errors.append("A craftable item was selected more than once.")
+            continue
+        raw_quantity = form.get(f"quantity_{item_uuid}", "1")
+        try:
+            quantity = int(raw_quantity) if isinstance(raw_quantity, str) else 0
+        except ValueError:
+            quantity = 0
+        if not 1 <= quantity <= 1000:
+            errors.append("Each craft quantity must be between 1 and 1,000.")
+            continue
+        selections[item_uuid] = quantity
+    return selections, errors
+
+
 def _form_values(form, fields: tuple[str, ...]) -> dict[str, str]:
     return {
         field: value if isinstance((value := form.get(field, "")), str) else "" for field in fields
@@ -909,6 +960,48 @@ def recipes_page(
             direction,
             notification=notification,
         ),
+    )
+
+
+@router.get("/recipe-calculator", response_class=HTMLResponse)
+def recipe_calculator_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse:
+    service = RecipeCalculatorService(session, settings.market_context)
+    return templates.TemplateResponse(
+        request,
+        "recipe_calculator.html",
+        context=_recipe_calculator_context(service),
+    )
+
+
+@router.post("/recipe-calculator", response_class=HTMLResponse)
+async def calculate_recipes(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse:
+    form = await request.form()
+    selections, errors = _parse_recipe_calculator_selections(form)
+    service = RecipeCalculatorService(session, settings.market_context)
+    result = None
+    if not errors:
+        try:
+            result = service.calculate(selections)
+        except RecipeCalculatorSelectionError as error:
+            errors.append(str(error))
+    return templates.TemplateResponse(
+        request,
+        "recipe_calculator.html",
+        context=_recipe_calculator_context(
+            service,
+            selected_quantities=selections,
+            result=result,
+            errors=errors,
+        ),
+        status_code=422 if errors else 200,
     )
 
 

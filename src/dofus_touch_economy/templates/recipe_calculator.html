@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Recipe Calculator · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Recipe Calculator</h1>
+  <p>Select the items and quantities you plan to craft to build one combined ingredient shopping list.</p>
+
+  {% if errors %}
+    <div role="alert">
+      <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="/recipe-calculator" class="calculator-form">
+    <section class="collapsible-section calculator-picker" aria-labelledby="calculator-picker-heading">
+      <h2 id="calculator-picker-heading">Select Craftable Items</h2>
+      <label for="calculator-search">Find a craftable item</label>
+      <input id="calculator-search" type="search" placeholder="Search by item, category, or profession…">
+      <div class="calculator-selection-actions">
+        <button type="button" id="calculator-select-visible" class="secondary-button">Select visible</button>
+        <button type="button" id="calculator-clear-selection" class="secondary-button">Clear selection</button>
+        <span id="calculator-selected-count" aria-live="polite">{{ selected_quantities | length }} selected</span>
+      </div>
+      <div class="calculator-choice-list">
+        <table class="calculator-choice-table">
+          <thead>
+            <tr>
+              <th scope="col">Select</th>
+              <th scope="col">Item</th>
+              <th scope="col">Category</th>
+              <th scope="col">Profession</th>
+              <th scope="col" class="numeric">Level</th>
+              <th scope="col" class="numeric">Craft Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for choice in choices %}
+              {% set selected_quantity = selected_quantities.get(choice.item_uuid) %}
+              <tr
+                class="calculator-choice-row"
+                data-search="{{ choice.display_name }} {{ choice.category or '' }} {{ choice.profession }}"
+              >
+                <td class="calculator-checkbox-cell">
+                  <input
+                    type="checkbox"
+                    name="selected_item_uuid"
+                    value="{{ choice.item_uuid }}"
+                    aria-label="Select {{ choice.display_name }}"
+                    {% if selected_quantity is not none %}checked{% endif %}
+                  >
+                </td>
+                <td>
+                  <span class="item-label">
+                    {% if choice.icon_url %}<img class="item-icon" src="{{ choice.icon_url }}" alt="" loading="lazy">{% endif %}
+                    <span>{{ choice.display_name }}</span>
+                  </span>
+                </td>
+                <td>{{ (choice.category or "Uncategorized") | title }}</td>
+                <td>{{ choice.profession }}</td>
+                <td class="numeric">{{ choice.profession_level if choice.profession_level is not none else "—" }}</td>
+                <td class="numeric">
+                  <label class="visually-hidden" for="calculator-quantity-{{ choice.item_uuid }}">Craft quantity for {{ choice.display_name }}</label>
+                  <input
+                    id="calculator-quantity-{{ choice.item_uuid }}"
+                    class="calculator-quantity"
+                    name="quantity_{{ choice.item_uuid }}"
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    max="1000"
+                    value="{{ selected_quantity if selected_quantity is not none else 1 }}"
+                    {% if selected_quantity is none %}disabled{% endif %}
+                    required
+                  >
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit">Calculate Ingredients</button>
+    </section>
+  </form>
+
+  {% if result %}
+    <section id="calculator-results" class="collapsible-section" aria-labelledby="calculator-results-heading">
+      <h2 id="calculator-results-heading">Combined Shopping List</h2>
+      <div class="calculator-summary">
+        <div><span>Selected Items</span><strong>{{ result.selected_items | length }}</strong></div>
+        <div><span>Total Crafts</span><strong>{{ result.total_crafts }}</strong></div>
+        <div><span>Unique Ingredients</span><strong>{{ result.ingredients | length }}</strong></div>
+        <div>
+          <span>Total Cost</span>
+          <strong>{% if result.total_cost is not none %}{{ "{:,}".format(result.total_cost) }}{% else %}Incomplete{% endif %}</strong>
+        </div>
+        <div><span>Price Coverage</span><strong>{{ result.priced_ingredient_count }} of {{ result.ingredients | length }}</strong></div>
+        {% if result.total_cost is none %}<div><span>Known Cost</span><strong>{{ "{:,}".format(result.known_total_cost) }}</strong></div>{% endif %}
+      </div>
+
+      <h3>Ingredients to Buy</h3>
+      {% if result.ingredients %}
+        <div class="item-table-wrap">
+          <table class="calculator-results-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th class="numeric">Total Quantity</th>
+                <th class="numeric">Current Unit Price</th>
+                <th class="numeric">Total Cost</th>
+                <th>Used By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ingredient in result.ingredients %}
+                <tr>
+                  <td>
+                    <span class="item-label">
+                      {% if ingredient.icon_url %}<img class="item-icon" src="{{ ingredient.icon_url }}" alt="" loading="lazy">{% endif %}
+                      {% if ingredient.item_uuid %}<a href="/items/{{ ingredient.item_uuid }}">{{ ingredient.display_name }}</a>{% else %}{{ ingredient.display_name }}{% endif %}
+                    </span>
+                  </td>
+                  <td class="numeric">{{ ingredient.total_quantity }}</td>
+                  <td class="numeric">{{ "{:,}".format(ingredient.unit_price) if ingredient.unit_price is not none else "—" }}</td>
+                  <td class="numeric">{{ "{:,}".format(ingredient.total_cost) if ingredient.total_cost is not none else "—" }}</td>
+                  <td>{{ ingredient.used_by | join(", ") }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p>The selected recipes do not contain ingredients.</p>
+      {% endif %}
+
+      <details class="calculator-selected-items">
+        <summary>Selected craft breakdown</summary>
+        <div class="item-table-wrap">
+          <table class="calculator-results-table">
+            <thead>
+              <tr>
+                <th>Craftable Item</th>
+                <th>Profession</th>
+                <th class="numeric">Level</th>
+                <th class="numeric">Quantity</th>
+                <th class="numeric">Unit Recipe Cost</th>
+                <th class="numeric">Total Recipe Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in result.selected_items %}
+                <tr>
+                  <td>
+                    <span class="item-label">
+                      {% if item.icon_url %}<img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">{% endif %}
+                      <a href="/items/{{ item.item_uuid }}#recipe">{{ item.display_name }}</a>
+                    </span>
+                  </td>
+                  <td>{{ item.profession }}</td>
+                  <td class="numeric">{{ item.profession_level if item.profession_level is not none else "—" }}</td>
+                  <td class="numeric">{{ item.craft_quantity }}</td>
+                  <td class="numeric">{{ "{:,}".format(item.recipe_unit_cost) if item.recipe_unit_cost is not none else "—" }}</td>
+                  <td class="numeric">{{ "{:,}".format(item.total_recipe_cost) if item.total_recipe_cost is not none else "—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  {% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/recipe-calculator.js" defer></script>{% endblock %}

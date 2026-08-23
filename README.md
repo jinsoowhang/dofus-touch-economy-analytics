@@ -81,8 +81,8 @@ name/category identity, or enriches a sole uncategorized manual item without cha
 its UUID or price history.
 
 The top navigation contains **Item** and **Sales**. Hovering over or selecting
-**Item** opens its **Item Search** and **Recipes** submenu. The item page lists the
-full catalog alphabetically beneath the search field, including
+**Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator** submenu.
+The item page lists the full catalog alphabetically beneath the search field, including
 category, latest unit price, observed lot, and observation time. Typing filters the
 table by item name. Clicking any row opens item detail, where a new audited price
 observation can be recorded.
@@ -96,6 +96,11 @@ and refreshes the calculated economics without creating a Sales listing. Require
 profession level follows the standard Dofus Touch ingredient-slot unlocks: levels 1,
 10, 20, 40, 60, 80, and 100 for increasing recipe sizes through eight ingredients.
 Item detail shows the same level beside the recipe profession.
+
+The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
+It combines shared ingredients into one shopping list with total quantities, current
+unit prices, extended costs, price coverage, and complete or known-cost totals.
+Missing prices and unresolved ingredients remain explicit rather than becoming zero.
 
 Manual item names are whitespace-normalized and title-cased. The add form recognizes
 common equipment types from a complete final word, so `chouquish belt` previews and

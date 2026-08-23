@@ -950,6 +950,69 @@ def test_recipes_page_shows_inline_reversed_level_error(client) -> None:
     assert "Minimum level cannot be greater than maximum level." in response.text
 
 
+def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
+    client,
+    session_factory,
+    synthetic_files,
+) -> None:
+    synthetic_files.write_cost_rows([("Synthetic Wood", "Wood", "10")])
+    synthetic_files.write_recipe(
+        ingredient="Synthetic Wood",
+        quantity="2",
+        recipe_item="Alpha Sword",
+    )
+    importer = ImportService(session_factory, market_context="Dodge")
+    importer.import_files(*synthetic_files.paths)
+    synthetic_files.write_recipe(
+        ingredient="Synthetic Wood",
+        quantity="5",
+        recipe_item="Beta Ring",
+    )
+    importer.import_files(*synthetic_files.paths)
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+
+    page = client.get("/recipe-calculator")
+    script = client.get("/static/recipe-calculator.js")
+
+    assert page.status_code == 200
+    assert "Recipe Calculator" in page.text
+    assert 'class="site-submenu-link is-active"' in page.text
+    assert 'name="selected_item_uuid"' in page.text
+    assert f'name="quantity_{items["alpha sword"].uuid}"' in page.text
+    assert "Select visible" in page.text
+    assert script.status_code == 200
+    assert 'calculatorSearch.addEventListener("input"' in script.text
+    assert "quantity.disabled = !selected" in script.text
+
+    response = client.post(
+        "/recipe-calculator",
+        data={
+            "selected_item_uuid": [
+                str(items["alpha sword"].uuid),
+                str(items["beta ring"].uuid),
+            ],
+            f"quantity_{items['alpha sword'].uuid}": "2",
+            f"quantity_{items['beta ring'].uuid}": "3",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Combined Shopping List" in response.text
+    assert "Synthetic Wood" in response.text
+    assert re.search(r"Total Quantity</th>.*?>19</td>", response.text, re.DOTALL)
+    assert "190" in response.text
+    assert "Alpha Sword, Beta Ring" in response.text
+    assert "5" in response.text
+
+
+def test_recipe_calculator_requires_a_valid_selection(client) -> None:
+    response = client.post("/recipe-calculator", data={})
+
+    assert response.status_code == 422
+    assert "Select at least one craftable item." in response.text
+
+
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:
     with session_factory() as session:
         session.add_all(

@@ -13,6 +13,8 @@ from dofus_touch_economy.models import (
 from dofus_touch_economy.schemas import PriceObservationCreate
 from dofus_touch_economy.services.pricing import PriceService
 from dofus_touch_economy.services.recipes import (
+    RecipeCalculatorSelectionError,
+    RecipeCalculatorService,
     RecipeCatalogFilters,
     RecipeCatalogService,
     required_profession_level,
@@ -163,3 +165,45 @@ def test_recipe_catalog_filters_profitability_and_sorts_missing_values_last(
         "Beta Ring",
         "Gamma Hat",
     ]
+
+
+def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
+    session_factory,
+) -> None:
+    items = seed_recipe_catalog(session_factory)
+
+    with session_factory() as session:
+        service = RecipeCalculatorService(session, "Dodge")
+        result = service.calculate(
+            {
+                items["alpha"].uuid: 2,
+                items["beta"].uuid: 3,
+            }
+        )
+
+    assert [item.display_name for item in result.selected_items] == [
+        "Alpha Sword",
+        "Beta Ring",
+    ]
+    assert [item.craft_quantity for item in result.selected_items] == [2, 3]
+    assert [item.recipe_unit_cost for item in result.selected_items] == [80, 400]
+    assert [item.total_recipe_cost for item in result.selected_items] == [160, 1200]
+    assert result.total_crafts == 5
+    assert len(result.ingredients) == 1
+    assert result.ingredients[0].display_name == "Synthetic Wood"
+    assert result.ingredients[0].total_quantity == 136
+    assert result.ingredients[0].unit_price == 10
+    assert result.ingredients[0].total_cost == 1360
+    assert result.ingredients[0].used_by == ("Alpha Sword", "Beta Ring")
+    assert result.priced_ingredient_count == 1
+    assert result.known_total_cost == 1360
+    assert result.total_cost == 1360
+
+
+def test_recipe_calculator_rejects_noncraftable_selection(session_factory) -> None:
+    items = seed_recipe_catalog(session_factory)
+
+    with session_factory() as session:
+        service = RecipeCalculatorService(session, "Dodge")
+        with pytest.raises(RecipeCalculatorSelectionError, match="no longer has"):
+            service.calculate({items["ingredient"].uuid: 1})

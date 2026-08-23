@@ -77,6 +77,63 @@ class RecipeCatalogResult:
     maximum_available_level: int
 
 
+@dataclass(frozen=True)
+class RecipeCalculatorChoice:
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_url: str | None
+    profession: str
+    profession_level: int | None
+
+
+@dataclass(frozen=True)
+class RecipeCalculatorSelectedItem:
+    item_uuid: UUID
+    display_name: str
+    icon_url: str | None
+    profession: str
+    profession_level: int | None
+    craft_quantity: int
+    recipe_unit_cost: Decimal | None
+    total_recipe_cost: Decimal | None
+
+
+@dataclass(frozen=True)
+class RecipeCalculatorIngredient:
+    item_uuid: UUID | None
+    display_name: str
+    icon_url: str | None
+    total_quantity: int
+    unit_price: Decimal | None
+    total_cost: Decimal | None
+    used_by: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RecipeCalculatorResult:
+    selected_items: tuple[RecipeCalculatorSelectedItem, ...]
+    ingredients: tuple[RecipeCalculatorIngredient, ...]
+    total_crafts: int
+    priced_ingredient_count: int
+    known_total_cost: Decimal
+    total_cost: Decimal | None
+
+
+class RecipeCalculatorSelectionError(ValueError):
+    pass
+
+
+@dataclass
+class _IngredientAccumulator:
+    item_uuid: UUID | None
+    display_name: str
+    icon_url: str | None
+    total_quantity: int
+    unit_price: Decimal | None
+    used_by: set[str]
+
+
 class RecipeCatalogService:
     def __init__(self, session: Session, market_context: str) -> None:
         self._session = session
@@ -112,22 +169,7 @@ class RecipeCatalogService:
         )
 
     def _rows(self) -> list[RecipeCatalogRow]:
-        latest_recipe_ids = (
-            select(func.max(Recipe.id).label("recipe_id"))
-            .group_by(Recipe.crafted_item_id)
-            .scalar_subquery()
-        )
-        recipes = list(
-            self._session.scalars(
-                select(Recipe)
-                .where(Recipe.id.in_(latest_recipe_ids))
-                .options(
-                    selectinload(Recipe.crafted_item),
-                    selectinload(Recipe.ingredients).selectinload(RecipeIngredient.item),
-                )
-                .order_by(Recipe.id)
-            )
-        )
+        recipes = _latest_recipes(self._session)
         item_ids = {
             item_id
             for recipe in recipes
@@ -177,6 +219,184 @@ class RecipeCatalogService:
                 )
             )
         return rows
+
+
+class RecipeCalculatorService:
+    def __init__(self, session: Session, market_context: str) -> None:
+        self._session = session
+        self._prices = PriceService(session, market_context)
+        self._cached_recipes: list[Recipe] | None = None
+
+    def choices(self) -> list[RecipeCalculatorChoice]:
+        return sorted(
+            (
+                RecipeCalculatorChoice(
+                    item_uuid=recipe.crafted_item.uuid,
+                    display_name=recipe.crafted_item.display_name,
+                    category=recipe.crafted_item.category,
+                    icon_url=_icon_url(recipe.crafted_item),
+                    profession=recipe.profession,
+                    profession_level=required_profession_level(len(recipe.ingredients)),
+                )
+                for recipe in self._recipes()
+            ),
+            key=lambda choice: choice.display_name.casefold(),
+        )
+
+    def calculate(self, selections: dict[UUID, int]) -> RecipeCalculatorResult:
+        if not selections:
+            raise RecipeCalculatorSelectionError("Select at least one craftable item.")
+        if len(selections) > 100:
+            raise RecipeCalculatorSelectionError("Select no more than 100 craftable items.")
+        if any(quantity < 1 or quantity > 1000 for quantity in selections.values()):
+            raise RecipeCalculatorSelectionError("Each craft quantity must be between 1 and 1,000.")
+
+        recipes_by_item_uuid = {recipe.crafted_item.uuid: recipe for recipe in self._recipes()}
+        missing = set(selections).difference(recipes_by_item_uuid)
+        if missing:
+            raise RecipeCalculatorSelectionError(
+                "One or more selected items no longer has a current recipe."
+            )
+        selected_recipes = sorted(
+            (recipes_by_item_uuid[item_uuid] for item_uuid in selections),
+            key=lambda recipe: recipe.crafted_item.display_name.casefold(),
+        )
+        ingredient_item_ids = {
+            ingredient.item_id
+            for recipe in selected_recipes
+            for ingredient in recipe.ingredients
+            if ingredient.item_id is not None
+        }
+        current_prices = self._prices.current_for_items(list(ingredient_item_ids))
+
+        selected_items: list[RecipeCalculatorSelectedItem] = []
+        accumulated_ingredients: dict[tuple[str, object], _IngredientAccumulator] = {}
+        for recipe in selected_recipes:
+            craft_quantity = selections[recipe.crafted_item.uuid]
+            ingredient_prices = [
+                IngredientPrice(
+                    quantity=ingredient.quantity,
+                    unit_price=(
+                        None
+                        if ingredient.item_id is None or ingredient.item_id not in current_prices
+                        else current_prices[ingredient.item_id].unit_price
+                    ),
+                )
+                for ingredient in recipe.ingredients
+            ]
+            recipe_metrics = calculate_recipe_metrics(None, ingredient_prices)
+            selected_items.append(
+                RecipeCalculatorSelectedItem(
+                    item_uuid=recipe.crafted_item.uuid,
+                    display_name=recipe.crafted_item.display_name,
+                    icon_url=_icon_url(recipe.crafted_item),
+                    profession=recipe.profession,
+                    profession_level=required_profession_level(len(recipe.ingredients)),
+                    craft_quantity=craft_quantity,
+                    recipe_unit_cost=recipe_metrics.recipe_cost,
+                    total_recipe_cost=(
+                        None
+                        if recipe_metrics.recipe_cost is None
+                        else recipe_metrics.recipe_cost * craft_quantity
+                    ),
+                )
+            )
+
+            for ingredient in recipe.ingredients:
+                if ingredient.item is None:
+                    key: tuple[str, object] = ("unresolved", ingredient.normalized_name)
+                    item_uuid = None
+                    display_name = ingredient.raw_name
+                    icon_url = None
+                    unit_price = None
+                else:
+                    key = ("item", ingredient.item_id)
+                    item_uuid = ingredient.item.uuid
+                    display_name = ingredient.item.display_name
+                    icon_url = _icon_url(ingredient.item)
+                    current_price = current_prices.get(ingredient.item_id)
+                    unit_price = None if current_price is None else current_price.unit_price
+                required_quantity = ingredient.quantity * craft_quantity
+                existing = accumulated_ingredients.get(key)
+                if existing is None:
+                    accumulated_ingredients[key] = _IngredientAccumulator(
+                        item_uuid=item_uuid,
+                        display_name=display_name,
+                        icon_url=icon_url,
+                        total_quantity=required_quantity,
+                        unit_price=unit_price,
+                        used_by={recipe.crafted_item.display_name},
+                    )
+                else:
+                    existing.total_quantity += required_quantity
+                    existing.used_by.add(recipe.crafted_item.display_name)
+
+        ingredients = tuple(
+            RecipeCalculatorIngredient(
+                item_uuid=ingredient.item_uuid,
+                display_name=ingredient.display_name,
+                icon_url=ingredient.icon_url,
+                total_quantity=ingredient.total_quantity,
+                unit_price=ingredient.unit_price,
+                total_cost=(
+                    None
+                    if ingredient.unit_price is None
+                    else ingredient.unit_price * ingredient.total_quantity
+                ),
+                used_by=tuple(sorted(ingredient.used_by, key=str.casefold)),
+            )
+            for ingredient in sorted(
+                accumulated_ingredients.values(),
+                key=lambda ingredient: ingredient.display_name.casefold(),
+            )
+        )
+        known_total_cost = sum(
+            (
+                ingredient.total_cost
+                for ingredient in ingredients
+                if ingredient.total_cost is not None
+            ),
+            start=Decimal(0),
+        )
+        priced_ingredient_count = sum(
+            ingredient.total_cost is not None for ingredient in ingredients
+        )
+        return RecipeCalculatorResult(
+            selected_items=tuple(selected_items),
+            ingredients=ingredients,
+            total_crafts=sum(selections.values()),
+            priced_ingredient_count=priced_ingredient_count,
+            known_total_cost=known_total_cost,
+            total_cost=(known_total_cost if priced_ingredient_count == len(ingredients) else None),
+        )
+
+    def _recipes(self) -> list[Recipe]:
+        if self._cached_recipes is None:
+            self._cached_recipes = _latest_recipes(self._session)
+        return self._cached_recipes
+
+
+def _latest_recipes(session: Session) -> list[Recipe]:
+    latest_recipe_ids = (
+        select(func.max(Recipe.id).label("recipe_id"))
+        .group_by(Recipe.crafted_item_id)
+        .scalar_subquery()
+    )
+    return list(
+        session.scalars(
+            select(Recipe)
+            .where(Recipe.id.in_(latest_recipe_ids))
+            .options(
+                selectinload(Recipe.crafted_item),
+                selectinload(Recipe.ingredients).selectinload(RecipeIngredient.item),
+            )
+            .order_by(Recipe.id)
+        )
+    )
+
+
+def _icon_url(item) -> str | None:
+    return None if item.icon_source_url is None else f"/item-icons/{item.uuid}.png"
 
 
 def _filter_rows(
