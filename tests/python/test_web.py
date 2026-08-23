@@ -1117,8 +1117,9 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Total Weight" in response.text
     assert "<strong>38 pods</strong>" in response.text
     assert "Category" in response.text
-    assert "Unit Weight" in response.text
-    assert "Last Updated (Days)" in response.text
+    assert "Total Crafts" not in response.text
+    assert "Unit Weight" not in response.text
+    assert "Last Updated (Days)" not in response.text
     assert "Current price" in response.text
     assert '<table class="calculator-selected-table" data-sortable-table>' in response.text
     assert (

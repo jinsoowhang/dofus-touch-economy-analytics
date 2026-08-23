@@ -576,3 +576,22 @@ after reviewing development lineage and costs.
 - All 66 focused static-asset and web tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 223 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Combined Shopping List Simplification
+
+### Work Completed
+
+- Removed the Total Crafts summary card and the Unit Weight and Last Updated (Days)
+  columns from Combined Shopping List.
+- Retained total ingredient weight, freshness Status, craft quantities in the cart
+  and selected-craft breakdown, and the underlying calculation fields.
+- Reduced the shopping-list minimum width from 90rem to 72rem now that the table has
+  fewer displayed columns.
+- Updated the public description and regression assertions to match the streamlined
+  view.
+
+### Verification
+
+- The focused Recipe Calculator rendering and sortable-table coverage tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 223 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

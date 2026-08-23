@@ -102,7 +102,6 @@
       <h2 id="calculator-results-heading">Combined Shopping List</h2>
       <div class="calculator-summary">
         <div><span>Selected Items</span><strong>{{ result.selected_items | length }}</strong></div>
-        <div><span>Total Crafts</span><strong>{{ result.total_crafts }}</strong></div>
         <div><span>Unique Ingredients</span><strong>{{ result.ingredients | length }}</strong></div>
         <div>
           <span>Total Weight</span>
@@ -126,11 +125,9 @@
                 <th data-sort-type="text">Ingredient</th>
                 <th data-sort-type="text">Category</th>
                 <th class="numeric" data-sort-type="number">Total Quantity</th>
-                <th class="numeric" data-sort-type="number">Unit Weight</th>
                 <th class="numeric" data-sort-type="number">Total Weight</th>
                 <th class="numeric" data-sort-type="number">Current Unit Price</th>
                 <th class="numeric" data-sort-type="number">Total Cost</th>
-                <th class="numeric" data-sort-type="number">Last Updated (Days)</th>
                 <th data-sort-type="number">Status</th>
                 <th data-sort-type="text">Used By</th>
               </tr>
@@ -146,7 +143,6 @@
                   </td>
                   <td>{{ (ingredient.category or "Uncategorized") | title }}</td>
                   <td class="numeric">{{ ingredient.total_quantity }}</td>
-                  <td class="numeric">{{ "{:,}".format(ingredient.unit_weight) if ingredient.unit_weight is not none else "—" }}</td>
                   <td class="numeric">{{ "{:,}".format(ingredient.total_weight) if ingredient.total_weight is not none else "—" }}</td>
                   <td class="numeric">
                     {% if ingredient.item_uuid %}
@@ -176,7 +172,6 @@
                     {% endif %}
                   </td>
                   <td class="numeric">{{ "{:,}".format(ingredient.total_cost) if ingredient.total_cost is not none else "—" }}</td>
-                  <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
                   <td
                     class="status"
                     data-sort-value="{{ 0 if ingredient.price_status == 'Missing price' else (1 if ingredient.price_status == 'Stale price' else 2) }}"
