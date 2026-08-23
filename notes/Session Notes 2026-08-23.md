@@ -23,3 +23,25 @@ calculator reloaded its results.
 - All 68 focused static-asset and web tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 229 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Selected Craft Breakdown Full-Width Layout
+
+### Context
+
+Fixed the Selected craft breakdown layout after a screenshot showed its help text and
+button in the left half while the sales table was constrained to the right half with
+unnecessary horizontal scrolling.
+
+### Work Completed
+
+- Traced the split layout to the site-wide two-column `form` grid applying to the
+  calculator sales form.
+- Scoped that form to block layout so its help text, table, and action stack at full
+  content width.
+- Added spacing above the action and focused stylesheet regression coverage.
+
+### Verification
+
+- All 69 focused static-asset and web tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 230 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

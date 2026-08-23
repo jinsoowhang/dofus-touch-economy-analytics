@@ -1151,9 +1151,17 @@ th.numeric .client-sort-header {
   width: 7rem;
 }
 
+.calculator-sales-form {
+  display: block;
+}
+
 .calculator-sale-help {
   color: var(--muted);
   margin-block: 0 0.75rem;
+}
+
+.calculator-sales-form .calculator-submit-actions {
+  margin-block-start: 0.75rem;
 }
 
 .calculator-submit-actions {

@@ -116,6 +116,24 @@ def test_out_of_stock_table_restores_cell_spacing() -> None:
     assert "padding: 0.75rem;" in out_of_stock_rule
 
 
+def test_calculator_sales_form_uses_full_width_block_layout() -> None:
+    stylesheet = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/app.css")
+        .read_text(encoding="utf-8")
+    )
+
+    sales_form_rule = stylesheet.split(".calculator-sales-form {", maxsplit=1)[1].split(
+        "}", maxsplit=1
+    )[0]
+    sales_actions_rule = stylesheet.split(
+        ".calculator-sales-form .calculator-submit-actions {", maxsplit=1
+    )[1].split("}", maxsplit=1)[0]
+
+    assert "display: block;" in sales_form_rule
+    assert "margin-block-start: 0.75rem;" in sales_actions_rule
+
+
 def test_item_navigation_dropdown_supports_hover_click_and_focus() -> None:
     stylesheet = (
         resources.files("dofus_touch_economy")
