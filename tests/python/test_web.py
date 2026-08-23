@@ -978,12 +978,13 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert page.status_code == 200
     assert "Recipe Calculator" in page.text
     assert 'class="site-submenu-link is-active"' in page.text
-    assert 'name="selected_item_uuid"' in page.text
-    assert f'name="quantity_{items["alpha sword"].uuid}"' in page.text
-    assert "Select visible" in page.text
+    assert 'id="calculator-choice-data"' in page.text
+    assert str(items["alpha sword"].uuid) in page.text
+    assert "Alpha Sword" in page.text
     assert script.status_code == 200
     assert 'calculatorSearch.addEventListener("input"' in script.text
-    assert "quantity.disabled = !selected" in script.text
+    assert "const addChoice = (choice)" in script.text
+    assert "calculatorSelectedItems.append(row)" in script.text
 
     response = client.post(
         "/recipe-calculator",

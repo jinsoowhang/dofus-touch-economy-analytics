@@ -14,41 +14,38 @@
     <section class="collapsible-section calculator-picker" aria-labelledby="calculator-picker-heading">
       <h2 id="calculator-picker-heading">Select Craftable Items</h2>
       <label for="calculator-search">Find a craftable item</label>
-      <input id="calculator-search" type="search" placeholder="Search by item, category, or profession…">
+      <input
+        id="calculator-search"
+        type="search"
+        placeholder="Search by item, category, or profession…"
+        autocomplete="off"
+      >
+      <div id="calculator-search-results" class="calculator-search-results" aria-live="polite">
+        <p>Type to find craftable items.</p>
+      </div>
       <div class="calculator-selection-actions">
-        <button type="button" id="calculator-select-visible" class="secondary-button">Select visible</button>
         <button type="button" id="calculator-clear-selection" class="secondary-button">Clear selection</button>
         <span id="calculator-selected-count" aria-live="polite">{{ selected_quantities | length }} selected</span>
       </div>
-      <div class="calculator-choice-list">
-        <table class="calculator-choice-table">
+      <script id="calculator-choice-data" type="application/json">{{ choice_data | tojson }}</script>
+      <div class="calculator-selected-list">
+        <table class="calculator-selected-table">
           <thead>
             <tr>
-              <th scope="col">Select</th>
               <th scope="col">Item</th>
               <th scope="col">Category</th>
               <th scope="col">Profession</th>
               <th scope="col" class="numeric">Level</th>
               <th scope="col" class="numeric">Craft Quantity</th>
+              <th scope="col">Action</th>
             </tr>
           </thead>
-          <tbody>
-            {% for choice in choices %}
-              {% set selected_quantity = selected_quantities.get(choice.item_uuid) %}
-              <tr
-                class="calculator-choice-row"
-                data-search="{{ choice.display_name }} {{ choice.category or '' }} {{ choice.profession }}"
-              >
-                <td class="calculator-checkbox-cell">
-                  <input
-                    type="checkbox"
-                    name="selected_item_uuid"
-                    value="{{ choice.item_uuid }}"
-                    aria-label="Select {{ choice.display_name }}"
-                    {% if selected_quantity is not none %}checked{% endif %}
-                  >
-                </td>
+          <tbody id="calculator-selected-items">
+            {% for choice in selected_choices %}
+              {% set selected_quantity = selected_quantities[choice.item_uuid] %}
+              <tr data-item-uuid="{{ choice.item_uuid }}">
                 <td>
+                  <input type="hidden" name="selected_item_uuid" value="{{ choice.item_uuid }}">
                   <span class="item-label">
                     {% if choice.icon_url %}<img class="item-icon" src="{{ choice.icon_url }}" alt="" loading="lazy">{% endif %}
                     <span>{{ choice.display_name }}</span>
@@ -67,15 +64,16 @@
                     inputmode="numeric"
                     min="1"
                     max="1000"
-                    value="{{ selected_quantity if selected_quantity is not none else 1 }}"
-                    {% if selected_quantity is none %}disabled{% endif %}
+                    value="{{ selected_quantity }}"
                     required
                   >
                 </td>
+                <td><button type="button" class="calculator-remove-item secondary-button" aria-label="Remove {{ choice.display_name }}">Remove</button></td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
+        <p id="calculator-empty-selection" {% if selected_choices %}hidden{% endif %}>No craftable items selected yet.</p>
       </div>
       <button type="submit">Calculate Ingredients</button>
     </section>

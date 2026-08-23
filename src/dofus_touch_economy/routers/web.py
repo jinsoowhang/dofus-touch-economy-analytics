@@ -850,10 +850,23 @@ def _recipe_calculator_context(
     result=None,
     errors: list[str] | None = None,
 ) -> dict[str, object]:
+    choices = service.choices()
+    quantities = selected_quantities or {}
     return {
         "active_tab": "recipe_calculator",
-        "choices": service.choices(),
-        "selected_quantities": selected_quantities or {},
+        "choice_data": [
+            {
+                "item_uuid": str(choice.item_uuid),
+                "display_name": choice.display_name,
+                "category": choice.category,
+                "icon_url": choice.icon_url,
+                "profession": choice.profession,
+                "profession_level": choice.profession_level,
+            }
+            for choice in choices
+        ],
+        "selected_choices": [choice for choice in choices if choice.item_uuid in quantities],
+        "selected_quantities": quantities,
         "result": result,
         "errors": errors or [],
     }
