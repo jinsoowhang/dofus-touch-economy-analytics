@@ -53,6 +53,21 @@ class DailySalesTotal:
 
 
 @dataclass(frozen=True)
+class OutOfStockItem:
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_url: str | None
+    sold_count: int
+    last_sold_at: datetime
+    last_sale_price: int | None
+    current_price: Decimal | None
+    recipe_cost: Decimal | None
+    last_sale_profit: Decimal | None
+    is_craftable: bool
+
+
+@dataclass(frozen=True)
 class SaleListingFilters:
     item_uuid: UUID | None = None
     item_query: str = ""
@@ -120,6 +135,59 @@ class SalesService:
         listings = self._responses(self._sales.sold())
         listings = _filter_listings(listings, filters, use_sold_date=True)
         return _sort_listings(listings, sort_field, sort_direction)
+
+    def out_of_stock(self) -> list[OutOfStockItem]:
+        active_item_ids = {listing.item_id for listing in self._sales.active()}
+        sold_counts: dict[int, int] = defaultdict(int)
+        latest_sold_by_item: dict[int, SaleListing] = {}
+        for listing in self._sales.sold():
+            sold_counts[listing.item_id] += 1
+            latest_sold_by_item.setdefault(listing.item_id, listing)
+
+        out_of_stock_listings = [
+            listing
+            for item_id, listing in latest_sold_by_item.items()
+            if item_id not in active_item_ids
+        ]
+        if not out_of_stock_listings:
+            return []
+
+        item_ids = [listing.item_id for listing in out_of_stock_listings]
+        listing_responses = self._responses(out_of_stock_listings)
+        current_prices = PriceService(self._session, self._market_context).current_for_items(
+            item_ids
+        )
+        craftable_item_ids = set(
+            self._session.scalars(
+                select(Recipe.crafted_item_id)
+                .where(Recipe.crafted_item_id.in_(item_ids))
+                .distinct()
+            )
+        )
+        results: list[OutOfStockItem] = []
+        for listing, response in zip(out_of_stock_listings, listing_responses, strict=True):
+            if response.date_sold is None:  # pragma: no cover - sold query guarantees a date
+                continue
+            current_price = current_prices.get(listing.item_id)
+            results.append(
+                OutOfStockItem(
+                    item_uuid=response.item_uuid,
+                    display_name=response.display_name,
+                    category=response.category,
+                    icon_url=response.icon_url,
+                    sold_count=sold_counts[listing.item_id],
+                    last_sold_at=response.date_sold,
+                    last_sale_price=response.asking_price,
+                    current_price=(None if current_price is None else current_price.unit_price),
+                    recipe_cost=response.recipe_cost,
+                    last_sale_profit=response.profit,
+                    is_craftable=listing.item_id in craftable_item_ids,
+                )
+            )
+        return sorted(
+            results,
+            key=lambda item: (-item.last_sold_at.timestamp(), item.display_name.casefold()),
+        )
 
     def daily_totals(
         self,

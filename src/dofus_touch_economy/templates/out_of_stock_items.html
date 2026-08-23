@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Out of Stock Items · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Out of Stock Items</h1>
+  <p>
+    Items appear here after at least one completed sale when no listing remains in
+    Currently Selling.
+  </p>
+
+  <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Restock Candidates</h2>
+        <span>{{ out_of_stock_items | length }} out of stock</span>
+      </span>
+    </summary>
+    {% if out_of_stock_items %}
+      <div class="recipe-cart-toolbar">
+        <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
+        <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+      </div>
+      <div class="item-table-wrap">
+        <table class="item-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Category</th>
+              <th class="numeric">Sold Count</th>
+              <th>Last Sold</th>
+              <th class="numeric">Last Sale Price</th>
+              <th class="numeric">Current Price</th>
+              <th class="numeric">Recipe Cost</th>
+              <th class="numeric">Profit at Last Sale Price</th>
+              <th>Calculator</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in out_of_stock_items %}
+              {% set last_sold_at = item.last_sold_at | pacific_time %}
+              <tr>
+                <td>
+                  <a href="/items/{{ item.item_uuid }}" class="item-label">
+                    {% if item.icon_url %}<img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">{% endif %}
+                    <span>{{ item.display_name }}</span>
+                  </a>
+                </td>
+                <td>{{ (item.category or "Uncategorized") | title }}</td>
+                <td class="numeric">{{ item.sold_count }}</td>
+                <td>
+                  <time datetime="{{ last_sold_at.isoformat() }}">{{ last_sold_at.strftime("%Y-%m-%d") }}</time>
+                </td>
+                <td class="numeric">{{ "{:,}".format(item.last_sale_price) if item.last_sale_price is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(item.current_price) if item.current_price is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(item.recipe_cost) if item.recipe_cost is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(item.last_sale_profit) if item.last_sale_profit is not none else "—" }}</td>
+                <td class="recipe-cart-action">
+                  {% if item.is_craftable %}
+                    <button
+                      type="button"
+                      class="recipe-cart-add secondary-button"
+                      data-item-uuid="{{ item.item_uuid }}"
+                      aria-label="Add {{ item.display_name }} to Recipe Calculator"
+                    >Add</button>
+                  {% else %}
+                    <span>No recipe</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No items are out of stock.</p>
+    {% endif %}
+  </details>
+{% endblock %}
+{% block scripts %}<script src="/static/recipe-cart.js" defer></script>{% endblock %}

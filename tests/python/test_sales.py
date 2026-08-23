@@ -53,6 +53,37 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert service.sold() == []
 
 
+def test_out_of_stock_requires_sales_history_and_no_active_listing(
+    session,
+    catalog_item,
+) -> None:
+    service = SalesService(session, "Dodge")
+
+    assert service.out_of_stock() == []
+
+    first = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
+    service.mark_sold(first.uuid)
+
+    [out_of_stock] = service.out_of_stock()
+    assert out_of_stock.item_uuid == catalog_item.uuid
+    assert out_of_stock.sold_count == 1
+    assert out_of_stock.last_sale_price == 100
+    assert out_of_stock.current_price == 100
+    assert out_of_stock.recipe_cost is None
+    assert out_of_stock.last_sale_profit is None
+    assert out_of_stock.is_craftable is False
+
+    active = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=200))
+
+    assert service.out_of_stock() == []
+
+    service.mark_sold(active.uuid)
+    [out_of_stock_again] = service.out_of_stock()
+    assert out_of_stock_again.sold_count == 2
+    assert out_of_stock_again.last_sale_price == 200
+    assert out_of_stock_again.current_price == 200
+
+
 def test_priced_sale_updates_current_price_and_preserves_history(session, catalog_item) -> None:
     price_service = PriceService(session, "Dodge")
     previous = price_service.record(

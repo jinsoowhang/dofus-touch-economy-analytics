@@ -28,14 +28,19 @@
         <p>Type to find craftable items.</p>
       </div>
       <div class="calculator-selection-actions">
-        <button type="button" id="calculator-clear-selection" class="secondary-button">Clear selection</button>
-        <span id="calculator-selected-count" aria-live="polite">{{ selected_quantities | length }} selected</span>
+        <button type="button" id="calculator-select-all" class="secondary-button">Select all</button>
+        <button type="button" id="calculator-select-none" class="secondary-button">Select none</button>
+        <button type="button" id="calculator-remove-all" class="secondary-button">Remove all</button>
+        <span id="calculator-selected-count" aria-live="polite">
+          {{ selected_quantities | length }} selected · {{ selected_quantities | length }} in cart
+        </span>
       </div>
       <script id="calculator-choice-data" type="application/json">{{ choice_data | tojson }}</script>
       <div class="calculator-selected-list">
         <table class="calculator-selected-table">
           <thead>
             <tr>
+              <th scope="col" class="selection-column">Calculate</th>
               <th scope="col">Item</th>
               <th scope="col">Category</th>
               <th scope="col">Profession</th>
@@ -48,8 +53,17 @@
             {% for choice in selected_choices %}
               {% set selected_quantity = selected_quantities[choice.item_uuid] %}
               <tr data-item-uuid="{{ choice.item_uuid }}">
+                <td class="selection-column">
+                  <input
+                    class="calculator-item-checkbox"
+                    type="checkbox"
+                    name="selected_item_uuid"
+                    value="{{ choice.item_uuid }}"
+                    aria-label="Include {{ choice.display_name }} in calculation"
+                    checked
+                  >
+                </td>
                 <td>
-                  <input type="hidden" name="selected_item_uuid" value="{{ choice.item_uuid }}">
                   <span class="item-label">
                     {% if choice.icon_url %}<img class="item-icon" src="{{ choice.icon_url }}" alt="" loading="lazy">{% endif %}
                     <span>{{ choice.display_name }}</span>
@@ -77,9 +91,9 @@
             {% endfor %}
           </tbody>
         </table>
-        <p id="calculator-empty-selection" {% if selected_choices %}hidden{% endif %}>No craftable items selected yet.</p>
+        <p id="calculator-empty-selection" {% if selected_choices %}hidden{% endif %}>No craftable items in your cart yet.</p>
       </div>
-      <button type="submit">Calculate Ingredients</button>
+      <button type="submit">Calculate Selected</button>
     </section>
   </form>
 

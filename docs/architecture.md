@@ -58,7 +58,8 @@ The local browser interface uses server-rendered Jinja templates and a reviewed,
 
 The shared page layout exposes Item, Sales, and BigQuery Sync as top-level navigation.
 Item opens an accessible hover, click, and keyboard-focus submenu for Item Search,
-Recipes, and Recipe Calculator. Item Search renders 100-row pages of alphabetical
+Recipes, and Recipe Calculator; Sales uses the same pattern for Sales Activity and
+Out of Stock Items. Item Search renders 100-row pages of alphabetical
 catalog summaries and uses one bulk latest-price query for the active market context.
 Filtering replaces only the table fragment. Item rows link to detail; price changes remain append-only
 observations rather than direct edits. Recipes selects the latest recipe per crafted
@@ -75,9 +76,16 @@ The Recipe Calculator is an operational projection over the latest recipe per
 crafted item and the latest valid ingredient prices. Resolved shopping-list prices
 can append quantity-one observations through an inline editor; a successful save
 recalculates the selected recipes without creating Sales listings. User-selected craft
-quantities remain browser-local cart state and request state only. Shared canonical ingredients are aggregated into
+quantities and calculation selections remain separate browser-local cart state and
+non-authoritative request state. Unchecked items stay in the cart but are omitted from
+the submitted calculation. Shared canonical ingredients are aggregated into
 one shopping-list row; unresolved identities and missing prices remain explicit, and
 the calculator never writes recipes or Sales listings.
+
+Out of Stock Items is a grouped Sales projection: an item qualifies when it has at
+least one completed listing and zero active listings. It uses the most recent sold
+listing plus bulk current-price and recipe-cost calculations, and exposes craftable
+items through the shared browser-local Recipe Calculator cart without adding listings.
 
 BigQuery Sync is a process-local, single-run background controller around the same
 fixed snapshot loader used by the CLI. The loopback web page cannot supply commands

@@ -1079,6 +1079,21 @@ button {
   text-align: right;
 }
 
+.calculator-selected-table .selection-column {
+  text-align: center;
+  width: 1%;
+}
+
+.calculator-item-checkbox {
+  height: 1.1rem;
+  margin: 0;
+  width: 1.1rem;
+}
+
+.calculator-selected-table tr.is-unselected {
+  color: var(--muted);
+}
+
 .calculator-quantity {
   min-width: 5rem;
   width: 5rem;

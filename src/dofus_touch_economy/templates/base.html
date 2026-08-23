@@ -37,11 +37,26 @@
               >Recipe Calculator</a>
             </div>
           </details>
-          <a
-            href="/sales"
-            class="site-tab{% if active_tab == 'sales' %} is-active{% endif %}"
-            {% if active_tab == "sales" %}aria-current="page"{% endif %}
-          >Sales</a>
+          <details class="site-menu">
+            <summary
+              class="site-tab{% if active_tab in ['sales', 'out_of_stock'] %} is-active{% endif %}"
+            >
+              <span>Sales</span>
+              <span class="site-menu-caret" aria-hidden="true">&#9662;</span>
+            </summary>
+            <div class="site-submenu" role="group" aria-label="Sales navigation">
+              <a
+                href="/sales"
+                class="site-submenu-link{% if active_tab == 'sales' %} is-active{% endif %}"
+                {% if active_tab == "sales" %}aria-current="page"{% endif %}
+              >Sales Activity</a>
+              <a
+                href="/out-of-stock-items"
+                class="site-submenu-link{% if active_tab == 'out_of_stock' %} is-active{% endif %}"
+                {% if active_tab == "out_of_stock" %}aria-current="page"{% endif %}
+              >Out of Stock Items</a>
+            </div>
+          </details>
           <a
             href="/bigquery-sync"
             class="site-tab{% if active_tab == 'bigquery_sync' %} is-active{% endif %}"
@@ -50,7 +65,7 @@
         </nav>
       </div>
     </header>
-    <main class="page-shell{% if active_tab == 'recipes' %} page-shell--wide{% endif %}">
+    <main class="page-shell{% if active_tab in ['recipes', 'out_of_stock'] %} page-shell--wide{% endif %}">
       {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

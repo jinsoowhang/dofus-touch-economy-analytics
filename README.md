@@ -81,7 +81,8 @@ name/category identity, or enriches a sole uncategorized manual item without cha
 its UUID or price history.
 
 The top navigation contains **Item**, **Sales**, and **BigQuery Sync**. Hovering over
-or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator** submenu.
+or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator**
+submenu. **Sales** opens **Sales Activity** and **Out of Stock Items**.
 The item page lists the full catalog in 100-row alphabetical pages beneath the search
 field, including category, latest unit price, observed lot, and observation time.
 Typing filters the table by item name. Clicking any row opens item detail, where a new
@@ -102,6 +103,8 @@ Ingredient rows show calendar days since the current price observation and class
 it as **Missing price**, **Current price**, or **Stale price** at seven days old.
 
 The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
+Items remain in its browser-local cart until removed, while row checkboxes, **Select
+all**, and **Select none** control which cart items are included in the next calculation.
 It combines shared ingredients into one shopping list with total quantities, current
 unit prices, extended costs, price coverage, and complete or known-cost totals.
 Resolved ingredient unit prices are editable directly in the shopping list; Enter or
@@ -124,6 +127,9 @@ category, status, price, profit, or Pacific activity date while preserving the
 filters through sorting and row actions. Each item-detail page shows how many of that
 item are actively listed and how many have been sold through the application; the
 count cards link to the corresponding filtered Sales table.
+**Out of Stock Items** lists each item with completed Sales history but no active
+listing, together with its latest sale, current price, recipe cost, estimated profit,
+and an Add-to-Calculator action when a recipe is available.
 
 ## Publish analytics updates
 

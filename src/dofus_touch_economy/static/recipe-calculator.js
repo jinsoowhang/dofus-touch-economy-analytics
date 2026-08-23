@@ -5,10 +5,13 @@ const calculatorChoiceData = document.querySelector("#calculator-choice-data");
 const calculatorSearchResults = document.querySelector("#calculator-search-results");
 const calculatorSelectedItems = document.querySelector("#calculator-selected-items");
 const calculatorEmptySelection = document.querySelector("#calculator-empty-selection");
-const calculatorClearSelection = document.querySelector("#calculator-clear-selection");
+const calculatorSelectAll = document.querySelector("#calculator-select-all");
+const calculatorSelectNone = document.querySelector("#calculator-select-none");
+const calculatorRemoveAll = document.querySelector("#calculator-remove-all");
 const calculatorSelectedCount = document.querySelector("#calculator-selected-count");
 const calculatorForm = document.querySelector("#recipe-calculator-form");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
+const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
 
 if (
   calculatorSearch &&
@@ -16,7 +19,9 @@ if (
   calculatorSearchResults &&
   calculatorSelectedItems &&
   calculatorEmptySelection &&
-  calculatorClearSelection &&
+  calculatorSelectAll &&
+  calculatorSelectNone &&
+  calculatorRemoveAll &&
   calculatorSelectedCount &&
   calculatorForm
 ) {
@@ -26,11 +31,46 @@ if (
   const readCart = () => {
     try {
       const parsed = JSON.parse(window.localStorage.getItem(recipeCartStorageKey) || "{}");
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {};
+      }
+      return Object.fromEntries(
+        Object.entries(parsed).filter(
+          ([itemUuid, quantity]) =>
+            choicesByUuid.has(itemUuid) &&
+            Number.isInteger(quantity) &&
+            quantity >= 1 &&
+            quantity <= 1000,
+        ),
+      );
     } catch {
       return {};
     }
   };
+
+  const storedCart = readCart();
+
+  const readSelection = () => {
+    try {
+      const stored = window.localStorage.getItem(recipeSelectionStorageKey);
+      if (stored === null) {
+        return new Set(Object.keys(storedCart));
+      }
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        return new Set(Object.keys(storedCart));
+      }
+      return new Set(
+        parsed.filter(
+          (itemUuid) => typeof itemUuid === "string" && Object.hasOwn(storedCart, itemUuid),
+        ),
+      );
+    } catch {
+      return new Set(Object.keys(storedCart));
+    }
+  };
+
+  const storedSelection = readSelection();
 
   const persistCart = () => {
     const cart = {};
@@ -47,10 +87,28 @@ if (
     }
   };
 
+  const persistSelection = () => {
+    const selectedItemUuids = Array.from(
+      calculatorSelectedItems.querySelectorAll(".calculator-item-checkbox:checked"),
+      (checkbox) => checkbox.value,
+    );
+    try {
+      window.localStorage.setItem(
+        recipeSelectionStorageKey,
+        JSON.stringify(selectedItemUuids),
+      );
+    } catch {
+      // The checked controls remain authoritative for the current browser request.
+    }
+  };
+
   const updateSelectedCount = () => {
-    const count = calculatorSelectedItems.children.length;
-    calculatorSelectedCount.textContent = `${count} selected`;
-    calculatorEmptySelection.hidden = count > 0;
+    const cartCount = calculatorSelectedItems.children.length;
+    const selectedCount = calculatorSelectedItems.querySelectorAll(
+      ".calculator-item-checkbox:checked",
+    ).length;
+    calculatorSelectedCount.textContent = `${selectedCount} selected · ${cartCount} in cart`;
+    calculatorEmptySelection.hidden = cartCount > 0;
   };
 
   const createCell = (text, className = "") => {
@@ -60,19 +118,26 @@ if (
     return cell;
   };
 
-  const addChoice = (choice, craftQuantity = 1) => {
+  const addChoice = (choice, craftQuantity = 1, isSelected = true, shouldPersist = true) => {
     if (calculatorSelectedItems.querySelector(`[data-item-uuid="${choice.item_uuid}"]`)) {
       return;
     }
 
     const row = document.createElement("tr");
     row.dataset.itemUuid = choice.item_uuid;
+    row.classList.toggle("is-unselected", !isSelected);
+    const selectionCell = document.createElement("td");
+    selectionCell.className = "selection-column";
+    const selection = document.createElement("input");
+    selection.className = "calculator-item-checkbox";
+    selection.type = "checkbox";
+    selection.name = "selected_item_uuid";
+    selection.value = choice.item_uuid;
+    selection.checked = isSelected;
+    selection.setAttribute("aria-label", `Include ${choice.display_name} in calculation`);
+    selectionCell.append(selection);
+    row.append(selectionCell);
     const itemCell = document.createElement("td");
-    const hiddenItem = document.createElement("input");
-    hiddenItem.type = "hidden";
-    hiddenItem.name = "selected_item_uuid";
-    hiddenItem.value = choice.item_uuid;
-    itemCell.append(hiddenItem);
     const itemLabel = document.createElement("span");
     itemLabel.className = "item-label";
     if (choice.icon_url) {
@@ -110,6 +175,7 @@ if (
     quantity.max = "1000";
     quantity.value = String(craftQuantity);
     quantity.required = true;
+    quantity.disabled = !isSelected;
     quantityCell.append(quantityLabel, quantity);
     row.append(quantityCell);
 
@@ -123,7 +189,10 @@ if (
     row.append(actionCell);
     calculatorSelectedItems.append(row);
     updateSelectedCount();
-    persistCart();
+    if (shouldPersist) {
+      persistCart();
+      persistSelection();
+    }
   };
 
   const renderSearchResults = () => {
@@ -153,11 +222,11 @@ if (
       button.type = "button";
       button.className = "calculator-search-result";
       button.dataset.itemUuid = choice.item_uuid;
-      const isSelected = calculatorSelectedItems.querySelector(
+      const isInCart = calculatorSelectedItems.querySelector(
         `[data-item-uuid="${choice.item_uuid}"]`,
       );
-      button.disabled = Boolean(isSelected);
-      button.textContent = `${choice.display_name} — ${choice.profession} — ${choice.category || "Uncategorized"}${isSelected ? " — Selected" : ""}`;
+      button.disabled = Boolean(isInCart);
+      button.textContent = `${choice.display_name} — ${choice.profession} — ${choice.category || "Uncategorized"}${isInCart ? " — In cart" : ""}`;
       calculatorSearchResults.append(button);
     }
   };
@@ -184,6 +253,7 @@ if (
     button.closest("tr").remove();
     updateSelectedCount();
     persistCart();
+    persistSelection();
     renderSearchResults();
   });
 
@@ -193,30 +263,62 @@ if (
     }
   });
 
-  calculatorClearSelection.addEventListener("click", () => {
+  calculatorSelectedItems.addEventListener("change", (event) => {
+    if (!event.target.matches(".calculator-item-checkbox")) {
+      return;
+    }
+    const row = event.target.closest("tr");
+    const quantity = row.querySelector(".calculator-quantity");
+    row.classList.toggle("is-unselected", !event.target.checked);
+    quantity.disabled = !event.target.checked;
+    updateSelectedCount();
+    persistSelection();
+  });
+
+  const setAllSelected = (isSelected) => {
+    for (const checkbox of calculatorSelectedItems.querySelectorAll(
+      ".calculator-item-checkbox",
+    )) {
+      checkbox.checked = isSelected;
+      checkbox.closest("tr").classList.toggle("is-unselected", !isSelected);
+      checkbox.closest("tr").querySelector(".calculator-quantity").disabled = !isSelected;
+    }
+    updateSelectedCount();
+    persistSelection();
+  };
+
+  calculatorSelectAll.addEventListener("click", () => setAllSelected(true));
+  calculatorSelectNone.addEventListener("click", () => setAllSelected(false));
+
+  calculatorRemoveAll.addEventListener("click", () => {
     calculatorSelectedItems.replaceChildren();
     updateSelectedCount();
     persistCart();
+    persistSelection();
     renderSearchResults();
   });
 
-  if (calculatorSelectedItems.children.length > 0) {
-    persistCart();
-  } else {
-    for (const [itemUuid, quantity] of Object.entries(readCart())) {
-      const choice = choicesByUuid.get(itemUuid);
-      const parsedQuantity = Number(quantity);
-      if (
-        choice &&
-        Number.isInteger(parsedQuantity) &&
-        parsedQuantity >= 1 &&
-        parsedQuantity <= 1000
-      ) {
-        addChoice(choice, parsedQuantity);
-      }
+  for (const row of calculatorSelectedItems.querySelectorAll("[data-item-uuid]")) {
+    const quantity = Number(row.querySelector(".calculator-quantity")?.value);
+    if (Number.isInteger(quantity) && quantity >= 1 && quantity <= 1000) {
+      storedCart[row.dataset.itemUuid] = quantity;
+      storedSelection.add(row.dataset.itemUuid);
     }
   }
+  for (const [itemUuid, quantity] of Object.entries(storedCart)) {
+    const choice = choicesByUuid.get(itemUuid);
+    if (choice && !calculatorSelectedItems.querySelector(`[data-item-uuid="${itemUuid}"]`)) {
+      addChoice(choice, quantity, storedSelection.has(itemUuid), false);
+    }
+  }
+  persistCart();
+  persistSelection();
   updateSelectedCount();
+
+  calculatorForm.addEventListener("submit", () => {
+    persistCart();
+    persistSelection();
+  });
 
   for (const form of document.querySelectorAll(".calculator-ingredient-price-form")) {
     const input = form.querySelector('input[name="unit_price"]');

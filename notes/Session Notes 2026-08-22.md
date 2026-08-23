@@ -479,3 +479,34 @@ after reviewing development lineage and costs.
   absence of Sales listings.
 - The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 214 Python
   tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.
+
+## Out-of-Stock Restocking and Calculator Selection
+
+### Work Completed
+
+- Converted Sales into the same accessible submenu pattern as Item, with Sales
+  Activity and the new Out of Stock Items destination.
+- Defined out of stock as an item with at least one completed listing and no active
+  listing. The grouped projection uses the latest sold row and shows sold count,
+  Pacific last-sold date, last sale price, current price, current recipe cost, and
+  profit at the last sale price.
+- Added Recipe Calculator controls to craftable out-of-stock rows and extracted the
+  reusable browser-local cart behavior from the Recipes-only script.
+- Separated Recipe Calculator cart membership from calculation selection with a
+  second local-storage key, per-row checkboxes, Select all, Select none, and Remove
+  all controls.
+- Kept unchecked items and quantities in the cart across subset calculations while
+  submitting only checked item UUIDs to the existing server-side calculator.
+- Disabled unchecked quantity fields, restored non-submitted cart rows after result
+  rendering, and retained the existing 100-item server validation boundary.
+- Updated README, architecture, and durable project memory for both workflows.
+
+### Verification
+
+- Focused Sales and web tests passed for completed-sales eligibility, active-listing
+  exclusion, latest sale/current economics, Sales navigation, calculator actions,
+  row checkboxes, subset calculation, and selection-state restoration code paths.
+- JavaScript syntax checks passed for the shared cart, Recipes, and Recipe Calculator
+  scripts.
+- The complete `./scripts/check.sh` sequence passed: Ruff, formatting, 216 Python
+  tests, compilation, dbt debug and parse, SQLFluff, and public-file policy.

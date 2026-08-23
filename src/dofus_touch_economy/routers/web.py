@@ -1257,6 +1257,25 @@ def sales_page(
     return templates.TemplateResponse(request, "sales.html", context=context)
 
 
+@router.get("/out-of-stock-items", response_class=HTMLResponse)
+def out_of_stock_items_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "out_of_stock_items.html",
+        context={
+            "active_tab": "out_of_stock",
+            "out_of_stock_items": SalesService(
+                session,
+                settings.market_context,
+            ).out_of_stock(),
+        },
+    )
+
+
 @router.post("/sales", response_class=HTMLResponse, response_model=None)
 async def start_sale(
     request: Request,

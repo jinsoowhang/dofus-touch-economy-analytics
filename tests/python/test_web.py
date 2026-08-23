@@ -7,9 +7,10 @@ from sqlalchemy import select
 from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item, Recipe, SaleListing
-from dofus_touch_economy.schemas import PriceObservationCreate
+from dofus_touch_economy.schemas import PriceObservationCreate, SaleListingCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
+from dofus_touch_economy.services.sales import SalesService
 
 DEFAULT_SALES_QUERY = "active_sort=started&active_direction=desc&sold_sort=sold&sold_direction=desc"
 
@@ -69,9 +70,11 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     response = client.get("/sales")
 
     assert response.status_code == 200
-    assert ">Sales</a>" in response.text
+    assert "<span>Sales</span>" in response.text
     assert 'class="site-tab is-active"' in response.text
     assert 'aria-current="page"' in response.text
+    assert ">Sales Activity</a>" in response.text
+    assert ">Out of Stock Items</a>" in response.text
     assert "Currently Selling" in response.text
     assert "Sold History" in response.text
     assert "Alpha Item — Hat" in response.text
@@ -873,8 +876,52 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert 'document.querySelectorAll(".recipe-current-price-form")' in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert "window.sessionStorage.setItem(recipeScrollStorageKey" in script.text
-    assert 'const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1"' in script.text
-    assert 'form.action = "/recipe-calculator"' in script.text
+    cart_script = client.get("/static/recipe-cart.js")
+    assert cart_script.status_code == 200
+    assert 'const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1"' in cart_script.text
+    assert 'const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1"' in (
+        cart_script.text
+    )
+    assert 'form.action = "/recipe-calculator"' in cart_script.text
+    assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+
+
+def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        widget = session.scalar(select(Item).where(Item.normalized_name == "synthetic widget"))
+        ore = session.scalar(select(Item).where(Item.normalized_name == "synthetic ore"))
+        assert widget is not None
+        assert ore is not None
+        widget_uuid = widget.uuid
+        service = SalesService(session, "Dodge")
+        widget_listing = service.start(SaleListingCreate(item_uuid=widget.uuid, asking_price=4_000))
+        service.mark_sold(widget_listing.uuid)
+        service.start(SaleListingCreate(item_uuid=ore.uuid, asking_price=1_000))
+
+    response = client.get("/out-of-stock-items")
+    cart_script = client.get("/static/recipe-cart.js")
+
+    assert response.status_code == 200
+    assert "Out of Stock Items" in response.text
+    assert 'aria-label="Sales navigation"' in response.text
+    assert 'class="site-submenu-link is-active"' in response.text
+    assert "Synthetic Widget" in response.text
+    assert "Synthetic Ore" not in response.text
+    assert "3,500" in response.text
+    assert "500" in response.text
+    assert f'data-item-uuid="{widget_uuid}"' in response.text
+    assert 'class="recipe-cart-add secondary-button"' in response.text
+    assert 'id="recipe-open-calculator"' in response.text
+    assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+    assert cart_script.status_code == 200
 
 
 def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
@@ -991,13 +1038,26 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Recipe Calculator" in page.text
     assert 'class="site-submenu-link is-active"' in page.text
     assert 'id="calculator-choice-data"' in page.text
+    assert 'id="calculator-select-all"' in page.text
+    assert 'id="calculator-select-none"' in page.text
+    assert 'id="calculator-remove-all"' in page.text
+    assert "Calculate Selected" in page.text
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
     assert script.status_code == 200
     assert 'calculatorSearch.addEventListener("input"' in script.text
-    assert "const addChoice = (choice, craftQuantity = 1)" in script.text
+    assert (
+        "const addChoice = (choice, craftQuantity = 1, isSelected = true, "
+        "shouldPersist = true)" in script.text
+    )
     assert "calculatorSelectedItems.append(row)" in script.text
     assert "window.localStorage.setItem(recipeCartStorageKey" in script.text
+    assert 'const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1"' in (
+        script.text
+    )
+    assert 'calculatorSelectAll.addEventListener("click"' in script.text
+    assert 'calculatorSelectNone.addEventListener("click"' in script.text
+    assert "storedSelection.has(itemUuid)" in script.text
     assert 'document.querySelectorAll(".calculator-ingredient-price-form")' in script.text
     assert "await fetch(form.action" in script.text
     assert "calculatorForm.requestSubmit()" in script.text
@@ -1022,12 +1082,27 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Alpha Sword, Beta Ring" in response.text
     assert "5" in response.text
     assert 'id="recipe-calculator-form"' in response.text
+    assert response.text.count('class="calculator-item-checkbox"') == 2
+    assert response.text.count('name="selected_item_uuid"') == 2
+    assert 'aria-label="Include Alpha Sword in calculation"' in response.text
     assert (
         f'action="/recipe-calculator/ingredients/{items["synthetic wood"].uuid}/price"'
         in response.text
     )
     assert 'class="price-edit-form calculator-ingredient-price-form"' in response.text
     assert 'name="unit_price"' in response.text
+
+    subset = client.post(
+        "/recipe-calculator",
+        data={
+            "selected_item_uuid": str(items["alpha sword"].uuid),
+            f"quantity_{items['alpha sword'].uuid}": "2",
+        },
+    )
+
+    assert subset.status_code == 200
+    assert re.search(r"Total Quantity</th>.*?>4</td>", subset.text, re.DOTALL)
+    assert "<strong>40</strong>" in subset.text
 
     invalid_update = client.post(
         f"/recipe-calculator/ingredients/{items['synthetic wood'].uuid}/price",
