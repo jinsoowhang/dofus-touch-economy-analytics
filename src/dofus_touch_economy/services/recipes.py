@@ -92,6 +92,7 @@ class RecipeCalculatorChoice:
     icon_url: str | None
     profession: str
     profession_level: int | None
+    sale_price: int | None
 
 
 @dataclass(frozen=True)
@@ -277,6 +278,10 @@ class RecipeCalculatorService:
         self._as_of = as_of or datetime.now(UTC)
 
     def choices(self) -> list[RecipeCalculatorChoice]:
+        recipes = _latest_recipe_catalog(self._session)
+        current_prices = self._prices.current_for_items(
+            [recipe.crafted_item_id for recipe in recipes]
+        )
         return sorted(
             (
                 RecipeCalculatorChoice(
@@ -290,8 +295,17 @@ class RecipeCalculatorService:
                     ),
                     profession=recipe.profession,
                     profession_level=required_profession_level(len(recipe.ingredients)),
+                    sale_price=(
+                        None
+                        if (
+                            (current_price := current_prices.get(recipe.crafted_item_id)) is None
+                            or current_price.unit_price
+                            != current_price.unit_price.to_integral_value()
+                        )
+                        else int(current_price.unit_price)
+                    ),
                 )
-                for recipe in _latest_recipe_catalog(self._session)
+                for recipe in recipes
             ),
             key=lambda choice: choice.display_name.casefold(),
         )

@@ -622,6 +622,37 @@ after reviewing development lineage and costs.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 225 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
 
+## Recipe Calculator to Sales
+
+### Work Completed
+
+- Added an independent Sell checkbox beside Calculate for every Select Craftable
+  Items row, an editable Sale Price, a selected-to-sell count, and one Add Checked to
+  Sales action.
+- Prefilled Sale Price from the crafted item's current unit price when it is a whole
+  number; missing or fractional current prices remain blank for explicit entry.
+- Kept Craft Quantity scoped to ingredient calculation. Each checked Sell row creates
+  exactly one active listing so Recipe Calculator does not silently reinterpret that
+  planning value as marketplace inventory.
+- Added one atomic Sales service operation that resolves every selected item before
+  writing, then creates one linked append-only price observation and active listing
+  per item at a shared start time. Any missing item or invalid form row creates none
+  of the batch.
+- Redirected successful batches to Currently Selling with a count notification and
+  preserved Calculate and Sell selections when validation redisplays the calculator.
+- Expanded the selected-items table to fit the two added controls and documented the
+  explicit calculator-to-Sales mutation boundary.
+
+### Verification
+
+- JavaScript syntax validation passed.
+- All 104 affected recipe, Sales, web, and static-asset tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 226 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+- A read-only render against the ignored canonical catalog returned HTTP 200 with all
+  new controls present in about 0.62 seconds; no listings were created by the smoke
+  check.
+
 ## Combined Shopping List Price Age
 
 ### Work Completed

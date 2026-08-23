@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from sqlalchemy import select
 
-from dofus_touch_economy.models import Item, SaleListing
+from dofus_touch_economy.models import Item, PriceObservation, SaleListing
 from dofus_touch_economy.schemas import (
     PriceObservationCreate,
     SaleListingCreate,
@@ -134,6 +134,43 @@ def test_sales_reject_unknown_items_and_invalid_transitions(session) -> None:
         service.start(SaleListingCreate(item_uuid=uuid4(), asking_price=100))
     with pytest.raises(SaleListingNotFound):
         service.mark_sold(uuid4())
+
+
+def test_start_many_adds_one_atomic_listing_and_price_per_item(session, catalog_item) -> None:
+    second_item = Item(
+        display_name="Synthetic Ring",
+        normalized_name="synthetic ring",
+        category="Ring",
+        identity_category="ring",
+    )
+    session.add(second_item)
+    session.commit()
+    service = SalesService(session, "Dodge")
+
+    listings = service.start_many(
+        [
+            SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=1_000),
+            SaleListingCreate(item_uuid=second_item.uuid, asking_price=2_000),
+        ]
+    )
+
+    assert [(listing.display_name, listing.asking_price) for listing in listings] == [
+        ("Synthetic Ore", 1_000),
+        ("Synthetic Ring", 2_000),
+    ]
+    assert len({listing.selling_started_at for listing in listings}) == 1
+    assert len(service.active()) == 2
+    assert len(session.scalars(select(PriceObservation)).all()) == 2
+
+    with pytest.raises(SaleItemNotFound):
+        service.start_many(
+            [
+                SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=3_000),
+                SaleListingCreate(item_uuid=uuid4(), asking_price=4_000),
+            ]
+        )
+    assert len(service.active()) == 2
+    assert len(session.scalars(select(PriceObservation)).all()) == 2
 
 
 def test_sale_cannot_be_marked_sold_twice(session, catalog_item) -> None:

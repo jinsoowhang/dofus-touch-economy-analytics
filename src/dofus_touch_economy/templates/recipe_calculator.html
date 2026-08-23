@@ -32,8 +32,9 @@
         <button type="button" id="calculator-select-none" class="secondary-button">Select none</button>
         <button type="button" id="calculator-remove-all" class="secondary-button">Remove all</button>
         <span id="calculator-selected-count" aria-live="polite">
-          {{ selected_quantities | length }} selected
+          {{ calculation_item_uuids | length }} selected
         </span>
+        <span id="calculator-sale-count" aria-live="polite">{{ sale_item_uuids | length }} to sell</span>
       </div>
       <script id="calculator-choice-data" type="application/json">{{ choice_data | tojson }}</script>
       <div class="calculator-selected-list">
@@ -41,18 +42,23 @@
           <thead>
             <tr>
               <th scope="col" class="selection-column" data-sort-disabled>Calculate</th>
+              <th scope="col" class="selection-column" data-sort-disabled>Sell</th>
               <th scope="col" data-sort-type="text">Item</th>
               <th scope="col" data-sort-type="text">Category</th>
               <th scope="col" data-sort-type="text">Profession</th>
               <th scope="col" class="numeric" data-sort-type="number">Level</th>
               <th scope="col" class="numeric" data-sort-type="number">Craft Quantity</th>
+              <th scope="col" class="numeric" data-sort-type="number">Sale Price</th>
               <th scope="col" data-sort-disabled>Action</th>
             </tr>
           </thead>
           <tbody id="calculator-selected-items">
             {% for choice in selected_choices %}
               {% set selected_quantity = selected_quantities[choice.item_uuid] %}
-              <tr data-item-uuid="{{ choice.item_uuid }}">
+              {% set calculation_selected = choice.item_uuid in calculation_item_uuids %}
+              {% set sale_selected = choice.item_uuid in sale_item_uuids %}
+              {% set entered_sale_price = sale_prices.get(choice.item_uuid) %}
+              <tr data-item-uuid="{{ choice.item_uuid }}" {% if not calculation_selected and not sale_selected %}class="is-unselected"{% endif %}>
                 <td class="selection-column">
                   <input
                     class="calculator-item-checkbox"
@@ -60,7 +66,17 @@
                     name="selected_item_uuid"
                     value="{{ choice.item_uuid }}"
                     aria-label="Include {{ choice.display_name }} in calculation"
-                    checked
+                    {% if calculation_selected %}checked{% endif %}
+                  >
+                </td>
+                <td class="selection-column">
+                  <input
+                    class="calculator-sale-checkbox"
+                    type="checkbox"
+                    name="sale_item_uuid"
+                    value="{{ choice.item_uuid }}"
+                    aria-label="Add {{ choice.display_name }} to Currently Selling"
+                    {% if sale_selected %}checked{% endif %}
                   >
                 </td>
                 <td>
@@ -84,6 +100,18 @@
                     max="1000"
                     value="{{ selected_quantity }}"
                     required
+                    {% if not calculation_selected and not sale_selected %}disabled{% endif %}
+                  >
+                </td>
+                <td class="numeric">
+                  <label class="visually-hidden" for="calculator-sale-price-{{ choice.item_uuid }}">Sale price for {{ choice.display_name }}</label>
+                  <input
+                    id="calculator-sale-price-{{ choice.item_uuid }}"
+                    class="calculator-sale-price"
+                    name="sale_price_{{ choice.item_uuid }}"
+                    inputmode="numeric"
+                    value="{{ entered_sale_price if entered_sale_price is not none else ('{:,}'.format(choice.sale_price) if choice.sale_price is not none else '') }}"
+                    placeholder="—"
                   >
                 </td>
                 <td><button type="button" class="calculator-remove-item secondary-button" aria-label="Remove {{ choice.display_name }}">Remove</button></td>
@@ -93,7 +121,11 @@
         </table>
         <p id="calculator-empty-selection" {% if selected_choices %}hidden{% endif %}>No craftable items in your cart yet.</p>
       </div>
-      <button type="submit">Calculate Selected</button>
+      <p class="calculator-sale-help">Each checked Sell row creates one active listing at its Sale Price. Craft Quantity affects only the ingredient calculation.</p>
+      <div class="calculator-submit-actions">
+        <button type="submit">Calculate Selected</button>
+        <button type="submit" class="secondary-button" formaction="/recipe-calculator/sales">Add Checked to Sales</button>
+      </div>
     </section>
   </form>
 

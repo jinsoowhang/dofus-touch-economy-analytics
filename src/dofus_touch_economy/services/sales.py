@@ -225,25 +225,42 @@ class SalesService:
         ]
 
     def start(self, command: SaleListingCreate) -> SaleListingResponse:
-        item_id = self._session.scalar(select(Item.id).where(Item.uuid == command.item_uuid))
-        if item_id is None:
-            raise SaleItemNotFound(str(command.item_uuid))
+        return self.start_many([command])[0]
+
+    def start_many(self, commands: list[SaleListingCreate]) -> list[SaleListingResponse]:
+        if not commands:
+            return []
+        item_uuids = list(dict.fromkeys(command.item_uuid for command in commands))
+        item_ids = {
+            item_uuid: item_id
+            for item_uuid, item_id in self._session.execute(
+                select(Item.uuid, Item.id).where(Item.uuid.in_(item_uuids))
+            )
+        }
+        missing_item_uuids = [item_uuid for item_uuid in item_uuids if item_uuid not in item_ids]
+        if missing_item_uuids:
+            raise SaleItemNotFound(str(missing_item_uuids[0]))
+
         selling_started_at = datetime.now(UTC)
-        observation = self._new_price_observation(
-            item_id,
-            command.asking_price,
-            selling_started_at,
-        )
-        listing = SaleListing(
-            item_id=item_id,
-            price_observation_id=observation.id,
-            lot_quantity=1,
-            asking_price=command.asking_price,
-            selling_started_at=selling_started_at,
-        )
-        self._session.add(listing)
+        listings: list[SaleListing] = []
+        for command in commands:
+            item_id = item_ids[command.item_uuid]
+            observation = self._new_price_observation(
+                item_id,
+                command.asking_price,
+                selling_started_at,
+            )
+            listing = SaleListing(
+                item_id=item_id,
+                price_observation_id=observation.id,
+                lot_quantity=1,
+                asking_price=command.asking_price,
+                selling_started_at=selling_started_at,
+            )
+            self._session.add(listing)
+            listings.append(listing)
         self._session.commit()
-        return self._responses([self._sales.get_by_uuid(listing.uuid) or listing])[0]
+        return self._responses(listings)
 
     def duplicate(self, listing_uuid: UUID) -> SaleListingResponse:
         original = self._sales.get_by_uuid(listing_uuid)

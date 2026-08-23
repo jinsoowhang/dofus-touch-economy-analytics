@@ -197,6 +197,7 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
             "Dodge",
             as_of=datetime(2026, 8, 22, tzinfo=UTC),
         )
+        choices = service.choices()
         result = service.calculate(
             {
                 items["alpha"].uuid: 2,
@@ -204,6 +205,11 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
             }
         )
 
+    assert {choice.display_name: choice.sale_price for choice in choices} == {
+        "Alpha Sword": 100,
+        "Beta Ring": 30,
+        "Gamma Hat": None,
+    }
     assert [item.display_name for item in result.selected_items] == [
         "Alpha Sword",
         "Beta Ring",

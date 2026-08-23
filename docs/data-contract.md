@@ -88,6 +88,13 @@ Unit price is derived with decimal arithmetic as `total_price / lot_quantity`. T
 
 Invalidated observations remain in history but never participate in current-price or crafting calculations. An observation is invalidated once with a reason; direct edits and hard deletion are not application operations.
 
+Recipe Calculator Sales submission is an explicit operational mutation. Each unique
+checked craftable item requires a positive whole-kama Sale Price and creates exactly
+one active `sale_listings` row plus its linked quantity-one price observation. Craft
+Quantity remains a recipe-planning value and does not determine listing count. The
+batch validates every row before writing and commits atomically; any invalid price,
+identifier, or stale recipe prevents all listings in that submission.
+
 ## Governed crafting calculations
 
 The website derives the standard minimum profession level from the number of

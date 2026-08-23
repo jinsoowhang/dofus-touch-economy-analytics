@@ -89,8 +89,14 @@ shopping-list row. Each row includes catalog category, official pod weight,
 quantity-adjusted total weight, and current-price freshness. The calculator reports a
 complete total weight only when every ingredient weight is known, and restores the
 previous scroll offset after an inline price edit recalculates the page. Unresolved
-identities and missing prices remain explicit, and the calculator never writes
-recipes or Sales listings.
+identities and missing prices remain explicit.
+
+An independent Sell checkbox and editable whole-kama Sale Price appear beside each
+cart row. The explicit bulk action validates that every checked item still has a
+current recipe, then atomically creates one active Sales listing and one append-only
+price observation per checked row before redirecting to Currently Selling. Craft
+Quantity remains calculation-only and never multiplies listings. Invalid input writes
+none of the batch; the calculator still never mutates recipe definitions.
 
 Out of Stock Items is a grouped Sales projection: an item qualifies when it has at
 least one completed listing and zero active listings. It uses the most recent sold

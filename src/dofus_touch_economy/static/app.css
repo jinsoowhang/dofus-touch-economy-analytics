@@ -1087,6 +1087,10 @@ th.numeric .client-sort-header {
   width: 100%;
 }
 
+.calculator-selected-table {
+  min-width: 72rem;
+}
+
 .calculator-shopping-list-table {
   min-width: 78rem;
 }
@@ -1112,7 +1116,8 @@ th.numeric .client-sort-header {
   width: 1%;
 }
 
-.calculator-item-checkbox {
+.calculator-item-checkbox,
+.calculator-sale-checkbox {
   height: 1.1rem;
   margin: 0;
   width: 1.1rem;
@@ -1125,6 +1130,23 @@ th.numeric .client-sort-header {
 .calculator-quantity {
   min-width: 5rem;
   width: 5rem;
+}
+
+.calculator-sale-price {
+  min-width: 7rem;
+  text-align: right;
+  width: 7rem;
+}
+
+.calculator-sale-help {
+  color: var(--muted);
+  margin-block: 0 0.75rem;
+}
+
+.calculator-submit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .calculator-summary {

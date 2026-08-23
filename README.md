@@ -131,6 +131,11 @@ Resolved ingredient unit prices are editable directly in the shopping list; Ente
 leaving the field appends a price observation, restores the previous scroll position,
 and recalculates every affected total.
 Missing prices and unresolved ingredients remain explicit rather than becoming zero.
+Each cart row also has an independent **Sell** checkbox and editable **Sale Price**.
+**Add Checked to Sales** atomically creates one active listing per checked row and
+then opens Currently Selling; Craft Quantity remains an ingredient-calculation input
+and does not multiply Sales listings. A missing or invalid sale price prevents the
+entire batch from being created.
 
 Every data-bearing table supports sorting by its displayed data columns. Selection,
 calculator, and mutation-only Action columns are intentionally excluded from sorting.

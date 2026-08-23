@@ -41,6 +41,7 @@ from dofus_touch_economy.services.pricing import (
     PriceService,
 )
 from dofus_touch_economy.services.recipes import (
+    RecipeCalculatorChoice,
     RecipeCalculatorSelectionError,
     RecipeCalculatorService,
     RecipeCatalogFilters,
@@ -895,13 +896,20 @@ def _recipe_page_context(
 def _recipe_calculator_context(
     service: RecipeCalculatorService,
     *,
+    choices: list[RecipeCalculatorChoice] | None = None,
     selected_quantities: dict[UUID, int] | None = None,
+    calculation_item_uuids: set[UUID] | None = None,
+    sale_item_uuids: set[UUID] | None = None,
+    sale_prices: dict[UUID, str] | None = None,
     result=None,
     errors: list[str] | None = None,
     notification: str | None = None,
 ) -> dict[str, object]:
-    choices = service.choices()
+    available_choices = choices if choices is not None else service.choices()
     quantities = selected_quantities or {}
+    calculation_uuids = (
+        set(quantities) if calculation_item_uuids is None else calculation_item_uuids
+    )
     return {
         "active_tab": "recipe_calculator",
         "choice_data": [
@@ -912,11 +920,17 @@ def _recipe_calculator_context(
                 "icon_url": choice.icon_url,
                 "profession": choice.profession,
                 "profession_level": choice.profession_level,
+                "sale_price": choice.sale_price,
             }
-            for choice in choices
+            for choice in available_choices
         ],
-        "selected_choices": [choice for choice in choices if choice.item_uuid in quantities],
+        "selected_choices": [
+            choice for choice in available_choices if choice.item_uuid in quantities
+        ],
         "selected_quantities": quantities,
+        "calculation_item_uuids": calculation_uuids,
+        "sale_item_uuids": sale_item_uuids or set(),
+        "sale_prices": sale_prices or {},
         "result": result,
         "errors": errors or [],
         "notification": notification,
@@ -954,6 +968,83 @@ def _parse_recipe_calculator_selections(form) -> tuple[dict[UUID, int], list[str
             continue
         selections[item_uuid] = quantity
     return selections, errors
+
+
+def _recipe_calculator_sale_state(form) -> tuple[set[UUID], dict[UUID, str]]:
+    item_uuids: set[UUID] = set()
+    prices: dict[UUID, str] = {}
+    for raw_item_uuid in form.getlist("sale_item_uuid"):
+        if not isinstance(raw_item_uuid, str):
+            continue
+        try:
+            item_uuid = UUID(raw_item_uuid)
+        except ValueError:
+            continue
+        item_uuids.add(item_uuid)
+        raw_price = form.get(f"sale_price_{item_uuid}", "")
+        prices[item_uuid] = raw_price if isinstance(raw_price, str) else ""
+    return item_uuids, prices
+
+
+def _recipe_calculator_cart_quantities(
+    form,
+    calculation_quantities: dict[UUID, int],
+    sale_item_uuids: set[UUID],
+) -> dict[UUID, int]:
+    quantities = dict(calculation_quantities)
+    for item_uuid in sale_item_uuids:
+        raw_quantity = form.get(f"quantity_{item_uuid}", "1")
+        try:
+            quantity = int(raw_quantity) if isinstance(raw_quantity, str) else 1
+        except ValueError:
+            quantity = 1
+        quantities.setdefault(item_uuid, quantity if 1 <= quantity <= 1000 else 1)
+    return quantities
+
+
+def _parse_recipe_calculator_sales(
+    form,
+    choices_by_uuid: dict[UUID, RecipeCalculatorChoice],
+) -> tuple[list[SaleListingCreate], set[UUID], dict[UUID, str], list[str]]:
+    raw_item_uuids = form.getlist("sale_item_uuid")
+    selected_item_uuids, sale_prices = _recipe_calculator_sale_state(form)
+    errors: list[str] = []
+    if not raw_item_uuids:
+        return [], selected_item_uuids, sale_prices, ["Select at least one item to sell."]
+    if len(raw_item_uuids) > 100:
+        errors.append("Select no more than 100 items to sell.")
+    if len(selected_item_uuids) != len(raw_item_uuids):
+        errors.append("Each item to sell must have one valid item identifier.")
+
+    ordered_item_uuids: list[UUID] = []
+    for raw_item_uuid in raw_item_uuids:
+        if not isinstance(raw_item_uuid, str):
+            continue
+        try:
+            item_uuid = UUID(raw_item_uuid)
+        except ValueError:
+            continue
+        if item_uuid not in ordered_item_uuids:
+            ordered_item_uuids.append(item_uuid)
+
+    commands: list[SaleListingCreate] = []
+    for item_uuid in ordered_item_uuids:
+        choice = choices_by_uuid.get(item_uuid)
+        if choice is None:
+            errors.append("One or more selected items no longer has a current recipe.")
+            continue
+        try:
+            commands.append(
+                SaleListingCreate.model_validate(
+                    {
+                        "item_uuid": item_uuid,
+                        "asking_price": sale_prices.get(item_uuid, ""),
+                    }
+                )
+            )
+        except ValidationError:
+            errors.append(f"Enter a positive whole-number sale price for {choice.display_name}.")
+    return commands, selected_item_uuids, sale_prices, errors
 
 
 def _form_values(form, fields: tuple[str, ...]) -> dict[str, str]:
@@ -1052,6 +1143,12 @@ async def calculate_recipes(
 ) -> HTMLResponse:
     form = await request.form()
     selections, errors = _parse_recipe_calculator_selections(form)
+    sale_item_uuids, sale_prices = _recipe_calculator_sale_state(form)
+    cart_quantities = _recipe_calculator_cart_quantities(
+        form,
+        selections,
+        sale_item_uuids,
+    )
     service = RecipeCalculatorService(session, settings.market_context)
     result = None
     if not errors:
@@ -1064,7 +1161,10 @@ async def calculate_recipes(
         "recipe_calculator.html",
         context=_recipe_calculator_context(
             service,
-            selected_quantities=selections,
+            selected_quantities=cart_quantities,
+            calculation_item_uuids=set(selections),
+            sale_item_uuids=sale_item_uuids,
+            sale_prices=sale_prices,
             result=result,
             errors=errors,
             notification=(
@@ -1074,6 +1174,71 @@ async def calculate_recipes(
             ),
         ),
         status_code=422 if errors else 200,
+    )
+
+
+@router.post("/recipe-calculator/sales", response_class=HTMLResponse, response_model=None)
+async def start_recipe_calculator_sales(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    recipe_service = RecipeCalculatorService(session, settings.market_context)
+    choices = recipe_service.choices()
+    choices_by_uuid = {choice.item_uuid: choice for choice in choices}
+    commands, sale_item_uuids, sale_prices, errors = _parse_recipe_calculator_sales(
+        form,
+        choices_by_uuid,
+    )
+    if errors:
+        calculation_quantities: dict[UUID, int] = {}
+        if form.getlist("selected_item_uuid"):
+            calculation_quantities, _calculation_errors = _parse_recipe_calculator_selections(form)
+        cart_quantities = _recipe_calculator_cart_quantities(
+            form,
+            calculation_quantities,
+            sale_item_uuids,
+        )
+        result = (
+            recipe_service.calculate(calculation_quantities)
+            if calculation_quantities.keys() <= choices_by_uuid.keys()
+            else None
+        )
+        return templates.TemplateResponse(
+            request,
+            "recipe_calculator.html",
+            context=_recipe_calculator_context(
+                recipe_service,
+                choices=choices,
+                selected_quantities=cart_quantities,
+                calculation_item_uuids=set(calculation_quantities),
+                sale_item_uuids=sale_item_uuids,
+                sale_prices=sale_prices,
+                result=result,
+                errors=errors,
+            ),
+            status_code=422,
+        )
+
+    try:
+        listings = SalesService(session, settings.market_context).start_many(commands)
+    except SaleItemNotFound:
+        return templates.TemplateResponse(
+            request,
+            "recipe_calculator.html",
+            context=_recipe_calculator_context(
+                recipe_service,
+                choices=choices,
+                sale_item_uuids=sale_item_uuids,
+                sale_prices=sale_prices,
+                errors=["One or more selected items could not be found."],
+            ),
+            status_code=404,
+        )
+    return RedirectResponse(
+        url=f"/sales?notice=listings-added&count={len(listings)}#currently-selling",
+        status_code=303,
     )
 
 
@@ -1233,6 +1398,12 @@ def sales_page(
 ) -> HTMLResponse:
     notifications = {
         "listing-added": "Sale listing has been added.",
+        "listings-added": (
+            f"{count} selected {'item has' if count == 1 else 'items have'} "
+            "been added to Currently Selling."
+            if count is not None
+            else "Selected items have been added to Currently Selling."
+        ),
         "listing-duplicated": "Sale listing has been duplicated.",
         "listing-price-updated": "Sale price has been updated.",
         "listing-sold": "Item has been marked as sold.",

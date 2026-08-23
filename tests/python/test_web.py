@@ -1068,9 +1068,13 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'id="calculator-select-all"' in page.text
     assert 'id="calculator-select-none"' in page.text
     assert 'id="calculator-remove-all"' in page.text
+    assert 'id="calculator-sale-count"' in page.text
     assert "0 selected" in page.text
+    assert "0 to sell" in page.text
     assert "in cart" not in page.text
     assert "Calculate Selected" in page.text
+    assert "Add Checked to Sales" in page.text
+    assert "Each checked Sell row creates one active listing" in page.text
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
     assert script.status_code == 200
@@ -1081,6 +1085,9 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     )
     assert "calculatorSelectedItems.append(row)" in script.text
     assert "calculatorSelectedCount.textContent = `${selectedCount} selected`" in script.text
+    assert "calculatorSaleCount.textContent = `${saleCount} to sell`" in script.text
+    assert 'saleSelection.name = "sale_item_uuid"' in script.text
+    assert "updateRowState(row)" in script.text
     assert "in cart" not in script.text
     assert "window.localStorage.setItem(recipeCartStorageKey" in script.text
     assert 'const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1"' in (
@@ -1137,8 +1144,14 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "5" in response.text
     assert 'id="recipe-calculator-form"' in response.text
     assert response.text.count('class="calculator-item-checkbox"') == 2
+    assert response.text.count('class="calculator-sale-checkbox"') == 2
+    assert response.text.count('class="calculator-sale-price"') == 2
     assert response.text.count('name="selected_item_uuid"') == 2
     assert 'aria-label="Include Alpha Sword in calculation"' in response.text
+    assert re.search(
+        r">Calculate</th>\s*<th[^>]*>Sell</th>\s*<th[^>]*>Item</th>",
+        response.text,
+    )
     assert (
         f'action="/recipe-calculator/ingredients/{items["synthetic wood"].uuid}/price"'
         in response.text
@@ -1209,6 +1222,59 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         assert current_price.total_price == 25
         assert history[0].note == "Recipe calculator ingredient price update"
         assert session.scalar(select(SaleListing.id)) is None
+
+    invalid_sales = client.post(
+        "/recipe-calculator/sales",
+        data={
+            "selected_item_uuid": [
+                str(items["alpha sword"].uuid),
+                str(items["beta ring"].uuid),
+            ],
+            "sale_item_uuid": [
+                str(items["alpha sword"].uuid),
+                str(items["beta ring"].uuid),
+            ],
+            f"quantity_{items['alpha sword'].uuid}": "2",
+            f"quantity_{items['beta ring'].uuid}": "3",
+            f"sale_price_{items['alpha sword'].uuid}": "1,200",
+            f"sale_price_{items['beta ring'].uuid}": "",
+        },
+    )
+
+    assert invalid_sales.status_code == 422
+    assert "Enter a positive whole-number sale price for Beta Ring." in invalid_sales.text
+    assert invalid_sales.text.count('class="calculator-sale-checkbox"') == 2
+    assert invalid_sales.text.count("checked") >= 4
+    with session_factory() as session:
+        assert session.scalar(select(SaleListing.id)) is None
+
+    added_sales = client.post(
+        "/recipe-calculator/sales",
+        data={
+            "sale_item_uuid": [
+                str(items["alpha sword"].uuid),
+                str(items["beta ring"].uuid),
+            ],
+            f"quantity_{items['alpha sword'].uuid}": "2",
+            f"quantity_{items['beta ring'].uuid}": "3",
+            f"sale_price_{items['alpha sword'].uuid}": "1,200",
+            f"sale_price_{items['beta ring'].uuid}": "800",
+        },
+        follow_redirects=False,
+    )
+
+    assert added_sales.status_code == 303
+    assert added_sales.headers["location"] == (
+        "/sales?notice=listings-added&count=2#currently-selling"
+    )
+    confirmation = client.get(added_sales.headers["location"])
+    assert "2 selected items have been added to Currently Selling." in confirmation.text
+    with session_factory() as session:
+        listings = session.scalars(select(SaleListing).order_by(SaleListing.asking_price)).all()
+        assert [(listing.item.display_name, listing.asking_price) for listing in listings] == [
+            ("Beta Ring", 800),
+            ("Alpha Sword", 1_200),
+        ]
 
 
 def test_recipe_calculator_requires_a_valid_selection(client) -> None:
