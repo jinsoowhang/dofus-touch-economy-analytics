@@ -183,7 +183,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert '<span aria-hidden="true">✓</span>' in active_page.text
     assert ">Duplicate</button>" not in active_page.text
     assert ">Mark sold</button>" not in active_page.text
-    assert active_page.text.count('class="collapsible-section" open') == 4
+    assert active_page.text.count('class="collapsible-section" open') == 5
     assert '<button type="submit">Update</button>' not in active_page.text
     assert 'data-initial-value="50,000"' in active_page.text
     assert "Press Enter or leave the field to save." in active_page.text
@@ -541,6 +541,131 @@ def test_sales_actions_preserve_both_table_sort_settings(client, catalog_item) -
     assert 'aria-sort="ascending"' in page.text
 
 
+def test_sales_filters_render_matching_status_and_persist_in_links(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    with session_factory() as session:
+        alpha = Item(
+            display_name="Alpha Hat",
+            normalized_name="alpha hat",
+            category="Hat",
+            identity_category="hat",
+        )
+        beta = Item(
+            display_name="Beta Hat",
+            normalized_name="beta hat",
+            category="Hat",
+            identity_category="hat",
+        )
+        session.add_all([alpha, beta])
+        session.flush()
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=alpha.id,
+                    lot_quantity=1,
+                    asking_price=125,
+                    selling_started_at=datetime(2026, 8, 22, 6, 30, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=beta.id,
+                    lot_quantity=1,
+                    asking_price=250,
+                    selling_started_at=datetime(2026, 8, 22, 7, 30, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=500,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    parameters = {
+        "item_query": "alpha",
+        "category": "hat",
+        "status": "active",
+        "min_price": "100",
+        "max_price": "200",
+        "date_from": "2026-08-21",
+        "date_to": "2026-08-21",
+    }
+    response = client.get("/sales", params=parameters)
+
+    assert response.status_code == 200
+    assert "Filters applied" in response.text
+    assert 'name="item_query" value="alpha"' in response.text
+    assert '<option value="hat" selected>Hat</option>' in response.text
+    assert '<option value="active" selected>Currently Selling</option>' in response.text
+    assert 'name="min_price" inputmode="numeric" value="100"' in response.text
+    assert 'name="date_from" type="date" value="2026-08-21"' in response.text
+    assert '<details id="sold-history"' not in response.text
+    active_section = response.text.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
+    assert "Alpha Hat" in active_section
+    assert "Beta Hat" not in active_section
+    assert catalog_item.display_name not in active_section
+    assert (
+        "item_query=alpha&amp;category=hat&amp;status=active&amp;min_price=100&amp;"
+        "max_price=200&amp;date_from=2026-08-21&amp;date_to=2026-08-21"
+    ) in response.text
+
+
+def test_sales_filters_preserve_values_through_mutation(client, catalog_item) -> None:
+    filter_parameters = {
+        "item_query": "synthetic",
+        "status": "active",
+        "min_price": "100",
+    }
+
+    response = client.post(
+        "/sales",
+        params=filter_parameters,
+        data={"item_uuid": str(catalog_item.uuid), "asking_price": "1000"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        f"/sales?{DEFAULT_SALES_QUERY}&item_query=synthetic&status=active&"
+        "min_price=100&notice=listing-added"
+    )
+
+
+def test_sales_filter_validation_is_inline_and_blank_values_are_allowed(client) -> None:
+    blank = client.get(
+        "/sales",
+        params={
+            "min_price": "",
+            "max_price": "",
+            "min_profit": "",
+            "max_profit": "",
+            "date_from": "",
+            "date_to": "",
+        },
+    )
+    invalid = client.get(
+        "/sales",
+        params={
+            "min_price": "200",
+            "max_price": "100",
+            "min_profit": "not-a-number",
+            "date_from": "2026-08-23",
+            "date_to": "2026-08-22",
+        },
+    )
+
+    assert blank.status_code == 200
+    assert invalid.status_code == 200
+    assert "Minimum price cannot be greater than maximum price." in invalid.text
+    assert "Minimum profit must be a number." in invalid.text
+    assert "From date cannot be after through date." in invalid.text
+
+
 def test_sales_dates_and_daily_chart_use_pacific_time(
     client,
     session_factory,
@@ -654,6 +779,14 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     assert "<span>Total Cost</span><strong>7,000</strong>" in response.text
     assert "<span>Total Profit</span><strong>500</strong>" in response.text
     assert "<span>Cost Coverage</span><strong>2 of 2</strong>" in response.text
+
+    filtered = client.get(
+        "/sales",
+        params={"status": "active", "min_profit": "1000"},
+    )
+    active_section = filtered.text.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
+    assert 'value="5,000"' in active_section
+    assert 'value="4,000"' not in active_section
 
 
 def test_blank_search_lists_catalog_alphabetically(client, session_factory, catalog_item) -> None:
@@ -796,6 +929,13 @@ def test_item_detail_shows_active_and_sold_listing_counts(
     assert 'class="item-sales-counts"' in response.text
     assert "<span>Currently Selling</span><strong>1</strong>" in response.text
     assert "<span>Sold</span><strong>1</strong>" in response.text
+    assert (
+        f'href="/sales?item_uuid={catalog_item.uuid}&amp;status=active#currently-selling"'
+        in response.text
+    )
+    assert (
+        f'href="/sales?item_uuid={catalog_item.uuid}&amp;status=sold#sold-history"' in response.text
+    )
 
 
 def test_catalog_and_static_route_show_cached_item_icon(

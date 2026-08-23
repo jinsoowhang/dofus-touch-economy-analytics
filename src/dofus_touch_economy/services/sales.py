@@ -52,6 +52,20 @@ class DailySalesTotal:
     profit_count: int
 
 
+@dataclass(frozen=True)
+class SaleListingFilters:
+    item_uuid: UUID | None = None
+    item_query: str = ""
+    category: str = ""
+    minimum_price: int | None = None
+    maximum_price: int | None = None
+    minimum_profit: Decimal | None = None
+    maximum_profit: Decimal | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    display_timezone: tzinfo = UTC
+
+
 @dataclass
 class _DailySalesAccumulator:
     total_price: int = 0
@@ -91,16 +105,20 @@ class SalesService:
         self,
         sort_field: SaleSortField = "started",
         sort_direction: SaleSortDirection = "desc",
+        filters: SaleListingFilters | None = None,
     ) -> list[SaleListingResponse]:
         listings = self._responses(self._sales.active())
+        listings = _filter_listings(listings, filters, use_sold_date=False)
         return _sort_listings(listings, sort_field, sort_direction)
 
     def sold(
         self,
         sort_field: SaleSortField = "sold",
         sort_direction: SaleSortDirection = "desc",
+        filters: SaleListingFilters | None = None,
     ) -> list[SaleListingResponse]:
         listings = self._responses(self._sales.sold())
+        listings = _filter_listings(listings, filters, use_sold_date=True)
         return _sort_listings(listings, sort_field, sort_direction)
 
     def daily_totals(
@@ -372,6 +390,58 @@ def _median_price(prices: list[int]) -> int | None:
     if len(prices) % 2:
         return prices[midpoint]
     return (prices[midpoint - 1] + prices[midpoint]) // 2
+
+
+def _filter_listings(
+    listings: list[SaleListingResponse],
+    filters: SaleListingFilters | None,
+    *,
+    use_sold_date: bool,
+) -> list[SaleListingResponse]:
+    if filters is None:
+        return listings
+    normalized_item_query = (
+        normalize_item_name(filters.item_query) if filters.item_query.strip() else ""
+    )
+    normalized_category = normalize_item_name(filters.category) if filters.category.strip() else ""
+
+    def matches(listing: SaleListingResponse) -> bool:
+        if filters.item_uuid is not None and listing.item_uuid != filters.item_uuid:
+            return False
+        if normalized_item_query and normalized_item_query not in normalize_item_name(
+            listing.display_name
+        ):
+            return False
+        if (
+            normalized_category
+            and normalize_item_name(listing.category or "") != normalized_category
+        ):
+            return False
+        if filters.minimum_price is not None and (
+            listing.asking_price is None or listing.asking_price < filters.minimum_price
+        ):
+            return False
+        if filters.maximum_price is not None and (
+            listing.asking_price is None or listing.asking_price > filters.maximum_price
+        ):
+            return False
+        if filters.minimum_profit is not None and (
+            listing.profit is None or listing.profit < filters.minimum_profit
+        ):
+            return False
+        if filters.maximum_profit is not None and (
+            listing.profit is None or listing.profit > filters.maximum_profit
+        ):
+            return False
+        activity_time = listing.date_sold if use_sold_date else listing.selling_started_at
+        if activity_time is None:
+            return False
+        activity_date = activity_time.astimezone(filters.display_timezone).date()
+        if filters.date_from is not None and activity_date < filters.date_from:
+            return False
+        return filters.date_to is None or activity_date <= filters.date_to
+
+    return [listing for listing in listings if matches(listing)]
 
 
 def _sort_listings(

@@ -96,8 +96,11 @@ The import command validates both CSV contracts before writing, stores accepted 
 In **Currently Selling**, row actions restore the previous scroll position after the
 page refreshes. Checkboxes support selecting individual rows or the full table, then
 marking the selection as sold or deleting it as one atomic action. Bulk deletion
-requires confirmation. Each item-detail page shows how many of that item are actively
-listed and how many have been sold through the application.
+requires confirmation. The Sales filter toolbar narrows listings by item name,
+category, status, price, profit, or Pacific activity date while preserving the
+filters through sorting and row actions. Each item-detail page shows how many of that
+item are actively listed and how many have been sold through the application; the
+count cards link to the corresponding filtered Sales table.
 
 ## Publish analytics updates
 

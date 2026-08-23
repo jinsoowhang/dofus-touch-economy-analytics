@@ -17,8 +17,12 @@
       Catalog Source: {{ "Manual" if detail.created_source == "manual" else "Import" }}
     </p>
     <div class="item-sales-counts" aria-label="Sales activity for this item">
-      <div><span>Currently Selling</span><strong>{{ detail.active_sale_count }}</strong></div>
-      <div><span>Sold</span><strong>{{ detail.sold_sale_count }}</strong></div>
+      <a href="/sales?item_uuid={{ detail.uuid }}&amp;status=active#currently-selling">
+        <span>Currently Selling</span><strong>{{ detail.active_sale_count }}</strong>
+      </a>
+      <a href="/sales?item_uuid={{ detail.uuid }}&amp;status=sold#sold-history">
+        <span>Sold</span><strong>{{ detail.sold_sale_count }}</strong>
+      </a>
     </div>
     {% include "fragments/price_panel.html" %}
 

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from decimal import Decimal
+from datetime import UTC, date, datetime
+from decimal import Decimal, InvalidOperation
 from math import ceil, floor, log10
 from pathlib import Path
 from typing import Annotated, Literal
@@ -43,6 +43,7 @@ from dofus_touch_economy.services.sales import (
     DailySalesTotal,
     SaleItemNotFound,
     SaleListingConflict,
+    SaleListingFilters,
     SaleListingNotFound,
     SaleSortDirection,
     SaleSortField,
@@ -78,6 +79,85 @@ class SalesSortState:
 
 
 DEFAULT_SALES_SORT_STATE = SalesSortState()
+SalesStatusFilter = Literal["all", "active", "sold"]
+
+
+@dataclass(frozen=True)
+class SalesFilterState:
+    item_uuid: UUID | None = None
+    item_query: str = ""
+    category: str = ""
+    status: SalesStatusFilter = "all"
+    min_price: int | None = None
+    max_price: int | None = None
+    min_profit: Decimal | None = None
+    max_profit: Decimal | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    validation_errors: tuple[str, ...] = ()
+
+    def parameters(self) -> dict[str, str]:
+        parameters: dict[str, str] = {}
+        if self.item_uuid is not None:
+            parameters["item_uuid"] = str(self.item_uuid)
+        if self.item_query:
+            parameters["item_query"] = self.item_query
+        if self.category:
+            parameters["category"] = self.category
+        if self.status != "all":
+            parameters["status"] = self.status
+        for name, value in (
+            ("min_price", self.min_price),
+            ("max_price", self.max_price),
+            ("min_profit", self.min_profit),
+            ("max_profit", self.max_profit),
+        ):
+            if value is not None:
+                parameters[name] = str(value)
+        if self.date_from is not None:
+            parameters["date_from"] = self.date_from.isoformat()
+        if self.date_to is not None:
+            parameters["date_to"] = self.date_to.isoformat()
+        return parameters
+
+    def listing_filters(self) -> SaleListingFilters:
+        return SaleListingFilters(
+            item_uuid=self.item_uuid,
+            item_query=self.item_query,
+            category=self.category,
+            minimum_price=self.min_price,
+            maximum_price=self.max_price,
+            minimum_profit=self.min_profit,
+            maximum_profit=self.max_profit,
+            date_from=self.date_from,
+            date_to=self.date_to,
+            display_timezone=PACIFIC_TIME,
+        )
+
+    def errors(self) -> list[str]:
+        errors = list(self.validation_errors)
+        if (
+            self.min_price is not None
+            and self.max_price is not None
+            and self.min_price > self.max_price
+        ):
+            errors.append("Minimum price cannot be greater than maximum price.")
+        if (
+            self.min_profit is not None
+            and self.max_profit is not None
+            and self.min_profit > self.max_profit
+        ):
+            errors.append("Minimum profit cannot be greater than maximum profit.")
+        if (
+            self.date_from is not None
+            and self.date_to is not None
+            and self.date_from > self.date_to
+        ):
+            errors.append("From date cannot be after through date.")
+        return errors
+
+
+DEFAULT_SALES_FILTER_STATE = SalesFilterState()
 
 
 def _sales_sort_state(
@@ -87,6 +167,74 @@ def _sales_sort_state(
     sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
 ) -> SalesSortState:
     return SalesSortState(active_sort, active_direction, sold_sort, sold_direction)
+
+
+def _sales_filter_state(
+    item_uuid: Annotated[UUID | None, Query()] = None,
+    item_query: Annotated[str, Query(max_length=200)] = "",
+    category: Annotated[str, Query(max_length=200)] = "",
+    status: Annotated[SalesStatusFilter, Query()] = "all",
+    min_price: Annotated[str, Query(max_length=50)] = "",
+    max_price: Annotated[str, Query(max_length=50)] = "",
+    min_profit: Annotated[str, Query(max_length=50)] = "",
+    max_profit: Annotated[str, Query(max_length=50)] = "",
+    date_from: Annotated[str, Query(max_length=10)] = "",
+    date_to: Annotated[str, Query(max_length=10)] = "",
+) -> SalesFilterState:
+    errors: list[str] = []
+    return SalesFilterState(
+        item_uuid=item_uuid,
+        item_query=item_query.strip(),
+        category=category.strip(),
+        status=status,
+        min_price=_optional_integer_filter(min_price, "Minimum price", errors),
+        max_price=_optional_integer_filter(max_price, "Maximum price", errors),
+        min_profit=_optional_decimal_filter(min_profit, "Minimum profit", errors),
+        max_profit=_optional_decimal_filter(max_profit, "Maximum profit", errors),
+        date_from=_optional_date_filter(date_from, "From date", errors),
+        date_to=_optional_date_filter(date_to, "Through date", errors),
+        validation_errors=tuple(errors),
+    )
+
+
+def _optional_integer_filter(value: str, label: str, errors: list[str]) -> int | None:
+    stripped = value.strip().replace(",", "")
+    if not stripped:
+        return None
+    try:
+        parsed = int(stripped)
+    except ValueError:
+        errors.append(f"{label} must be a whole number.")
+        return None
+    if parsed < 0:
+        errors.append(f"{label} cannot be negative.")
+        return None
+    return parsed
+
+
+def _optional_decimal_filter(value: str, label: str, errors: list[str]) -> Decimal | None:
+    stripped = value.strip().replace(",", "")
+    if not stripped:
+        return None
+    try:
+        parsed = Decimal(stripped)
+    except InvalidOperation:
+        errors.append(f"{label} must be a number.")
+        return None
+    if not parsed.is_finite():
+        errors.append(f"{label} must be a finite number.")
+        return None
+    return parsed
+
+
+def _optional_date_filter(value: str, label: str, errors: list[str]) -> date | None:
+    if not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        errors.append(f"{label} must use YYYY-MM-DD format.")
+        return None
 
 
 def _is_htmx(request: Request) -> bool:
@@ -220,21 +368,48 @@ def _sales_context(
     service: SalesService,
     *,
     sort_state: SalesSortState = DEFAULT_SALES_SORT_STATE,
+    filter_state: SalesFilterState = DEFAULT_SALES_FILTER_STATE,
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
     item_choices = service.item_choices()
-    active_sales = service.active(
-        sort_state.active_sort,
-        sort_state.active_direction,
+    listing_filters = filter_state.listing_filters()
+    show_active = filter_state.status in ("all", "active")
+    show_sold = filter_state.status in ("all", "sold")
+    active_sales = (
+        service.active(
+            sort_state.active_sort,
+            sort_state.active_direction,
+            listing_filters,
+        )
+        if show_active
+        else []
     )
-    sold_sales = service.sold(sort_state.sold_sort, sort_state.sold_direction)
+    sold_sales = (
+        service.sold(
+            sort_state.sold_sort,
+            sort_state.sold_direction,
+            listing_filters,
+        )
+        if show_sold
+        else []
+    )
     category_labels: dict[str, str] = {}
     for item in item_choices:
         if item.category_key:
             category_labels.setdefault(item.category_key, (item.category or "").title())
     daily_totals = service.daily_totals(PACIFIC_TIME, sold_sales)
+    filter_parameters = filter_state.parameters()
+    sales_parameters = {**sort_state.parameters(), **filter_parameters}
+    filter_item_value = filter_state.item_query
+    if filter_state.item_uuid is not None:
+        matching_item = next(
+            (item for item in item_choices if item.uuid == filter_state.item_uuid),
+            None,
+        )
+        if matching_item is not None:
+            filter_item_value = matching_item.display_name
     return {
         "active_tab": "sales",
         "item_choices": item_choices,
@@ -254,6 +429,7 @@ def _sales_context(
             sort_state.active_direction,
             sort_state.sold_sort,
             sort_state.sold_direction,
+            filter_parameters,
         ),
         "sold_sort_columns": _sales_sort_columns(
             "sold",
@@ -261,11 +437,18 @@ def _sales_context(
             sort_state.sold_direction,
             sort_state.active_sort,
             sort_state.active_direction,
+            filter_parameters,
         ),
-        "sales_sort_query": urlencode(sort_state.parameters()),
+        "sales_sort_query": urlencode(sales_parameters),
+        "sort_state": sort_state,
+        "filter_state": filter_state,
+        "filter_item_value": filter_item_value,
+        "has_sales_filters": bool(filter_parameters),
+        "show_active": show_active,
+        "show_sold": show_sold,
         "sales_chart": _sales_chart(daily_totals),
         "notification": notification,
-        "errors": errors or [],
+        "errors": [*filter_state.errors(), *(errors or [])],
         "form_values": form_values or {},
     }
 
@@ -274,10 +457,15 @@ def _sales_redirect_url(
     sort_state: SalesSortState,
     notice: str,
     *,
+    filter_state: SalesFilterState = DEFAULT_SALES_FILTER_STATE,
     anchor: str | None = None,
     count: int | None = None,
 ) -> str:
-    parameters = {**sort_state.parameters(), "notice": notice}
+    parameters = {
+        **sort_state.parameters(),
+        **filter_state.parameters(),
+        "notice": notice,
+    }
     if count is not None:
         parameters["count"] = str(count)
     fragment = "" if anchor is None else f"#{anchor}"
@@ -434,6 +622,7 @@ def _sales_sort_columns(
     sort_direction: SaleSortDirection,
     other_sort: SaleSortField,
     other_direction: SaleSortDirection,
+    filter_parameters: dict[str, str],
 ) -> list[dict[str, object]]:
     columns = (
         (
@@ -472,6 +661,7 @@ def _sales_sort_columns(
                 "sold_sort": field,
                 "sold_direction": next_direction,
             }
+        parameters.update(filter_parameters)
         result.append(
             {
                 "field": field,
@@ -534,6 +724,7 @@ def sales_page(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
     notice: str | None = Query(default=None),
     count: int | None = Query(default=None, ge=1, le=500),
 ) -> HTMLResponse:
@@ -558,6 +749,7 @@ def sales_page(
     context = _sales_context(
         SalesService(session, settings.market_context),
         sort_state=sort_state,
+        filter_state=filter_state,
         notification=notifications.get(notice),
     )
     return templates.TemplateResponse(request, "sales.html", context=context)
@@ -569,6 +761,7 @@ async def start_sale(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     values = _form_values(form, ("category", "item_uuid", "asking_price"))
@@ -582,6 +775,7 @@ async def start_sale(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=_validation_messages(error),
                 form_values=values,
             ),
@@ -596,13 +790,18 @@ async def start_sale(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Item not found."],
                 form_values=values,
             ),
             status_code=404,
         )
     return RedirectResponse(
-        url=_sales_redirect_url(sort_state, "listing-added"),
+        url=_sales_redirect_url(
+            sort_state,
+            "listing-added",
+            filter_state=filter_state,
+        ),
         status_code=303,
     )
 
@@ -613,6 +812,7 @@ async def bulk_active_sales(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     service = SalesService(session, settings.market_context)
@@ -630,6 +830,7 @@ async def bulk_active_sales(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Select at least one Currently Selling row and choose a bulk action."],
             ),
             status_code=422,
@@ -649,6 +850,7 @@ async def bulk_active_sales(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["One or more selected sale listings could not be found."],
             ),
             status_code=404,
@@ -660,6 +862,7 @@ async def bulk_active_sales(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["One or more selected listings are no longer Currently Selling."],
             ),
             status_code=409,
@@ -669,6 +872,7 @@ async def bulk_active_sales(
         url=_sales_redirect_url(
             sort_state,
             notice,
+            filter_state=filter_state,
             anchor="currently-selling",
             count=len(changed),
         ),
@@ -687,6 +891,7 @@ def duplicate_sale(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -698,12 +903,17 @@ def duplicate_sale(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Sale listing not found."],
             ),
             status_code=404,
         )
     return RedirectResponse(
-        url=_sales_redirect_url(sort_state, "listing-duplicated"),
+        url=_sales_redirect_url(
+            sort_state,
+            "listing-duplicated",
+            filter_state=filter_state,
+        ),
         status_code=303,
     )
 
@@ -719,6 +929,7 @@ def delete_sale(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -730,12 +941,17 @@ def delete_sale(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Sale listing not found."],
             ),
             status_code=404,
         )
     return RedirectResponse(
-        url=_sales_redirect_url(sort_state, "listing-deleted"),
+        url=_sales_redirect_url(
+            sort_state,
+            "listing-deleted",
+            filter_state=filter_state,
+        ),
         status_code=303,
     )
 
@@ -751,6 +967,7 @@ async def update_sale_price(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
     values = _form_values(form, ("asking_price",))
@@ -764,6 +981,7 @@ async def update_sale_price(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=_validation_messages(error),
             ),
             status_code=422,
@@ -777,6 +995,7 @@ async def update_sale_price(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Sale listing not found."],
             ),
             status_code=404,
@@ -788,12 +1007,17 @@ async def update_sale_price(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["A sold listing cannot be repriced."],
             ),
             status_code=409,
         )
     return RedirectResponse(
-        url=_sales_redirect_url(sort_state, "listing-price-updated"),
+        url=_sales_redirect_url(
+            sort_state,
+            "listing-price-updated",
+            filter_state=filter_state,
+        ),
         status_code=303,
     )
 
@@ -809,6 +1033,7 @@ def mark_sale_sold(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -820,6 +1045,7 @@ def mark_sale_sold(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Sale listing not found."],
             ),
             status_code=404,
@@ -831,6 +1057,7 @@ def mark_sale_sold(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Item has already been marked as sold."],
             ),
             status_code=409,
@@ -839,6 +1066,7 @@ def mark_sale_sold(
         url=_sales_redirect_url(
             sort_state,
             "listing-sold",
+            filter_state=filter_state,
             anchor="currently-selling",
         ),
         status_code=303,
@@ -856,6 +1084,7 @@ def reopen_sale(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
+    filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     service = SalesService(session, settings.market_context)
     try:
@@ -867,6 +1096,7 @@ def reopen_sale(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Sale listing not found."],
             ),
             status_code=404,
@@ -878,12 +1108,17 @@ def reopen_sale(
             context=_sales_context(
                 service,
                 sort_state=sort_state,
+                filter_state=filter_state,
                 errors=["Only a sold listing can be returned to Currently Selling."],
             ),
             status_code=409,
         )
     return RedirectResponse(
-        url=_sales_redirect_url(sort_state, "listing-reopened"),
+        url=_sales_redirect_url(
+            sort_state,
+            "listing-reopened",
+            filter_state=filter_state,
+        ),
         status_code=303,
     )
 

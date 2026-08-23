@@ -1,5 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
@@ -14,6 +15,7 @@ from dofus_touch_economy.services.pricing import PriceService
 from dofus_touch_economy.services.sales import (
     SaleItemNotFound,
     SaleListingConflict,
+    SaleListingFilters,
     SaleListingNotFound,
     SalesService,
 )
@@ -318,6 +320,92 @@ def test_sold_sales_sort_by_each_displayed_field(
     results = SalesService(session, "Dodge").sold(sort_field, sort_direction)
 
     assert [result.display_name for result in results] == expected
+
+
+def test_sales_filters_use_item_category_price_and_pacific_activity_date(
+    session,
+    catalog_item,
+) -> None:
+    alpha = Item(
+        display_name="Alpha Hat",
+        normalized_name="alpha hat",
+        category="Hat",
+        identity_category="hat",
+    )
+    beta = Item(
+        display_name="Beta Hat",
+        normalized_name="beta hat",
+        category="Hat",
+        identity_category="hat",
+    )
+    session.add_all([alpha, beta])
+    session.flush()
+    session.add_all(
+        [
+            SaleListing(
+                item_id=alpha.id,
+                lot_quantity=1,
+                asking_price=125,
+                selling_started_at=datetime(2026, 8, 22, 6, 30, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=beta.id,
+                lot_quantity=1,
+                asking_price=250,
+                selling_started_at=datetime(2026, 8, 22, 7, 30, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=alpha.id,
+                lot_quantity=1,
+                asking_price=300,
+                selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 23, 6, 30, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=beta.id,
+                lot_quantity=1,
+                asking_price=400,
+                selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 23, 7, 30, tzinfo=UTC),
+            ),
+        ]
+    )
+    session.commit()
+    service = SalesService(session, "Dodge")
+    pacific = ZoneInfo("America/Los_Angeles")
+
+    combined = service.active(
+        filters=SaleListingFilters(
+            item_query="alpha",
+            category="hat",
+            minimum_price=100,
+            maximum_price=200,
+            date_from=date(2026, 8, 21),
+            date_to=date(2026, 8, 21),
+            display_timezone=pacific,
+        )
+    )
+    exact_item = service.active(filters=SaleListingFilters(item_uuid=beta.uuid))
+    later_active = service.active(
+        filters=SaleListingFilters(
+            date_from=date(2026, 8, 22),
+            display_timezone=pacific,
+        )
+    )
+    earlier_sold = service.sold(
+        filters=SaleListingFilters(
+            maximum_price=350,
+            date_from=date(2026, 8, 22),
+            date_to=date(2026, 8, 22),
+            display_timezone=pacific,
+        )
+    )
+
+    assert [listing.display_name for listing in combined] == ["Alpha Hat"]
+    assert [listing.display_name for listing in exact_item] == ["Beta Hat"]
+    assert [listing.display_name for listing in later_active] == ["Beta Hat"]
+    assert [listing.display_name for listing in earlier_sold] == ["Alpha Hat"]
+    assert service.active(filters=SaleListingFilters(minimum_profit=0)) == []
 
 
 def test_active_or_sold_sale_can_be_deleted(session, catalog_item) -> None:

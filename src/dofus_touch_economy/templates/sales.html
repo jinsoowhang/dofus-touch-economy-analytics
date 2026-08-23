@@ -12,6 +12,73 @@
   {% endif %}
 
   <details class="collapsible-section" open>
+    <summary>
+      <span class="section-summary">
+        <h2>Filter Sales</h2>
+        {% if has_sales_filters %}<span>Filters applied</span>{% endif %}
+      </span>
+    </summary>
+    <form method="get" action="/sales" class="sales-filter-form">
+      <input type="hidden" name="active_sort" value="{{ sort_state.active_sort }}">
+      <input type="hidden" name="active_direction" value="{{ sort_state.active_direction }}">
+      <input type="hidden" name="sold_sort" value="{{ sort_state.sold_sort }}">
+      <input type="hidden" name="sold_direction" value="{{ sort_state.sold_direction }}">
+      <label>
+        Item name
+        <input name="item_query" value="{{ filter_item_value }}" placeholder="Contains…">
+      </label>
+      <label>
+        Category
+        <select name="category">
+          <option value="">All categories</option>
+          {% for category in category_choices %}
+            <option value="{{ category.key }}" {% if filter_state.category == category.key %}selected{% endif %}>{{ category.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Status
+        <select name="status">
+          <option value="all" {% if filter_state.status == "all" %}selected{% endif %}>All</option>
+          <option value="active" {% if filter_state.status == "active" %}selected{% endif %}>Currently Selling</option>
+          <option value="sold" {% if filter_state.status == "sold" %}selected{% endif %}>Sold</option>
+        </select>
+      </label>
+      <label>
+        Minimum price
+        <input name="min_price" inputmode="numeric" value="{{ filter_state.min_price if filter_state.min_price is not none else '' }}">
+      </label>
+      <label>
+        Maximum price
+        <input name="max_price" inputmode="numeric" value="{{ filter_state.max_price if filter_state.max_price is not none else '' }}">
+      </label>
+      <label>
+        Minimum profit
+        <input name="min_profit" inputmode="decimal" value="{{ filter_state.min_profit if filter_state.min_profit is not none else '' }}">
+      </label>
+      <label>
+        Maximum profit
+        <input name="max_profit" inputmode="decimal" value="{{ filter_state.max_profit if filter_state.max_profit is not none else '' }}">
+      </label>
+      <label>
+        From date
+        <input name="date_from" type="date" value="{{ filter_state.date_from.isoformat() if filter_state.date_from else '' }}" aria-describedby="sales-date-filter-help">
+      </label>
+      <label>
+        Through date
+        <input name="date_to" type="date" value="{{ filter_state.date_to.isoformat() if filter_state.date_to else '' }}" aria-describedby="sales-date-filter-help">
+      </label>
+      <p id="sales-date-filter-help" class="filter-help">
+        Pacific date: Selling Since for active rows and Date Sold for sold rows.
+      </p>
+      <div class="filter-actions">
+        <button type="submit">Apply filters</button>
+        <a href="/sales">Clear filters</a>
+      </div>
+    </form>
+  </details>
+
+  <details class="collapsible-section" open>
     <summary><h2>Add an Item to Sell</h2></summary>
     <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
       <label for="sale-category">Category (Optional)</label>
@@ -51,6 +118,7 @@
     </form>
   </details>
 
+  {% if show_active %}
   <details id="currently-selling" class="collapsible-section" open>
     <summary>
       <span class="section-summary">
@@ -211,7 +279,9 @@
       <p>No items are currently being sold.</p>
     {% endif %}
   </details>
+  {% endif %}
 
+  {% if show_sold %}
   <details id="sold-history" class="collapsible-section" open>
     <summary>
       <span class="section-summary">
@@ -419,5 +489,6 @@
       <p>Mark an item as sold to start the daily sales chart.</p>
     {% endif %}
   </details>
+  {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}

@@ -246,3 +246,27 @@ after reviewing development lineage and costs.
   zero-count regression assertions were added.
 - `./scripts/check.sh` passed after formatting, including Ruff, all 183 Python tests,
   package compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Persistent Sales Filters and Item Deep Links
+
+### Work Completed
+
+- Added a Sales filter toolbar for item-name substring, exact category, active/sold
+  status, inclusive price and computed-profit ranges, and inclusive activity dates.
+- Defined activity dates as Selling Since for active rows and Date Sold for completed
+  rows, using the same `America/Los_Angeles` calendar dates displayed by the UI.
+- Preserved filter state in shareable URLs, independent table-sort links, add/edit
+  and row-action forms, bulk actions, and their redirect notices.
+- Made the item-detail Currently Selling and Sold count cards link directly to the
+  corresponding exact-item Sales view and section anchor.
+- Added inline validation for malformed numeric/date values and reversed ranges;
+  blank optional form values remain valid.
+
+### Verification
+
+- Ruff passed for all changed Python modules and tests.
+- All 69 focused Sales service and web tests passed, including Pacific midnight
+  boundaries, combined filters, profit filtering, URL persistence, invalid inputs,
+  and item-detail links.
+- `./scripts/check.sh` passed, including Ruff, all 187 Python tests, package
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
