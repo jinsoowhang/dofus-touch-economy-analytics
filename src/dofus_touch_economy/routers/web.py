@@ -920,7 +920,6 @@ def _recipe_calculator_context(
                 "icon_url": choice.icon_url,
                 "profession": choice.profession,
                 "profession_level": choice.profession_level,
-                "sale_price": choice.sale_price,
             }
             for choice in available_choices
         ],
@@ -931,6 +930,9 @@ def _recipe_calculator_context(
         "calculation_item_uuids": calculation_uuids,
         "sale_item_uuids": sale_item_uuids or set(),
         "sale_prices": sale_prices or {},
+        "sale_price_defaults": {
+            choice.item_uuid: choice.sale_price for choice in available_choices
+        },
         "result": result,
         "errors": errors or [],
         "notification": notification,
@@ -1033,17 +1035,25 @@ def _parse_recipe_calculator_sales(
         if choice is None:
             errors.append("One or more selected items no longer has a current recipe.")
             continue
+        raw_quantity = form.get(f"quantity_{item_uuid}", "")
         try:
-            commands.append(
-                SaleListingCreate.model_validate(
-                    {
-                        "item_uuid": item_uuid,
-                        "asking_price": sale_prices.get(item_uuid, ""),
-                    }
-                )
+            quantity = int(raw_quantity) if isinstance(raw_quantity, str) else 0
+        except ValueError:
+            quantity = 0
+        if not 1 <= quantity <= 1000:
+            errors.append(f"Enter a craft quantity between 1 and 1,000 for {choice.display_name}.")
+            continue
+        try:
+            command = SaleListingCreate.model_validate(
+                {
+                    "item_uuid": item_uuid,
+                    "asking_price": sale_prices.get(item_uuid, ""),
+                }
             )
         except ValidationError:
             errors.append(f"Enter a positive whole-number sale price for {choice.display_name}.")
+            continue
+        commands.extend(command for _ in range(quantity))
     return commands, selected_item_uuids, sale_prices, errors
 
 
@@ -1143,12 +1153,6 @@ async def calculate_recipes(
 ) -> HTMLResponse:
     form = await request.form()
     selections, errors = _parse_recipe_calculator_selections(form)
-    sale_item_uuids, sale_prices = _recipe_calculator_sale_state(form)
-    cart_quantities = _recipe_calculator_cart_quantities(
-        form,
-        selections,
-        sale_item_uuids,
-    )
     service = RecipeCalculatorService(session, settings.market_context)
     result = None
     if not errors:
@@ -1161,10 +1165,8 @@ async def calculate_recipes(
         "recipe_calculator.html",
         context=_recipe_calculator_context(
             service,
-            selected_quantities=cart_quantities,
+            selected_quantities=selections,
             calculation_item_uuids=set(selections),
-            sale_item_uuids=sale_item_uuids,
-            sale_prices=sale_prices,
             result=result,
             errors=errors,
             notification=(
@@ -1202,7 +1204,7 @@ async def start_recipe_calculator_sales(
         )
         result = (
             recipe_service.calculate(calculation_quantities)
-            if calculation_quantities.keys() <= choices_by_uuid.keys()
+            if calculation_quantities and calculation_quantities.keys() <= choices_by_uuid.keys()
             else None
         )
         return templates.TemplateResponse(
@@ -1394,15 +1396,15 @@ def sales_page(
     sort_state: Annotated[SalesSortState, Depends(_sales_sort_state)],
     filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
     notice: str | None = Query(default=None),
-    count: int | None = Query(default=None, ge=1, le=500),
+    count: int | None = Query(default=None, ge=1, le=100_000),
 ) -> HTMLResponse:
     notifications = {
         "listing-added": "Sale listing has been added.",
         "listings-added": (
-            f"{count} selected {'item has' if count == 1 else 'items have'} "
+            f"{count} sale {'listing has' if count == 1 else 'listings have'} "
             "been added to Currently Selling."
             if count is not None
-            else "Selected items have been added to Currently Selling."
+            else "Sale listings have been added to Currently Selling."
         ),
         "listing-duplicated": "Sale listing has been duplicated.",
         "listing-price-updated": "Sale price has been updated.",

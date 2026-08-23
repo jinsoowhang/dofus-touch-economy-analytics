@@ -1096,11 +1096,15 @@ th.numeric .client-sort-header {
 }
 
 .calculator-selected-table {
-  min-width: 72rem;
+  min-width: 56rem;
 }
 
 .calculator-shopping-list-table {
   min-width: 78rem;
+}
+
+.calculator-sales-table {
+  min-width: 72rem;
 }
 
 .calculator-selected-table th,
@@ -1119,7 +1123,8 @@ th.numeric .client-sort-header {
   text-align: right;
 }
 
-.calculator-selected-table .selection-column {
+.calculator-selected-table .selection-column,
+.calculator-sales-table .selection-column {
   text-align: center;
   width: 1%;
 }

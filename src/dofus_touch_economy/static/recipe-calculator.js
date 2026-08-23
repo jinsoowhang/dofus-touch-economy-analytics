@@ -9,7 +9,6 @@ const calculatorSelectAll = document.querySelector("#calculator-select-all");
 const calculatorSelectNone = document.querySelector("#calculator-select-none");
 const calculatorRemoveAll = document.querySelector("#calculator-remove-all");
 const calculatorSelectedCount = document.querySelector("#calculator-selected-count");
-const calculatorSaleCount = document.querySelector("#calculator-sale-count");
 const calculatorForm = document.querySelector("#recipe-calculator-form");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
@@ -25,7 +24,6 @@ if (
   calculatorSelectNone &&
   calculatorRemoveAll &&
   calculatorSelectedCount &&
-  calculatorSaleCount &&
   calculatorForm
 ) {
   const choices = JSON.parse(calculatorChoiceData.textContent);
@@ -109,20 +107,14 @@ if (
     const selectedCount = calculatorSelectedItems.querySelectorAll(
       ".calculator-item-checkbox:checked",
     ).length;
-    const saleCount = calculatorSelectedItems.querySelectorAll(
-      ".calculator-sale-checkbox:checked",
-    ).length;
     calculatorSelectedCount.textContent = `${selectedCount} selected`;
-    calculatorSaleCount.textContent = `${saleCount} to sell`;
     calculatorEmptySelection.hidden = calculatorSelectedItems.children.length > 0;
   };
 
   const updateRowState = (row) => {
     const isCalculationSelected = row.querySelector(".calculator-item-checkbox").checked;
-    const isSaleSelected = row.querySelector(".calculator-sale-checkbox").checked;
-    row.classList.toggle("is-unselected", !isCalculationSelected && !isSaleSelected);
-    row.querySelector(".calculator-quantity").disabled =
-      !isCalculationSelected && !isSaleSelected;
+    row.classList.toggle("is-unselected", !isCalculationSelected);
+    row.querySelector(".calculator-quantity").disabled = !isCalculationSelected;
   };
 
   const createCell = (text, className = "") => {
@@ -151,19 +143,6 @@ if (
     selection.setAttribute("aria-label", `Include ${choice.display_name} in calculation`);
     selectionCell.append(selection);
     row.append(selectionCell);
-    const saleSelectionCell = document.createElement("td");
-    saleSelectionCell.className = "selection-column";
-    const saleSelection = document.createElement("input");
-    saleSelection.className = "calculator-sale-checkbox";
-    saleSelection.type = "checkbox";
-    saleSelection.name = "sale_item_uuid";
-    saleSelection.value = choice.item_uuid;
-    saleSelection.setAttribute(
-      "aria-label",
-      `Add ${choice.display_name} to Currently Selling`,
-    );
-    saleSelectionCell.append(saleSelection);
-    row.append(saleSelectionCell);
     const itemCell = document.createElement("td");
     const itemLabel = document.createElement("span");
     itemLabel.className = "item-label";
@@ -205,22 +184,6 @@ if (
     quantity.disabled = !isSelected;
     quantityCell.append(quantityLabel, quantity);
     row.append(quantityCell);
-
-    const salePriceCell = document.createElement("td");
-    salePriceCell.className = "numeric";
-    const salePriceLabel = document.createElement("label");
-    salePriceLabel.className = "visually-hidden";
-    salePriceLabel.htmlFor = `calculator-sale-price-${choice.item_uuid}`;
-    salePriceLabel.textContent = `Sale price for ${choice.display_name}`;
-    const salePrice = document.createElement("input");
-    salePrice.id = salePriceLabel.htmlFor;
-    salePrice.className = "calculator-sale-price";
-    salePrice.name = `sale_price_${choice.item_uuid}`;
-    salePrice.inputMode = "numeric";
-    salePrice.value = choice.sale_price === null ? "" : choice.sale_price.toLocaleString("en-US");
-    salePrice.placeholder = "—";
-    salePriceCell.append(salePriceLabel, salePrice);
-    row.append(salePriceCell);
 
     const actionCell = document.createElement("td");
     const removeButton = document.createElement("button");
@@ -308,18 +271,13 @@ if (
   });
 
   calculatorSelectedItems.addEventListener("change", (event) => {
-    if (
-      !event.target.matches(".calculator-item-checkbox") &&
-      !event.target.matches(".calculator-sale-checkbox")
-    ) {
+    if (!event.target.matches(".calculator-item-checkbox")) {
       return;
     }
     const row = event.target.closest("tr");
     updateRowState(row);
     updateSelectedCount();
-    if (event.target.matches(".calculator-item-checkbox")) {
-      persistSelection();
-    }
+    persistSelection();
   });
 
   const setAllSelected = (isSelected) => {

@@ -695,3 +695,33 @@ after reviewing development lineage and costs.
   passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 228 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Recipe Calculator Sales Flow and Quantity
+
+### Work Completed
+
+- Removed Sell, Sale Price, sale count, and Add Checked to Sales from the upper Select
+  Craftable Items section so selection and ingredient calculation remain one focused
+  step.
+- Moved the Sales form into the open **Selected craft breakdown** beneath the shopping
+  list. The calculated rows now show Sell, Quantity, and Sale Price Each together with
+  their recipe costs.
+- Changed the atomic Sales batch to create one distinct active listing and linked
+  price observation per Craft Quantity for each checked item. All created listings
+  retain the same per-item sale price and shared start time.
+- Updated the success notification to report the actual number of listings created;
+  a quantity-two item plus a quantity-three item now reports and creates five listings.
+- Kept validation atomic for missing or invalid prices and quantities, and preserved
+  the calculated breakdown and checked sale rows when a recoverable price error is
+  redisplayed.
+- Increased the guarded Sales confirmation-count bound to the calculator's existing
+  maximum possible batch size of 100 item types times 1,000 listings each.
+- Simplified the upper calculator JavaScript and narrowed its table after removing the
+  Sales-only controls.
+
+### Verification
+
+- JavaScript syntax validation and focused Recipe Calculator, Sales service, and
+  sortable-table tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 228 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
