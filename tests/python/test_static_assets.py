@@ -75,6 +75,13 @@ def test_recipe_level_number_inputs_defer_cross_endpoint_enforcement() -> None:
     assert 'minimumLevelNumber.addEventListener("change"' in script
     assert "updateFromNumber(minimumLevelNumber, minimumLevel, true)" in script
     assert "updateFromNumber(maximumLevelNumber, maximumLevel, true)" in script
+    number_update = script.split("const updateFromNumber", maxsplit=1)[1].split(
+        "minimumLevel.addEventListener", maxsplit=1
+    )[0]
+    assert "minimumLevelNumber.value" not in number_update
+    assert "maximumLevelNumber.value" not in number_update
+    assert "rangeInput.value = maximumLevel.value" in number_update
+    assert "rangeInput.value = minimumLevel.value" in number_update
 
 
 def test_every_web_table_has_client_or_server_sorting() -> None:

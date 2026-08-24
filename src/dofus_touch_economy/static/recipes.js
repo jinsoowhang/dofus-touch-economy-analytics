@@ -13,17 +13,7 @@ if (
   maximumLevelNumber &&
   levelRangeSlider
 ) {
-  const updateTrack = (changedInput, enforceOrder = true) => {
-    if (enforceOrder && Number(minimumLevel.value) > Number(maximumLevel.value)) {
-      if (changedInput === minimumLevel) {
-        maximumLevel.value = minimumLevel.value;
-      } else {
-        minimumLevel.value = maximumLevel.value;
-      }
-    }
-    minimumLevelNumber.value = minimumLevel.value;
-    maximumLevelNumber.value = maximumLevel.value;
-
+  const renderTrack = (changedInput) => {
     const availableMinimum = Number(minimumLevel.min);
     const availableMaximum = Number(maximumLevel.max);
     const availableSpan = availableMaximum - availableMinimum;
@@ -44,16 +34,48 @@ if (
     maximumLevel.style.zIndex = changedInput === maximumLevel ? "3" : "2";
   };
 
-  const updateFromNumber = (numberInput, rangeInput, enforceOrder) => {
+  const syncNumberInputs = () => {
+    minimumLevelNumber.value = minimumLevel.value;
+    maximumLevelNumber.value = maximumLevel.value;
+  };
+
+  const updateFromRange = (changedInput) => {
+    if (Number(minimumLevel.value) > Number(maximumLevel.value)) {
+      if (changedInput === minimumLevel) {
+        maximumLevel.value = minimumLevel.value;
+      } else {
+        minimumLevel.value = maximumLevel.value;
+      }
+    }
+    syncNumberInputs();
+    renderTrack(changedInput);
+  };
+
+  const updateFromNumber = (numberInput, rangeInput, commit) => {
     if (numberInput.value === "" || !numberInput.checkValidity()) {
       return;
     }
     rangeInput.value = numberInput.value;
-    updateTrack(rangeInput, enforceOrder);
+    if (commit) {
+      if (
+        rangeInput === minimumLevel &&
+        Number(rangeInput.value) > Number(maximumLevel.value)
+      ) {
+        rangeInput.value = maximumLevel.value;
+      }
+      if (
+        rangeInput === maximumLevel &&
+        Number(rangeInput.value) < Number(minimumLevel.value)
+      ) {
+        rangeInput.value = minimumLevel.value;
+      }
+      numberInput.value = rangeInput.value;
+    }
+    renderTrack(rangeInput);
   };
 
-  minimumLevel.addEventListener("input", () => updateTrack(minimumLevel));
-  maximumLevel.addEventListener("input", () => updateTrack(maximumLevel));
+  minimumLevel.addEventListener("input", () => updateFromRange(minimumLevel));
+  maximumLevel.addEventListener("input", () => updateFromRange(maximumLevel));
   minimumLevelNumber.addEventListener("input", () =>
     updateFromNumber(minimumLevelNumber, minimumLevel, false),
   );
@@ -66,7 +88,8 @@ if (
   maximumLevelNumber.addEventListener("change", () =>
     updateFromNumber(maximumLevelNumber, maximumLevel, true),
   );
-  updateTrack();
+  syncNumberInputs();
+  renderTrack();
 }
 
 const recipeScrollStorageKey = "dofus-recipes-scroll-position";
