@@ -3,6 +3,9 @@
 const calculatorSearch = document.querySelector("#calculator-search");
 const calculatorChoiceData = document.querySelector("#calculator-choice-data");
 const calculatorSearchResults = document.querySelector("#calculator-search-results");
+const calculatorSuggestionResults = document.querySelector(
+  "#calculator-suggestion-results",
+);
 const calculatorSelectedItems = document.querySelector("#calculator-selected-items");
 const calculatorEmptySelection = document.querySelector("#calculator-empty-selection");
 const calculatorSelectAll = document.querySelector("#calculator-select-all");
@@ -119,6 +122,7 @@ if (
   calculatorSearch &&
   calculatorChoiceData &&
   calculatorSearchResults &&
+  calculatorSuggestionResults &&
   calculatorSelectedItems &&
   calculatorEmptySelection &&
   calculatorSelectAll &&
@@ -129,6 +133,98 @@ if (
 ) {
   const choices = JSON.parse(calculatorChoiceData.textContent);
   const choicesByUuid = new Map(choices.map((choice) => [choice.item_uuid, choice]));
+  let suggestionRefreshTimer = null;
+  let suggestionRequestController = null;
+
+  const renderSuggestionMessage = (message) => {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = message;
+    calculatorSuggestionResults.replaceChildren(paragraph);
+  };
+
+  const refreshSuggestions = async () => {
+    const itemUuids = Array.from(
+      calculatorSelectedItems.querySelectorAll("[data-item-uuid]"),
+      (row) => row.dataset.itemUuid,
+    );
+    suggestionRequestController?.abort();
+    suggestionRequestController = null;
+    if (itemUuids.length < 2) {
+      renderSuggestionMessage("Add at least two craftable items to see suggestions.");
+      return;
+    }
+
+    renderSuggestionMessage("Finding crafts with similar ingredients…");
+    const formData = new FormData();
+    for (const itemUuid of itemUuids) {
+      formData.append("item_uuid", itemUuid);
+    }
+    const requestController = new AbortController();
+    suggestionRequestController = requestController;
+    try {
+      const response = await fetch("/recipe-calculator/suggestions", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: formData,
+        signal: requestController.signal,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.errors?.join(" ") || "Could not load suggestions.");
+      }
+      if (suggestionRequestController !== requestController) {
+        return;
+      }
+
+      calculatorSuggestionResults.replaceChildren();
+      const cartItemUuids = new Set(itemUuids);
+      let renderedSuggestionCount = 0;
+      for (const suggestion of payload.suggestions || []) {
+        const choice = choicesByUuid.get(suggestion.item_uuid);
+        if (!choice || cartItemUuids.has(suggestion.item_uuid)) {
+          continue;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "calculator-search-result calculator-suggestion-result";
+        button.dataset.itemUuid = suggestion.item_uuid;
+        const level =
+          suggestion.profession_level === null
+            ? "unknown level"
+            : `level ${suggestion.profession_level}`;
+        const selectedItemLabel =
+          suggestion.matching_selected_item_count === 1 ? "cart item" : "cart items";
+        button.textContent =
+          `${suggestion.display_name} — ${suggestion.profession}, ${level} — ` +
+          `${suggestion.shared_ingredient_count} of ${suggestion.ingredient_count} ` +
+          `ingredients shared (${suggestion.overlap_percent}%) across ` +
+          `${suggestion.matching_selected_item_count} ${selectedItemLabel} — Add`;
+        button.setAttribute("aria-label", `Add suggested craft ${suggestion.display_name}`);
+        calculatorSuggestionResults.append(button);
+        renderedSuggestionCount += 1;
+      }
+      if (renderedSuggestionCount === 0) {
+        renderSuggestionMessage("No additional crafts share ingredients with this cart.");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        renderSuggestionMessage(error.message || "Could not load suggestions. Try again.");
+      }
+    } finally {
+      if (suggestionRequestController === requestController) {
+        suggestionRequestController = null;
+      }
+    }
+  };
+
+  const scheduleSuggestionRefresh = () => {
+    window.clearTimeout(suggestionRefreshTimer);
+    suggestionRequestController?.abort();
+    suggestionRequestController = null;
+    suggestionRefreshTimer = window.setTimeout(() => {
+      refreshSuggestions();
+    }, 150);
+  };
 
   const readCart = () => {
     try {
@@ -301,6 +397,7 @@ if (
       persistCart();
       persistSelection();
     }
+    scheduleSuggestionRefresh();
   };
 
   const renderSearchResults = () => {
@@ -353,6 +450,19 @@ if (
     }
   });
 
+  calculatorSuggestionResults.addEventListener("click", (event) => {
+    const button = event.target.closest(".calculator-suggestion-result");
+    if (!button) {
+      return;
+    }
+    const choice = choicesByUuid.get(button.dataset.itemUuid);
+    if (choice) {
+      button.disabled = true;
+      addChoice(choice);
+      renderSearchResults();
+    }
+  });
+
   calculatorSelectedItems.addEventListener("click", (event) => {
     const button = event.target.closest(".calculator-remove-item");
     if (!button) {
@@ -363,6 +473,7 @@ if (
     persistCart();
     persistSelection();
     renderSearchResults();
+    scheduleSuggestionRefresh();
   });
 
   calculatorSelectedItems.addEventListener("input", (event) => {
@@ -401,6 +512,7 @@ if (
     persistCart();
     persistSelection();
     renderSearchResults();
+    scheduleSuggestionRefresh();
   });
 
   for (const row of calculatorSelectedItems.querySelectorAll("[data-item-uuid]")) {
@@ -424,6 +536,7 @@ if (
   persistCart();
   persistSelection();
   updateSelectedCount();
+  scheduleSuggestionRefresh();
 
   calculatorForm.addEventListener("submit", () => {
     persistCart();

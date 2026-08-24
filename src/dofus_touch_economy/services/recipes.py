@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from fractions import Fraction
 from typing import Literal
 from uuid import UUID
 
@@ -96,6 +97,20 @@ class RecipeCalculatorChoice:
 
 
 @dataclass(frozen=True)
+class RecipeCalculatorSuggestion:
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_url: str | None
+    profession: str
+    profession_level: int | None
+    shared_ingredient_count: int
+    ingredient_count: int
+    overlap_percent: int
+    matching_selected_item_count: int
+
+
+@dataclass(frozen=True)
 class RecipeCalculatorSelectedItem:
     item_uuid: UUID
     display_name: str
@@ -164,7 +179,7 @@ class _CatalogRecipe:
     category: str | None
     icon_source_url: str | None
     profession: str
-    ingredients: list[tuple[int | None, int]]
+    ingredients: list[tuple[int | None, str, int]]
 
 
 class RecipeCatalogService:
@@ -221,7 +236,7 @@ class RecipeCatalogService:
             for recipe in recipes
             for item_id in [
                 recipe.crafted_item_id,
-                *(item_id for item_id, _quantity in recipe.ingredients),
+                *(item_id for item_id, _normalized_name, _quantity in recipe.ingredients),
             ]
             if item_id is not None
         }
@@ -240,7 +255,7 @@ class RecipeCatalogService:
                             else current_prices[item_id].unit_price
                         ),
                     )
-                    for item_id, quantity in recipe.ingredients
+                    for item_id, _normalized_name, quantity in recipe.ingredients
                 ],
             )
             rows.append(
@@ -310,6 +325,95 @@ class RecipeCalculatorService:
             ),
             key=lambda choice: choice.display_name.casefold(),
         )
+
+    def suggest_similar(
+        self,
+        selected_item_uuids: tuple[UUID, ...],
+        *,
+        limit: int = 10,
+    ) -> list[RecipeCalculatorSuggestion]:
+        if len(selected_item_uuids) < 2:
+            raise RecipeCalculatorSelectionError(
+                "Select at least two craftable items to get suggestions."
+            )
+        if len(selected_item_uuids) > 100:
+            raise RecipeCalculatorSelectionError("Select no more than 100 craftable items.")
+        if len(set(selected_item_uuids)) != len(selected_item_uuids):
+            raise RecipeCalculatorSelectionError("A craftable item was selected more than once.")
+        if limit < 1:
+            return []
+
+        recipes = _latest_recipe_catalog(self._session)
+        recipes_by_item_uuid = {recipe.item_uuid: recipe for recipe in recipes}
+        missing = set(selected_item_uuids).difference(recipes_by_item_uuid)
+        if missing:
+            raise RecipeCalculatorSelectionError(
+                "One or more selected items no longer has a current recipe."
+            )
+
+        selected_ingredient_keys = {
+            item_uuid: {
+                _catalog_ingredient_key(item_id, normalized_name)
+                for item_id, normalized_name, _quantity in recipes_by_item_uuid[
+                    item_uuid
+                ].ingredients
+            }
+            for item_uuid in selected_item_uuids
+        }
+        combined_ingredient_keys = set().union(*selected_ingredient_keys.values())
+        selected_item_uuid_set = set(selected_item_uuids)
+        ranked_suggestions: list[tuple[Fraction, int, int, RecipeCalculatorSuggestion]] = []
+        for recipe in recipes:
+            if recipe.item_uuid in selected_item_uuid_set or not recipe.ingredients:
+                continue
+            ingredient_keys = [
+                _catalog_ingredient_key(item_id, normalized_name)
+                for item_id, normalized_name, _quantity in recipe.ingredients
+            ]
+            shared_ingredient_count = sum(
+                ingredient_key in combined_ingredient_keys for ingredient_key in ingredient_keys
+            )
+            if shared_ingredient_count == 0:
+                continue
+            candidate_ingredient_keys = set(ingredient_keys)
+            matching_selected_item_count = sum(
+                bool(candidate_ingredient_keys.intersection(selected_keys))
+                for selected_keys in selected_ingredient_keys.values()
+            )
+            ingredient_count = len(ingredient_keys)
+            overlap = Fraction(shared_ingredient_count, ingredient_count)
+            suggestion = RecipeCalculatorSuggestion(
+                item_uuid=recipe.item_uuid,
+                display_name=recipe.display_name,
+                category=recipe.category,
+                icon_url=(
+                    None
+                    if recipe.icon_source_url is None
+                    else f"/item-icons/{recipe.item_uuid}.png"
+                ),
+                profession=recipe.profession,
+                profession_level=required_profession_level(len(recipe.ingredients)),
+                shared_ingredient_count=shared_ingredient_count,
+                ingredient_count=ingredient_count,
+                overlap_percent=(shared_ingredient_count * 100 + ingredient_count // 2)
+                // ingredient_count,
+                matching_selected_item_count=matching_selected_item_count,
+            )
+            ranked_suggestions.append(
+                (
+                    overlap,
+                    shared_ingredient_count,
+                    matching_selected_item_count,
+                    suggestion,
+                )
+            )
+
+        ranked_suggestions.sort(key=lambda ranked: ranked[3].display_name.casefold())
+        ranked_suggestions.sort(
+            key=lambda ranked: (ranked[0], ranked[1], ranked[2]),
+            reverse=True,
+        )
+        return [ranked[3] for ranked in ranked_suggestions[:limit]]
 
     def calculate(self, selections: dict[UUID, int]) -> RecipeCalculatorResult:
         if not selections:
@@ -502,6 +606,7 @@ def _latest_recipe_catalog(session: Session) -> list[_CatalogRecipe]:
             crafted_item.icon_source_url,
             RecipeIngredient.id.label("ingredient_id"),
             RecipeIngredient.item_id.label("ingredient_item_id"),
+            RecipeIngredient.normalized_name.label("ingredient_normalized_name"),
             RecipeIngredient.quantity.label("ingredient_quantity"),
         )
         .join(latest_recipe_ids, latest_recipe_ids.c.recipe_id == Recipe.id)
@@ -525,8 +630,20 @@ def _latest_recipe_catalog(session: Session) -> list[_CatalogRecipe]:
             )
             recipes_by_id[row.recipe_id] = recipe
         if row.ingredient_id is not None:
-            recipe.ingredients.append((row.ingredient_item_id, row.ingredient_quantity))
+            recipe.ingredients.append(
+                (
+                    row.ingredient_item_id,
+                    row.ingredient_normalized_name,
+                    row.ingredient_quantity,
+                )
+            )
     return list(recipes_by_id.values())
+
+
+def _catalog_ingredient_key(item_id: int | None, normalized_name: str) -> tuple[str, object]:
+    if item_id is not None:
+        return ("item", item_id)
+    return ("unresolved", normalized_name)
 
 
 def _latest_recipes_for_items(session: Session, item_uuids: tuple[UUID, ...]) -> list[Recipe]:

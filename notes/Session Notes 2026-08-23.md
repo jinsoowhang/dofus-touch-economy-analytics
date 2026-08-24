@@ -86,3 +86,36 @@ unnecessary horizontal scrolling.
 - All 84 focused Recipe Calculator, recipe-service, web, and static-asset tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 230 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Recipe Calculator Similar-Craft Suggestions
+
+### Context
+
+Added cart-aware craft recommendations so a player selecting multiple recipes can
+identify other crafts that reuse the same ingredients and reduce repeated crafting
+setup work.
+
+### Work Completed
+
+- Added an exact ingredient-overlap projection over the latest recipe per crafted
+  item. Resolved ingredients match by canonical item identity and unresolved
+  ingredients match by normalized source name.
+- Excluded recipes already in the cart and candidates with no shared ingredients,
+  then ranked up to ten suggestions by candidate-recipe coverage, shared ingredient
+  count, number of cart recipes overlapped, and item name.
+- Added a validated, read-only JSON endpoint for browser-local cart UUIDs; malformed,
+  duplicate, stale, undersized, and oversized selections remain explicit errors.
+- Added a Suggested Similar Crafts panel under Select Craftable Items. It shows the
+  shared count, percentage, and cart-item breadth for each recommendation and adds a
+  suggested craft directly to the persistent cart.
+- Refreshed suggestions after cart additions, removals, and local-storage restoration;
+  debouncing and request cancellation prevent stale results during quick edits.
+- Added service ranking/exclusion coverage plus endpoint, validation, template, and
+  browser-wiring regressions.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-calculator.js`.
+- Focused recipe-service and Recipe Calculator web tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 231 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

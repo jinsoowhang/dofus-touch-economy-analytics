@@ -1147,6 +1147,12 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         recipe_item="Beta Ring",
     )
     importer.import_files(*synthetic_files.paths)
+    synthetic_files.write_recipe(
+        ingredient="Synthetic Wood",
+        quantity="3",
+        recipe_item="Gamma Hat",
+    )
+    importer.import_files(*synthetic_files.paths)
     with session_factory() as session:
         items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
         items["synthetic wood"].weight = 2
@@ -1174,6 +1180,9 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'id="calculator-select-all"' in page.text
     assert 'id="calculator-select-none"' in page.text
     assert 'id="calculator-remove-all"' in page.text
+    assert 'id="calculator-suggestion-results"' in page.text
+    assert "Suggested Similar Crafts" in page.text
+    assert "Add at least two craftable items to see suggestions." in page.text
     assert "0 selected" in page.text
     assert "in cart" not in page.text
     assert "Calculate Selected" in page.text
@@ -1210,11 +1219,45 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         in script.text
     )
     assert "salePrice * craftQuantity - totalRecipeCost" in script.text
+    assert 'await fetch("/recipe-calculator/suggestions"' in script.text
+    assert 'formData.append("item_uuid", itemUuid)' in script.text
+    assert "scheduleSuggestionRefresh()" in script.text
+    assert 'event.target.closest(".calculator-suggestion-result")' in script.text
     assert 'const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position"' in (
         script.text
     )
     assert "String(window.scrollY)" in script.text
     assert "window.scrollTo(0, scrollPosition)" in script.text
+
+    suggestion_response = client.post(
+        "/recipe-calculator/suggestions",
+        data={
+            "item_uuid": [
+                str(items["alpha sword"].uuid),
+                str(items["beta ring"].uuid),
+            ]
+        },
+    )
+
+    assert suggestion_response.status_code == 200
+    suggestions = suggestion_response.json()["suggestions"]
+    assert len(suggestions) == 1
+    assert suggestions[0]["item_uuid"] == str(items["gamma hat"].uuid)
+    assert suggestions[0]["display_name"] == "Gamma Hat"
+    assert suggestions[0]["shared_ingredient_count"] == 1
+    assert suggestions[0]["ingredient_count"] == 1
+    assert suggestions[0]["overlap_percent"] == 100
+    assert suggestions[0]["matching_selected_item_count"] == 2
+
+    invalid_suggestion_response = client.post(
+        "/recipe-calculator/suggestions",
+        data={"item_uuid": str(items["alpha sword"].uuid)},
+    )
+
+    assert invalid_suggestion_response.status_code == 422
+    assert invalid_suggestion_response.json() == {
+        "errors": ["Select at least two craftable items to get suggestions."]
+    }
 
     response = client.post(
         "/recipe-calculator",

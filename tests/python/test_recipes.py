@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from dofus_touch_economy.models import (
     ImportBatch,
@@ -236,6 +237,90 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
     assert result.weighted_ingredient_count == 1
     assert result.known_total_weight == 272
     assert result.total_weight == 272
+
+
+def test_recipe_calculator_suggests_unselected_crafts_by_ingredient_overlap(
+    session_factory,
+) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        batch = session.scalar(select(ImportBatch))
+        wood = session.scalar(select(Item).where(Item.normalized_name == "synthetic wood"))
+        assert batch is not None
+        assert wood is not None
+        ore = Item(
+            display_name="Synthetic Ore",
+            normalized_name="synthetic ore",
+            category="Ore",
+            identity_category="ore",
+        )
+        delta = Item(
+            display_name="Delta Shield",
+            normalized_name="delta shield",
+            category="Shield",
+            identity_category="shield",
+        )
+        epsilon = Item(
+            display_name="Epsilon Boots",
+            normalized_name="epsilon boots",
+            category="Boots",
+            identity_category="boots",
+        )
+        zeta = Item(
+            display_name="Zeta Cloak",
+            normalized_name="zeta cloak",
+            category="Cloak",
+            identity_category="cloak",
+        )
+        session.add_all([ore, delta, epsilon, zeta])
+        session.flush()
+        for row_number, crafted_item, recipe_ingredients in (
+            (4, delta, (wood,)),
+            (5, epsilon, (wood, ore)),
+            (6, zeta, (ore,)),
+        ):
+            record = SourceRecord(
+                import_batch=batch,
+                row_number=row_number,
+                raw_payload_json="{}",
+                status="accepted",
+            )
+            recipe = Recipe(
+                crafted_item=crafted_item,
+                profession="Crafting",
+                source_record=record,
+            )
+            for position, ingredient in enumerate(recipe_ingredients, start=1):
+                recipe.ingredients.append(
+                    RecipeIngredient(
+                        position=position,
+                        item=ingredient,
+                        raw_name=ingredient.display_name,
+                        normalized_name=ingredient.normalized_name,
+                        quantity=1,
+                    )
+                )
+            session.add(recipe)
+        session.commit()
+
+    with session_factory() as session:
+        service = RecipeCalculatorService(session, "Dodge")
+        suggestions = service.suggest_similar((items["alpha"].uuid, items["beta"].uuid))
+        with pytest.raises(RecipeCalculatorSelectionError, match="at least two"):
+            service.suggest_similar((items["alpha"].uuid,))
+
+    assert [suggestion.display_name for suggestion in suggestions] == [
+        "Delta Shield",
+        "Epsilon Boots",
+    ]
+    assert suggestions[0].shared_ingredient_count == 1
+    assert suggestions[0].ingredient_count == 1
+    assert suggestions[0].overlap_percent == 100
+    assert suggestions[0].matching_selected_item_count == 2
+    assert suggestions[1].shared_ingredient_count == 1
+    assert suggestions[1].ingredient_count == 2
+    assert suggestions[1].overlap_percent == 50
+    assert suggestions[1].matching_selected_item_count == 2
 
 
 def test_recipe_calculator_rejects_noncraftable_selection(session_factory) -> None:

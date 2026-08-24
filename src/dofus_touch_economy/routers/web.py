@@ -972,6 +972,31 @@ def _parse_recipe_calculator_selections(form) -> tuple[dict[UUID, int], list[str
     return selections, errors
 
 
+def _parse_recipe_calculator_suggestion_items(form) -> tuple[tuple[UUID, ...], list[str]]:
+    selected_values = form.getlist("item_uuid")
+    if len(selected_values) < 2:
+        return (), ["Select at least two craftable items to get suggestions."]
+    if len(selected_values) > 100:
+        return (), ["Select no more than 100 craftable items."]
+
+    item_uuids: list[UUID] = []
+    errors: list[str] = []
+    for raw_item_uuid in selected_values:
+        if not isinstance(raw_item_uuid, str):
+            errors.append("A selected item identifier is invalid.")
+            continue
+        try:
+            item_uuid = UUID(raw_item_uuid)
+        except ValueError:
+            errors.append("A selected item identifier is invalid.")
+            continue
+        if item_uuid in item_uuids:
+            errors.append("A craftable item was selected more than once.")
+            continue
+        item_uuids.append(item_uuid)
+    return tuple(item_uuids), errors
+
+
 def _recipe_calculator_sale_state(form) -> tuple[set[UUID], dict[UUID, str]]:
     item_uuids: set[UUID] = set()
     prices: dict[UUID, str] = {}
@@ -1176,6 +1201,50 @@ async def calculate_recipes(
             ),
         ),
         status_code=422 if errors else 200,
+    )
+
+
+@router.post(
+    "/recipe-calculator/suggestions",
+    response_class=JSONResponse,
+    response_model=None,
+)
+async def suggest_recipe_calculator_items(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> JSONResponse:
+    form = await request.form()
+    selected_item_uuids, errors = _parse_recipe_calculator_suggestion_items(form)
+    if errors:
+        return JSONResponse({"errors": errors}, status_code=422)
+
+    try:
+        suggestions = RecipeCalculatorService(
+            session,
+            settings.market_context,
+        ).suggest_similar(selected_item_uuids)
+    except RecipeCalculatorSelectionError as error:
+        return JSONResponse({"errors": [str(error)]}, status_code=422)
+
+    return JSONResponse(
+        {
+            "suggestions": [
+                {
+                    "item_uuid": str(suggestion.item_uuid),
+                    "display_name": suggestion.display_name,
+                    "category": suggestion.category,
+                    "icon_url": suggestion.icon_url,
+                    "profession": suggestion.profession,
+                    "profession_level": suggestion.profession_level,
+                    "shared_ingredient_count": suggestion.shared_ingredient_count,
+                    "ingredient_count": suggestion.ingredient_count,
+                    "overlap_percent": suggestion.overlap_percent,
+                    "matching_selected_item_count": (suggestion.matching_selected_item_count),
+                }
+                for suggestion in suggestions
+            ]
+        }
     )
 
 

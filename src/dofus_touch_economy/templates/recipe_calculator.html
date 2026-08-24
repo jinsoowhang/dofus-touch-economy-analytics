@@ -95,6 +95,20 @@
         </table>
         <p id="calculator-empty-selection" {% if selected_choices %}hidden{% endif %}>No craftable items in your cart yet.</p>
       </div>
+      <section class="calculator-suggestions" aria-labelledby="calculator-suggestions-heading">
+        <h3 id="calculator-suggestions-heading">Suggested Similar Crafts</h3>
+        <p>
+          Ranked by how much of each recipe uses the same ingredients as the items
+          already in your craft cart.
+        </p>
+        <div
+          id="calculator-suggestion-results"
+          class="calculator-search-results"
+          aria-live="polite"
+        >
+          <p>Add at least two craftable items to see suggestions.</p>
+        </div>
+      </section>
       <div class="calculator-submit-actions">
         <button type="submit">Calculate Selected</button>
       </div>
