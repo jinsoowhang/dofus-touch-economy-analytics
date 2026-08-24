@@ -181,6 +181,13 @@
                 <td><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ recipe.profession }}</a></td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ recipe.profession_level if recipe.profession_level is not none else "—" }}</a></td>
                 <td class="numeric">
+                  <a
+                    class="item-cell-link"
+                    href="/sales?item_uuid={{ recipe.item_uuid }}&amp;status=active#currently-selling"
+                    tabindex="-1"
+                  >{{ recipe.active_listing_count }}</a>
+                </td>
+                <td class="numeric">
                   {% set is_edited_price = price_item_uuid == recipe.item_uuid %}
                   {% set current_price_value = price_form_value if is_edited_price else ("{:,}".format(recipe.current_price) if recipe.current_price is not none else "") %}
                   <form

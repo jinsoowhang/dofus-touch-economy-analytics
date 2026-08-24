@@ -23,6 +23,7 @@ RecipeSortField = Literal[
     "category",
     "profession",
     "level",
+    "active",
     "price",
     "cost",
     "profit",
@@ -59,6 +60,7 @@ class RecipeCatalogRow:
     icon_url: str | None
     profession: str
     profession_level: int | None
+    active_listing_count: int
     current_price: Decimal | None
     recipe_cost: Decimal | None
     profit: Decimal | None
@@ -408,6 +410,19 @@ class RecipeCatalogService:
             if item_id is not None
         }
         current_prices = self._prices.current_for_items(list(item_ids))
+        crafted_item_ids = {recipe.crafted_item_id for recipe in recipes}
+        active_listing_counts = dict(
+            self._session.execute(
+                select(SaleListing.item_id, func.count(SaleListing.id))
+                .where(
+                    SaleListing.item_id.in_(crafted_item_ids),
+                    SaleListing.date_sold.is_(None),
+                )
+                .group_by(SaleListing.item_id)
+            )
+            .tuples()
+            .all()
+        )
         rows: list[RecipeCatalogRow] = []
         for recipe in recipes:
             crafted_price = current_prices.get(recipe.crafted_item_id)
@@ -438,6 +453,10 @@ class RecipeCatalogService:
                     ),
                     profession=recipe.profession,
                     profession_level=required_profession_level(len(recipe.ingredients)),
+                    active_listing_count=active_listing_counts.get(
+                        recipe.crafted_item_id,
+                        0,
+                    ),
                     current_price=None if crafted_price is None else crafted_price.unit_price,
                     recipe_cost=metrics.recipe_cost,
                     profit=metrics.profit,
@@ -889,6 +908,8 @@ def _sort_rows(
             return row.profession.casefold()
         if sort_field == "level":
             return row.profession_level
+        if sort_field == "active":
+            return row.active_listing_count
         if sort_field == "price":
             return row.current_price
         if sort_field == "cost":

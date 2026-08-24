@@ -801,6 +801,7 @@ def _recipe_sort_columns(
         ("category", "Category", False),
         ("profession", "Profession", False),
         ("level", "Required Level", True),
+        ("active", "Currently Selling", True),
         ("price", "Current Price", True),
         ("cost", "Recipe Cost", True),
         ("profit", "Profit", True),

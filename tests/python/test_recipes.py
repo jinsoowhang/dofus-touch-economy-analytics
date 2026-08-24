@@ -9,6 +9,7 @@ from dofus_touch_economy.models import (
     Item,
     Recipe,
     RecipeIngredient,
+    SaleListing,
     SourceRecord,
 )
 from dofus_touch_economy.schemas import PriceObservationCreate
@@ -185,6 +186,43 @@ def test_recipe_catalog_paginates_after_filtering_and_sorting(session_factory) -
     assert result.page == 2
     assert result.page_count == 2
     assert [row.display_name for row in result.rows] == ["Gamma Hat"]
+
+
+def test_recipe_catalog_counts_and_sorts_active_listings(session_factory) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=items["alpha"].id,
+                    lot_quantity=1,
+                    asking_price=100,
+                ),
+                SaleListing(
+                    item_id=items["alpha"].id,
+                    lot_quantity=1,
+                    asking_price=110,
+                ),
+                SaleListing(
+                    item_id=items["beta"].id,
+                    lot_quantity=1,
+                    asking_price=30,
+                ),
+            ]
+        )
+        session.commit()
+
+        result = RecipeCatalogService(session, "Dodge").browse(
+            sort_field="active",
+            sort_direction="desc",
+        )
+
+    assert [row.display_name for row in result.rows] == [
+        "Alpha Sword",
+        "Beta Ring",
+        "Gamma Hat",
+    ]
+    assert [row.active_listing_count for row in result.rows] == [2, 1, 0]
 
 
 def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(

@@ -839,6 +839,14 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
         recipe = session.scalar(select(Recipe))
         assert recipe is not None
         item_uuid = recipe.crafted_item.uuid
+        session.add(
+            SaleListing(
+                item_id=recipe.crafted_item_id,
+                lot_quantity=1,
+                asking_price=4_000,
+            )
+        )
+        session.commit()
 
     response = client.get(
         "/recipes",
@@ -884,6 +892,10 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert 'class="recipe-cart-add secondary-button"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
     assert 'aria-label="Sort recipes by Required Level, ascending"' in response.text
+    assert 'aria-label="Sort recipes by Currently Selling, descending"' in response.text
+    assert (
+        f'href="/sales?item_uuid={item_uuid}&amp;status=active#currently-selling"' in response.text
+    )
     assert (
         "profession=Crafting&amp;min_level=1&amp;max_level=1&amp;economics=unknown&amp;"
         "sort=name&amp;direction=desc#recipe-catalog"
