@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased, selectinload
 
+from dofus_touch_economy.catalog_scope import active_catalog_item_clause
 from dofus_touch_economy.models import Item, Recipe, RecipeIngredient, SaleListing
 from dofus_touch_economy.normalization import format_item_display_name, normalize_item_name
 from dofus_touch_economy.services.pricing import (
@@ -822,6 +823,7 @@ def _latest_recipe_catalog(session: Session) -> list[_CatalogRecipe]:
         .join(latest_recipe_ids, latest_recipe_ids.c.recipe_id == Recipe.id)
         .join(crafted_item, crafted_item.id == Recipe.crafted_item_id)
         .outerjoin(RecipeIngredient, RecipeIngredient.recipe_id == Recipe.id)
+        .where(active_catalog_item_clause(crafted_item))
         .order_by(Recipe.id, RecipeIngredient.position)
     )
     recipes_by_id: dict[int, _CatalogRecipe] = {}
@@ -868,7 +870,11 @@ def _latest_recipes_for_items(session: Session, item_uuids: tuple[UUID, ...]) ->
         session.scalars(
             select(Recipe)
             .join(Recipe.crafted_item)
-            .where(Recipe.id.in_(latest_recipe_ids), Item.uuid.in_(item_uuids))
+            .where(
+                Recipe.id.in_(latest_recipe_ids),
+                Item.uuid.in_(item_uuids),
+                active_catalog_item_clause(Item),
+            )
             .options(
                 selectinload(Recipe.crafted_item),
                 selectinload(Recipe.ingredients).selectinload(RecipeIngredient.item),

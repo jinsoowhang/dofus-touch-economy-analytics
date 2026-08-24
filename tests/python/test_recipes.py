@@ -186,6 +186,23 @@ def test_recipe_catalog_paginates_after_filtering_and_sorting(session_factory) -
     assert [row.display_name for row in result.rows] == ["Gamma Hat"]
 
 
+def test_recipe_catalog_excludes_confirmed_non_touch_crafted_item(session_factory) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        excluded_item = session.get(Item, items["alpha"].id)
+        assert excluded_item is not None
+        excluded_item.display_name = "Violet Arrow Helmet"
+        excluded_item.normalized_name = "violet arrow helmet"
+        excluded_item.category = "Hat"
+        excluded_item.identity_category = "hat"
+        session.commit()
+
+        result = RecipeCatalogService(session, "Dodge").browse()
+
+    assert result.total_count == 2
+    assert [row.display_name for row in result.rows] == ["Beta Ring", "Gamma Hat"]
+
+
 def test_recipe_catalog_counts_and_sorts_active_listings(session_factory) -> None:
     items = seed_recipe_catalog(session_factory)
     with session_factory() as session:

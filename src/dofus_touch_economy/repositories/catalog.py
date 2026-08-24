@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from dofus_touch_economy.catalog_scope import active_catalog_item_clause
 from dofus_touch_economy.models import Item, Recipe, RecipeIngredient
 from dofus_touch_economy.normalization import normalize_item_name
 
@@ -18,7 +19,7 @@ class CatalogRepository:
         limit: int | None = 50,
         category: str | Collection[str] = "",
     ) -> list[Item]:
-        statement = select(Item)
+        statement = select(Item).where(active_catalog_item_clause(Item))
         if query.strip():
             normalized_query = normalize_item_name(query)
             statement = statement.where(
@@ -41,7 +42,11 @@ class CatalogRepository:
     def categories(self) -> list[str]:
         statement = (
             select(Item.category)
-            .where(Item.category.is_not(None), func.trim(Item.category) != "")
+            .where(
+                active_catalog_item_clause(Item),
+                Item.category.is_not(None),
+                func.trim(Item.category) != "",
+            )
             .distinct()
             .order_by(func.lower(Item.category), Item.category)
         )
@@ -64,7 +69,7 @@ class CatalogRepository:
         return list(self._session.scalars(statement))
 
     def suggestion_candidates(self, category: str | Collection[str] = "") -> list[Item]:
-        statement = select(Item)
+        statement = select(Item).where(active_catalog_item_clause(Item))
         normalized_categories = _normalized_categories(category)
         if normalized_categories:
             statement = statement.where(
@@ -80,7 +85,7 @@ class CatalogRepository:
     def get_by_uuid(self, item_uuid: UUID) -> Item | None:
         statement = (
             select(Item)
-            .where(Item.uuid == item_uuid)
+            .where(Item.uuid == item_uuid, active_catalog_item_clause(Item))
             .options(
                 selectinload(Item.recipes)
                 .selectinload(Recipe.ingredients)

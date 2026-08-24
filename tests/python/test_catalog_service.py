@@ -8,9 +8,13 @@ from sqlalchemy import select
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item
 from dofus_touch_economy.schemas import ItemCreate, PriceObservationCreate, SaleListingCreate
-from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
-from dofus_touch_economy.services.pricing import PriceService
-from dofus_touch_economy.services.sales import SalesService
+from dofus_touch_economy.services.catalog import (
+    CatalogItemConflict,
+    CatalogItemExcluded,
+    CatalogService,
+)
+from dofus_touch_economy.services.pricing import ItemNotFound, PriceService
+from dofus_touch_economy.services.sales import SaleItemNotFound, SalesService
 
 
 def price_command(total_price: int) -> PriceObservationCreate:
@@ -54,6 +58,36 @@ def test_blank_search_lists_full_catalog_alphabetically(session_factory) -> None
         results = CatalogService(session, "Dodge").search("", limit=None)
 
     assert [result.display_name for result in results] == ["Alpha Item", "Zeta Item"]
+
+
+def test_confirmed_non_touch_item_is_excluded_without_deleting_provenance(
+    session_factory,
+) -> None:
+    with session_factory() as session:
+        excluded_item = Item(
+            display_name="Violet Arrow Helmet",
+            normalized_name="violet arrow helmet",
+            category="Hat",
+            identity_category="hat",
+        )
+        session.add(excluded_item)
+        session.commit()
+        excluded_uuid = excluded_item.uuid
+
+        service = CatalogService(session, "Dodge")
+        assert service.search("violet arrow", limit=None) == []
+        with pytest.raises(ItemNotFound):
+            service.detail(excluded_uuid)
+        with pytest.raises(ItemNotFound):
+            PriceService(session, "Dodge").record(excluded_uuid, price_command(100))
+        with pytest.raises(SaleItemNotFound):
+            SalesService(session, "Dodge").start(
+                SaleListingCreate(item_uuid=excluded_uuid, asking_price=100)
+            )
+        with pytest.raises(CatalogItemExcluded):
+            service.create_manual(ItemCreate(display_name="Violet Arrow Helmet"))
+
+        assert session.scalar(select(Item).where(Item.uuid == excluded_uuid)) is not None
 
 
 def test_search_filters_by_multiple_exact_normalized_categories(session_factory) -> None:

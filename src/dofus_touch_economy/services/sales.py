@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from dofus_touch_economy.catalog_scope import active_catalog_item_clause
 from dofus_touch_economy.models import Item, PriceObservation, Recipe, SaleListing
 from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.repositories.catalog import CatalogRepository
@@ -479,7 +480,10 @@ class SalesService:
         item_ids = {
             item_uuid: item_id
             for item_uuid, item_id in self._session.execute(
-                select(Item.uuid, Item.id).where(Item.uuid.in_(item_uuids))
+                select(Item.uuid, Item.id).where(
+                    Item.uuid.in_(item_uuids),
+                    active_catalog_item_clause(Item),
+                )
             )
         }
         missing_item_uuids = [item_uuid for item_uuid in item_uuids if item_uuid not in item_ids]

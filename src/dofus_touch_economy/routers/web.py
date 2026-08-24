@@ -30,6 +30,7 @@ from dofus_touch_economy.schemas import (
 )
 from dofus_touch_economy.services.catalog import (
     CatalogItemConflict,
+    CatalogItemExcluded,
     CatalogService,
     ItemSortField,
     SortDirection,
@@ -2027,6 +2028,20 @@ async def create_item(
 
     try:
         detail = catalog.create_manual(command)
+    except CatalogItemExcluded as error:
+        context = _search_context(
+            catalog,
+            command.display_name,
+            settings.market_context,
+            errors=[str(error)],
+            form_values=values,
+        )
+        return templates.TemplateResponse(
+            request,
+            "items.html",
+            context=context,
+            status_code=422,
+        )
     except CatalogItemConflict as error:
         if len(error.candidates) == 1:
             return RedirectResponse(url=f"/items/{error.candidates[0].uuid}", status_code=303)

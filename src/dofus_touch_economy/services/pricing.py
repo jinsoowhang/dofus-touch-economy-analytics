@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from dofus_touch_economy.catalog_scope import active_catalog_item_clause
 from dofus_touch_economy.models import Item, PriceObservation
 from dofus_touch_economy.repositories.prices import PriceRepository
 from dofus_touch_economy.schemas import (
@@ -96,7 +97,12 @@ class PriceService:
         self._repository = PriceRepository(session)
 
     def record(self, item_uuid: UUID, command: PriceObservationCreate) -> PriceObservationResponse:
-        item_id = self._session.scalar(select(Item.id).where(Item.uuid == item_uuid))
+        item_id = self._session.scalar(
+            select(Item.id).where(
+                Item.uuid == item_uuid,
+                active_catalog_item_clause(Item),
+            )
+        )
         if item_id is None:
             raise ItemNotFound(str(item_uuid))
         note = command.note.strip() if command.note and command.note.strip() else None

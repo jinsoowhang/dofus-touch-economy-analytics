@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from dofus_touch_economy.catalog_scope import active_catalog_item_clause
 from dofus_touch_economy.models import Item
 from dofus_touch_economy.normalization import normalize_item_name
 
@@ -309,7 +310,9 @@ def _load_targets(session_factory: sessionmaker[Session]) -> list[_Target]:
                 Item.display_name,
                 Item.normalized_name,
                 Item.icon_source_url,
-            ).order_by(Item.normalized_name, Item.id)
+            )
+            .where(active_catalog_item_clause(Item))
+            .order_by(Item.normalized_name, Item.id)
         )
         return [_Target(*row) for row in rows]
 

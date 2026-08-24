@@ -13,7 +13,11 @@ from dofus_touch_economy.schemas import (
     ItemSummaryResponse,
     PriceObservationCreate,
 )
-from dofus_touch_economy.services.catalog import CatalogItemConflict, CatalogService
+from dofus_touch_economy.services.catalog import (
+    CatalogItemConflict,
+    CatalogItemExcluded,
+    CatalogService,
+)
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     ObservationConflict,
@@ -45,6 +49,8 @@ def create_item(
 ) -> ItemDetailResponse:
     try:
         return CatalogService(session, settings.market_context).create_manual(command)
+    except CatalogItemExcluded as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     except CatalogItemConflict as error:
         raise HTTPException(
             status_code=409,

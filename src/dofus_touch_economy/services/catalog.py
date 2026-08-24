@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from dofus_touch_economy.catalog_scope import catalog_exclusion_for_name
 from dofus_touch_economy.models import Item
 from dofus_touch_economy.normalization import (
     format_item_display_name,
@@ -49,6 +50,10 @@ class CatalogItemConflict(RuntimeError):
     def __init__(self, candidates: list[ItemSummaryResponse]) -> None:
         super().__init__("catalog item identity already exists")
         self.candidates = candidates
+
+
+class CatalogItemExcluded(ValueError):
+    pass
 
 
 class CatalogService:
@@ -124,6 +129,9 @@ class CatalogService:
 
     def create_manual(self, command: ItemCreate) -> ItemDetailResponse:
         normalized_name = normalize_item_name(command.display_name)
+        exclusion = catalog_exclusion_for_name(normalized_name)
+        if exclusion is not None:
+            raise CatalogItemExcluded(exclusion.reason)
         category = command.category or infer_item_category(command.display_name)
         identity_category = "" if category is None else normalize_item_name(category)
         existing = self._conflicting_items(
