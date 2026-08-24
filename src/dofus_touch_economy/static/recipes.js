@@ -13,8 +13,8 @@ if (
   maximumLevelNumber &&
   levelRangeSlider
 ) {
-  const updateTrack = (changedInput) => {
-    if (Number(minimumLevel.value) > Number(maximumLevel.value)) {
+  const updateTrack = (changedInput, enforceOrder = true) => {
+    if (enforceOrder && Number(minimumLevel.value) > Number(maximumLevel.value)) {
       if (changedInput === minimumLevel) {
         maximumLevel.value = minimumLevel.value;
       } else {
@@ -44,21 +44,27 @@ if (
     maximumLevel.style.zIndex = changedInput === maximumLevel ? "3" : "2";
   };
 
-  const updateFromNumber = (numberInput, rangeInput) => {
+  const updateFromNumber = (numberInput, rangeInput, enforceOrder) => {
     if (numberInput.value === "" || !numberInput.checkValidity()) {
       return;
     }
     rangeInput.value = numberInput.value;
-    updateTrack(rangeInput);
+    updateTrack(rangeInput, enforceOrder);
   };
 
   minimumLevel.addEventListener("input", () => updateTrack(minimumLevel));
   maximumLevel.addEventListener("input", () => updateTrack(maximumLevel));
   minimumLevelNumber.addEventListener("input", () =>
-    updateFromNumber(minimumLevelNumber, minimumLevel),
+    updateFromNumber(minimumLevelNumber, minimumLevel, false),
   );
   maximumLevelNumber.addEventListener("input", () =>
-    updateFromNumber(maximumLevelNumber, maximumLevel),
+    updateFromNumber(maximumLevelNumber, maximumLevel, false),
+  );
+  minimumLevelNumber.addEventListener("change", () =>
+    updateFromNumber(minimumLevelNumber, minimumLevel, true),
+  );
+  maximumLevelNumber.addEventListener("change", () =>
+    updateFromNumber(maximumLevelNumber, maximumLevel, true),
   );
   updateTrack();
 }

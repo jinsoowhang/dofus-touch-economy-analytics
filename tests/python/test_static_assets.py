@@ -63,6 +63,20 @@ def test_recipe_calculator_preserves_shopping_list_sort_during_price_reload() ->
     assert 'sortState.direction === "descending"' in script
 
 
+def test_recipe_level_number_inputs_defer_cross_endpoint_enforcement() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipes.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert "updateFromNumber(minimumLevelNumber, minimumLevel, false)" in script
+    assert "updateFromNumber(maximumLevelNumber, maximumLevel, false)" in script
+    assert 'minimumLevelNumber.addEventListener("change"' in script
+    assert "updateFromNumber(minimumLevelNumber, minimumLevel, true)" in script
+    assert "updateFromNumber(maximumLevelNumber, maximumLevel, true)" in script
+
+
 def test_every_web_table_has_client_or_server_sorting() -> None:
     templates = resources.files("dofus_touch_economy").joinpath("templates")
     expected_server_sorted = {
