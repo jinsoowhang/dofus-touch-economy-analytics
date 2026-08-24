@@ -165,6 +165,7 @@ def test_best_sellers_group_completed_sales_and_rank_decision_metrics(
     assert report.average_days_to_sell == Decimal("2.5")
     assert report.best_seller is ore
     assert report.top_revenue_item is hat
+    assert report.top_profit_item is None
 
 
 def test_priced_sale_updates_current_price_and_preserves_history(session, catalog_item) -> None:

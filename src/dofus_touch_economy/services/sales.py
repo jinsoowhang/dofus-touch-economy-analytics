@@ -96,6 +96,7 @@ class BestSellerReport:
     average_days_to_sell: Decimal | None
     best_seller: BestSellerItem | None
     top_revenue_item: BestSellerItem | None
+    top_profit_item: BestSellerItem | None
 
 
 @dataclass(frozen=True)
@@ -231,7 +232,7 @@ class SalesService:
     def best_sellers(self) -> BestSellerReport:
         sold_listings = self._sales.sold()
         if not sold_listings:
-            return BestSellerReport((), 0, 0, 0, None, None, None)
+            return BestSellerReport((), 0, 0, 0, None, None, None, None)
 
         active_counts: dict[int, int] = defaultdict(int)
         for listing in self._sales.active():
@@ -343,6 +344,19 @@ class SalesService:
                 ),
             )
         )
+        profit_items = [item for item in items if item.estimated_profit is not None]
+        top_profit_item = (
+            None
+            if not profit_items
+            else min(
+                profit_items,
+                key=lambda item: (
+                    -item.estimated_profit,
+                    -item.sold_count,
+                    item.display_name.casefold(),
+                ),
+            )
+        )
         return BestSellerReport(
             items=tuple(items),
             total_sold_count=total_sold_count,
@@ -353,6 +367,7 @@ class SalesService:
             ),
             best_seller=items[0],
             top_revenue_item=top_revenue_item,
+            top_profit_item=top_profit_item,
         )
 
     def daily_totals(

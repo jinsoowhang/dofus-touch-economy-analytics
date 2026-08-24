@@ -117,6 +117,27 @@ def test_out_of_stock_table_restores_cell_spacing() -> None:
     assert "padding: 0.75rem;" in out_of_stock_rule
 
 
+def test_best_sellers_uses_compact_table_with_accessible_row_details() -> None:
+    stylesheet = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/app.css")
+        .read_text(encoding="utf-8")
+    )
+    template = (
+        resources.files("dofus_touch_economy")
+        .joinpath("templates/best_sellers.html")
+        .read_text(encoding="utf-8")
+    )
+
+    best_sellers_rule = stylesheet.split(".best-sellers-table {", maxsplit=1)[1].split(
+        "}", maxsplit=1
+    )[0]
+    assert "min-width: 64rem;" in best_sellers_rule
+    assert '<details class="row-details">' in template
+    assert "Average Sale Price" in template
+    assert "Average Days to Sell" in template
+
+
 def test_calculator_sales_form_uses_full_width_block_layout() -> None:
     stylesheet = (
         resources.files("dofus_touch_economy")

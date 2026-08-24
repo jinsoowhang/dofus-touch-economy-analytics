@@ -1024,8 +1024,9 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert "Items Sold</span><strong>2</strong>" in response.text
     assert "Recorded Revenue</span>" in response.text
     assert "21,000" in response.text
-    assert "Price Coverage</span>" in response.text
-    assert "3 of 3" in response.text
+    assert "Price Coverage</span>" not in response.text
+    assert "Top Profit</span>" in response.text
+    assert "Synthetic Widget · 1,000" in response.text
     assert "3.0 days" in response.text
     assert "Synthetic Widget · 2" in response.text
     assert "Rare Trophy · 12,000" in response.text
@@ -1034,6 +1035,9 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert "Active Now" in response.text
     assert "Estimated Profit" in response.text
     assert "Estimated ROI" in response.text
+    assert '<details class="row-details">' in response.text
+    assert not re.search(r"<th[^>]*>Average Sale Price</th>", response.text)
+    assert not re.search(r"<th[^>]*>Average Days to Sell</th>", response.text)
     assert "3,500" in response.text
     assert "1,000" in response.text
     assert "28.6%" in response.text
