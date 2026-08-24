@@ -926,7 +926,7 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert 'class="site-submenu-link is-active"' in response.text
     assert 'class="page-shell page-shell--wide"' in response.text
     assert "<span>Item</span>" in response.text
-    assert '<option value="Crafting" selected>Crafting</option>' in response.text
+    assert 'name="profession" value="Crafting" checked' in response.text
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
     assert 'id="recipe-min-level"' in response.text
     assert 'name="min_level"' in response.text
@@ -1777,7 +1777,7 @@ def test_search_field_reduces_catalog_table(client, session_factory, catalog_ite
     assert "1 shown" in response.text
 
 
-def test_item_search_category_filter_reduces_results_and_persists_in_sorting(
+def test_item_search_category_filters_accept_multiple_values_and_persist_in_sorting(
     client,
     session_factory,
 ) -> None:
@@ -1796,18 +1796,33 @@ def test_item_search_category_filter_reduces_results_and_persists_in_sorting(
                     category="Hat",
                     identity_category="hat",
                 ),
+                Item(
+                    display_name="Alpha Belt",
+                    normalized_name="alpha belt",
+                    category="Belt",
+                    identity_category="belt",
+                ),
             ]
         )
         session.commit()
 
-    response = client.get("/items", params={"q": "alpha", "category": "ring"})
+    response = client.get(
+        "/items",
+        params=[("q", "alpha"), ("category", "ring"), ("category", "hat")],
+    )
 
     assert response.status_code == 200
-    assert '<label for="item-category">Category (Optional)</label>' in response.text
-    assert '<option value="ring" selected>Ring</option>' in response.text
+    assert "Categories · 2 selected" in response.text
+    assert re.search(r'name="category"\s+value="ring"\s+checked', response.text)
+    assert re.search(r'name="category"\s+value="hat"\s+checked', response.text)
+    assert 'hx-trigger="change"' in response.text
     assert "Alpha Ring" in response.text
-    assert "Alpha Hat" not in response.text
-    assert "q=alpha&amp;category=ring&amp;sort=price&amp;direction=desc" in response.text
+    assert "Alpha Hat" in response.text
+    assert "Alpha Belt" not in response.text
+    assert (
+        "q=alpha&amp;category=ring&amp;category=hat&amp;sort=price&amp;direction=desc"
+        in response.text
+    )
     assert 'aria-label="Sort by Current Price, descending"' in response.text
 
 
@@ -1822,7 +1837,7 @@ def test_item_headers_toggle_sort_and_show_active_direction(client, catalog_item
     assert 'name="direction" value="desc"' in response.text
     assert 'aria-sort="descending"' in response.text
     assert '<span class="sort-arrow" aria-hidden="true">▼</span>' in response.text
-    assert "/items?q=synthetic&amp;category=&amp;sort=price&amp;direction=asc" in response.text
+    assert "/items?q=synthetic&amp;sort=price&amp;direction=asc" in response.text
     for field in ("name", "category", "weight", "price", "observed"):
         assert f"sort={field}" in response.text
 
@@ -1923,11 +1938,10 @@ def test_search_input_uses_delayed_htmx_updates(client) -> None:
     assert 'hx-trigger="input changed delay:250ms, search"' in response.text
     assert 'hx-target="#item-results"' in response.text
     assert (
-        "hx-include=\"#item-category, input[name='sort'], input[name='direction']\""
+        "hx-include=\"input[name='category'], input[name='sort'], input[name='direction']\""
         in response.text
     )
-    assert 'id="item-category"' in response.text
-    assert 'hx-trigger="change"' in response.text
+    assert 'class="filter-multiselect"' in response.text
 
 
 def test_no_results_offers_typo_suggestion_and_manual_add_form(client, catalog_item) -> None:

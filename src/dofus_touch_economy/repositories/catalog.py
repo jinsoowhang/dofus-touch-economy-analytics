@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -15,7 +16,7 @@ class CatalogRepository:
         self,
         query: str,
         limit: int | None = 50,
-        category: str = "",
+        category: str | Collection[str] = "",
     ) -> list[Item]:
         statement = select(Item)
         if query.strip():
@@ -23,9 +24,11 @@ class CatalogRepository:
             statement = statement.where(
                 Item.normalized_name.contains(normalized_query, autoescape=True)
             )
-        if category.strip():
-            normalized_category = normalize_item_name(category)
-            statement = statement.where(func.lower(func.trim(Item.category)) == normalized_category)
+        normalized_categories = _normalized_categories(category)
+        if normalized_categories:
+            statement = statement.where(
+                func.lower(func.trim(Item.category)).in_(normalized_categories)
+            )
         statement = statement.order_by(
             Item.normalized_name,
             func.coalesce(Item.category, ""),
@@ -60,11 +63,13 @@ class CatalogRepository:
         )
         return list(self._session.scalars(statement))
 
-    def suggestion_candidates(self, category: str = "") -> list[Item]:
+    def suggestion_candidates(self, category: str | Collection[str] = "") -> list[Item]:
         statement = select(Item)
-        if category.strip():
-            normalized_category = normalize_item_name(category)
-            statement = statement.where(func.lower(func.trim(Item.category)) == normalized_category)
+        normalized_categories = _normalized_categories(category)
+        if normalized_categories:
+            statement = statement.where(
+                func.lower(func.trim(Item.category)).in_(normalized_categories)
+            )
         statement = statement.order_by(
             Item.normalized_name,
             func.coalesce(Item.category, ""),
@@ -83,3 +88,8 @@ class CatalogRepository:
             )
         )
         return self._session.scalar(statement)
+
+
+def _normalized_categories(category: str | Collection[str]) -> tuple[str, ...]:
+    values = (category,) if isinstance(category, str) else category
+    return tuple(dict.fromkeys(normalize_item_name(value) for value in values if value.strip()))

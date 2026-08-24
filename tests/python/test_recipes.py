@@ -125,12 +125,10 @@ def test_recipe_catalog_filters_and_calculates_current_economics(session_factory
     with session_factory() as session:
         result = RecipeCatalogService(session, "Dodge").browse(
             RecipeCatalogFilters(
-                item_query="alpha",
-                category="sword",
-                profession="Sword Smith",
+                categories=("sword", "ring"),
+                professions=("Sword Smith", "Jeweller"),
                 minimum_level=20,
-                maximum_level=20,
-                economics="profitable",
+                maximum_level=100,
             )
         )
 
@@ -143,7 +141,7 @@ def test_recipe_catalog_filters_and_calculates_current_economics(session_factory
         ("ring", "Ring"),
         ("sword", "Sword"),
     ]
-    assert [row.display_name for row in result.rows] == ["Alpha Sword"]
+    assert [row.display_name for row in result.rows] == ["Alpha Sword", "Beta Ring"]
     assert result.rows[0].current_price == 100
     assert result.rows[0].recipe_cost == 80
     assert result.rows[0].profit == 20
@@ -292,8 +290,8 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
                 lot_quantity=1,
                 total_price=100,
                 observed_at=datetime(2026, 8, 23, tzinfo=UTC),
-                ),
-            )
+            ),
+        )
         session.add(
             SaleListing(
                 item_id=items["alpha"].id,

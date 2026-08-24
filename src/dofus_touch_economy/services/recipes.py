@@ -44,8 +44,8 @@ def required_profession_level(ingredient_count: int) -> int | None:
 @dataclass(frozen=True)
 class RecipeCatalogFilters:
     item_query: str = ""
-    category: str = ""
-    profession: str = ""
+    categories: tuple[str, ...] = ()
+    professions: tuple[str, ...] = ()
     minimum_level: int | None = None
     maximum_level: int | None = None
     economics: RecipeEconomicsFilter = "all"
@@ -887,17 +887,21 @@ def _filter_rows(
     filters: RecipeCatalogFilters,
 ) -> list[RecipeCatalogRow]:
     normalized_query = normalize_item_name(filters.item_query) if filters.item_query.strip() else ""
-    normalized_category = normalize_item_name(filters.category) if filters.category.strip() else ""
-    normalized_profession = filters.profession.strip().casefold()
+    normalized_categories = {
+        normalize_item_name(category) for category in filters.categories if category.strip()
+    }
+    normalized_professions = {
+        profession.strip().casefold() for profession in filters.professions if profession.strip()
+    }
 
     def matches(row: RecipeCatalogRow) -> bool:
         if normalized_query and normalized_query not in normalize_item_name(row.display_name):
             return False
-        if normalized_category and (
-            not row.category or normalize_item_name(row.category) != normalized_category
+        if normalized_categories and (
+            not row.category or normalize_item_name(row.category) not in normalized_categories
         ):
             return False
-        if normalized_profession and row.profession.casefold() != normalized_profession:
+        if normalized_professions and row.profession.casefold() not in normalized_professions:
             return False
         if filters.minimum_level is not None and (
             row.profession_level is None or row.profession_level < filters.minimum_level

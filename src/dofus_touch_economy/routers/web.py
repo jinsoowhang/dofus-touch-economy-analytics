@@ -178,20 +178,20 @@ DEFAULT_SALES_FILTER_STATE = SalesFilterState()
 @dataclass(frozen=True)
 class RecipeFilterState:
     item_query: str = ""
-    category: str = ""
-    profession: str = ""
+    categories: tuple[str, ...] = ()
+    professions: tuple[str, ...] = ()
     minimum_level: int | None = None
     maximum_level: int | None = None
     economics: RecipeEconomicsFilter = "all"
 
-    def parameters(self) -> dict[str, str]:
-        parameters: dict[str, str] = {}
+    def parameters(self) -> dict[str, str | tuple[str, ...]]:
+        parameters: dict[str, str | tuple[str, ...]] = {}
         if self.item_query:
             parameters["q"] = self.item_query
-        if self.category:
-            parameters["category"] = self.category
-        if self.profession:
-            parameters["profession"] = self.profession
+        if self.categories:
+            parameters["category"] = self.categories
+        if self.professions:
+            parameters["profession"] = self.professions
         if self.minimum_level is not None:
             parameters["min_level"] = str(self.minimum_level)
         if self.maximum_level is not None:
@@ -203,8 +203,8 @@ class RecipeFilterState:
     def catalog_filters(self) -> RecipeCatalogFilters:
         return RecipeCatalogFilters(
             item_query=self.item_query,
-            category=self.category,
-            profession=self.profession,
+            categories=self.categories,
+            professions=self.professions,
             minimum_level=self.minimum_level,
             maximum_level=self.maximum_level,
             economics=self.economics,
@@ -259,20 +259,35 @@ def _sales_filter_state(
 
 def _recipe_filter_state(
     q: Annotated[str, Query(max_length=200)] = "",
-    category: Annotated[str, Query(max_length=200)] = "",
-    profession: Annotated[str, Query(max_length=200)] = "",
+    category: Annotated[list[str] | None, Query()] = None,
+    profession: Annotated[list[str] | None, Query()] = None,
     min_level: Annotated[int | None, Query(ge=1, le=1000)] = None,
     max_level: Annotated[int | None, Query(ge=1, le=1000)] = None,
     economics: Annotated[RecipeEconomicsFilter, Query()] = "all",
 ) -> RecipeFilterState:
     return RecipeFilterState(
         item_query=q.strip(),
-        category=category.strip(),
-        profession=profession.strip(),
+        categories=_normalized_filter_values(category, normalize=True),
+        professions=_normalized_filter_values(profession),
         minimum_level=min_level,
         maximum_level=max_level,
         economics=economics,
     )
+
+
+def _normalized_filter_values(
+    values: list[str] | tuple[str, ...] | None,
+    *,
+    normalize: bool = False,
+) -> tuple[str, ...]:
+    unique_values: dict[str, str] = {}
+    for value in values or ():
+        stripped = value.strip()
+        if not stripped:
+            continue
+        resolved = normalize_item_name(stripped) if normalize else stripped
+        unique_values.setdefault(resolved.casefold(), resolved)
+    return tuple(unique_values.values())
 
 
 def _optional_integer_filter(value: str, label: str, errors: list[str]) -> int | None:
@@ -360,13 +375,13 @@ def _search_context(
     *,
     sort_field: ItemSortField = "name",
     sort_direction: SortDirection = "asc",
-    category: str = "",
+    categories: tuple[str, ...] = (),
     page: int = 1,
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    category_filter = normalize_item_name(category) if category.strip() else ""
+    category_filters = _normalized_filter_values(categories, normalize=True)
     category_choices = catalog.category_choices()
     category_labels = {choice.key: choice.label for choice in category_choices}
     matching_items = catalog.search(
@@ -374,10 +389,10 @@ def _search_context(
         limit=None,
         sort_field=sort_field,
         sort_direction=sort_direction,
-        category=category_filter,
+        category=category_filters,
     )
     suggestions = (
-        catalog.suggest(query, limit=5, category=category_filter)
+        catalog.suggest(query, limit=5, category=category_filters)
         if query.strip() and not matching_items
         else []
     )
@@ -389,21 +404,23 @@ def _search_context(
     def page_url(target_page: int) -> str:
         parameters = {
             "q": query,
-            "category": category_filter,
+            "category": category_filters,
             "sort": sort_field,
             "direction": sort_direction,
         }
         if target_page > 1:
             parameters["page"] = str(target_page)
-        return f"/items?{urlencode(parameters)}"
+        return f"/items?{urlencode(parameters, doseq=True)}"
 
     proposed_display_name = catalog.format_display_name(query) if query.strip() else query
-    recognized_category = category_labels.get(category_filter)
+    recognized_category = (
+        category_labels.get(category_filters[0]) if len(category_filters) == 1 else None
+    )
     if recognized_category is None and query.strip():
         recognized_category = catalog.infer_category(query)
     return {
         "query": query,
-        "category_filter": category_filter,
+        "category_filters": category_filters,
         "category_choices": category_choices,
         "items": items,
         "item_filtered_count": len(matching_items),
@@ -422,7 +439,7 @@ def _search_context(
         "sort_direction": sort_direction,
         "sort_columns": _sort_columns(
             query,
-            category_filter,
+            category_filters,
             sort_field,
             sort_direction,
         ),
@@ -434,7 +451,7 @@ def _search_context(
 
 def _sort_columns(
     query: str,
-    category: str,
+    categories: tuple[str, ...],
     sort_field: ItemSortField,
     sort_direction: SortDirection,
 ) -> list[dict[str, object]]:
@@ -451,7 +468,7 @@ def _sort_columns(
         next_direction = "asc" if active and sort_direction == "desc" else "desc"
         parameters = {
             "q": query,
-            "category": category,
+            "category": categories,
             "sort": field,
             "direction": next_direction,
         }
@@ -463,7 +480,7 @@ def _sort_columns(
                 "active": active,
                 "direction": sort_direction if active else None,
                 "next_direction": next_direction,
-                "url": f"/items?{urlencode(parameters)}",
+                "url": f"/items?{urlencode(parameters, doseq=True)}",
             }
         )
     return result
@@ -804,7 +821,7 @@ def _sales_sort_columns(
 def _recipe_sort_columns(
     sort_field: RecipeSortField,
     sort_direction: RecipeSortDirection,
-    filter_parameters: dict[str, str],
+    filter_parameters: dict[str, str | tuple[str, ...]],
 ) -> list[dict[str, object]]:
     columns = (
         ("name", "Item", False),
@@ -834,7 +851,7 @@ def _recipe_sort_columns(
                 "active": active,
                 "direction": sort_direction if active else None,
                 "next_direction": next_direction,
-                "url": f"/recipes?{urlencode(parameters)}#recipe-catalog",
+                "url": f"/recipes?{urlencode(parameters, doseq=True)}#recipe-catalog",
             }
         )
     return result
@@ -875,7 +892,7 @@ def _recipe_page_context(
         parameters = {**filter_parameters, "sort": sort_field, "direction": sort_direction}
         if target_page > 1:
             parameters["page"] = str(target_page)
-        return f"/recipes?{urlencode(parameters)}#recipe-catalog"
+        return f"/recipes?{urlencode(parameters, doseq=True)}#recipe-catalog"
 
     return {
         "active_tab": "recipes",
@@ -906,7 +923,7 @@ def _recipe_page_context(
             sort_direction,
             filter_parameters,
         ),
-        "recipe_view_query": urlencode(view_parameters),
+        "recipe_view_query": urlencode(view_parameters, doseq=True),
         "errors": filter_state.errors(),
         "notification": notification,
         "price_errors": price_errors or [],
@@ -1474,7 +1491,7 @@ async def update_recipe_item_current_price(
     if page > 1:
         parameters["page"] = str(page)
     return RedirectResponse(
-        url=f"/recipes?{urlencode(parameters)}#recipe-catalog",
+        url=f"/recipes?{urlencode(parameters, doseq=True)}#recipe-catalog",
         status_code=303,
     )
 
@@ -1952,7 +1969,7 @@ def search_items(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     q: str = Query(default=""),
-    category: str = Query(default=""),
+    category: Annotated[list[str] | None, Query()] = None,
     sort: Annotated[ItemSortField, Query()] = "name",
     direction: Annotated[SortDirection, Query()] = "asc",
     page: Annotated[int, Query(ge=1)] = 1,
@@ -1973,7 +1990,7 @@ def search_items(
         settings.market_context,
         sort_field=sort,
         sort_direction=direction,
-        category=category,
+        categories=_normalized_filter_values(category, normalize=True),
         page=page,
         notification=notification,
     )

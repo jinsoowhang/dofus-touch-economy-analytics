@@ -33,24 +33,26 @@
         Item name
         <input name="q" value="{{ filter_state.item_query }}" placeholder="Contains…">
       </label>
-      <label>
-        Category
-        <select name="category">
-          <option value="">All categories</option>
+      <details class="filter-multiselect">
+        <summary>
+          Categories{% if filter_state.categories %} · {{ filter_state.categories | length }} selected{% else %} · All{% endif %}
+        </summary>
+        <div class="filter-multiselect-options">
           {% for category in category_choices %}
-            <option value="{{ category.key }}"{% if filter_state.category == category.key %} selected{% endif %}>{{ category.label }}</option>
+            <label><input type="checkbox" name="category" value="{{ category.key }}"{% if category.key in filter_state.categories %} checked{% endif %}> {{ category.label }}</label>
           {% endfor %}
-        </select>
-      </label>
-      <label>
-        Profession
-        <select name="profession">
-          <option value="">All professions</option>
+        </div>
+      </details>
+      <details class="filter-multiselect">
+        <summary>
+          Professions{% if filter_state.professions %} · {{ filter_state.professions | length }} selected{% else %} · All{% endif %}
+        </summary>
+        <div class="filter-multiselect-options">
           {% for profession in profession_choices %}
-            <option value="{{ profession }}"{% if filter_state.profession == profession %} selected{% endif %}>{{ profession }}</option>
+            <label><input type="checkbox" name="profession" value="{{ profession }}"{% if profession in filter_state.professions %} checked{% endif %}> {{ profession }}</label>
           {% endfor %}
-        </select>
-      </label>
+        </div>
+      </details>
       <label>
         Economics
         <select name="economics">

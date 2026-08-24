@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -71,7 +72,7 @@ class CatalogService:
         limit: int | None = 50,
         sort_field: ItemSortField = "name",
         sort_direction: SortDirection = "asc",
-        category: str = "",
+        category: str | Collection[str] = "",
     ) -> list[ItemSummaryResponse]:
         repository_limit = limit if sort_field == "name" and sort_direction == "asc" else None
         items = self._catalog.search(query, repository_limit, category)
@@ -94,7 +95,7 @@ class CatalogService:
         self,
         query: str,
         limit: int = 5,
-        category: str = "",
+        category: str | Collection[str] = "",
     ) -> list[ItemSummaryResponse]:
         if not query.strip():
             return []
