@@ -76,7 +76,7 @@ if (recipeCartCount && recipeOpenCalculator) {
     for (const button of recipeCartButtons) {
       const isAdded = Object.hasOwn(cart, button.dataset.itemUuid);
       button.disabled = isAdded;
-      button.textContent = isAdded ? "Added ✓" : "Add";
+      button.textContent = isAdded ? "Added ✓" : button.dataset.addLabel || "Add";
     }
   };
 

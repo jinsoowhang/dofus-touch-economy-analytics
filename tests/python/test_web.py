@@ -1990,8 +1990,12 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert '<script src="/static/sales.js" defer></script>' in response.text
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
     assert f'data-item-uuid="{items["synthetic widget"].uuid}"' in response.text
+    assert 'data-add-label="Add to Recipe Calculator"' in response.text
+    assert ">Add to Recipe Calculator</button>" in response.text
     assert 'aria-label="Add Synthetic Widget to Recipe Calculator"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
+    cart_script = client.get("/static/recipe-cart.js")
+    assert 'button.dataset.addLabel || "Add"' in cart_script.text
     script = client.get("/static/sales.js")
     assert 'input[name="asking_price"], input[name="unit_price"]' in script.text
     assert 'input[name="current_price"]' in script.text

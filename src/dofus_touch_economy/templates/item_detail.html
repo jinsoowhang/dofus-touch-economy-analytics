@@ -47,8 +47,9 @@
             type="button"
             class="recipe-cart-add secondary-button"
             data-item-uuid="{{ detail.uuid }}"
+            data-add-label="Add to Recipe Calculator"
             aria-label="Add {{ detail.display_name }} to Recipe Calculator"
-          >Add</button>
+          >Add to Recipe Calculator</button>
           <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
         </div>
         {% if recipe_errors %}
