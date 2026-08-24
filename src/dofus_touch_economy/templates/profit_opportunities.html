@@ -7,6 +7,20 @@
     and see which opportunities improved as ingredient prices changed.
   </p>
 
+  <form method="get" action="/profit-opportunities" class="opportunity-filter-form">
+    <label class="checkbox-filter">
+      <input
+        type="checkbox"
+        name="not_currently_selling"
+        value="true"
+        {% if not_currently_selling %}checked{% endif %}
+      >
+      Show only items not currently selling
+    </label>
+    <button type="submit">Apply filter</button>
+    {% if not_currently_selling %}<a href="/profit-opportunities">Clear filter</a>{% endif %}
+  </form>
+
   {% if report.items %}
     <div class="calculator-summary" aria-label="Profit opportunity summary">
       <div><span>Profitable Recipes</span><strong>{{ report.total_count }}</strong></div>
@@ -59,7 +73,16 @@
                 <td>
                   <a href="/items/{{ item.item_uuid }}" class="item-label">
                     {% if item.icon_url %}<img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">{% endif %}
-                    <span>{{ item.display_name }}</span>
+                    <span>
+                      {{ item.display_name }}
+                      <small class="item-availability">
+                        {% if item.active_listing_count %}
+                          {{ item.active_listing_count }} currently selling
+                        {% else %}
+                          Not currently selling
+                        {% endif %}
+                      </small>
+                    </span>
                   </a>
                 </td>
                 <td>{{ (item.category or "Uncategorized") | title }}</td>
@@ -87,6 +110,7 @@
                       <div><dt>Recipe Cost</dt><dd>{{ "{:,}".format(item.recipe_cost) }}</dd></div>
                       <div><dt>Prior Recipe Cost</dt><dd>{{ "{:,}".format(item.previous_recipe_cost) if item.previous_recipe_cost is not none else "—" }}</dd></div>
                       <div><dt>Prior ROI</dt><dd>{{ "{:.1%}".format(item.previous_roi) if item.previous_roi is not none else "—" }}</dd></div>
+                      <div><dt>Currently Selling</dt><dd>{{ item.active_listing_count }}</dd></div>
                       <div><dt>Completed Sales</dt><dd>{{ item.completed_sale_count }}</dd></div>
                     </dl>
                   </details>
@@ -98,10 +122,14 @@
       </div>
     </details>
   {% else %}
-    <p>
-      No fully priced, currently profitable recipes are available yet. Add current
-      prices for crafted items and every ingredient to populate this page.
-    </p>
+    {% if not_currently_selling %}
+      <p>No profitable recipes match the not-currently-selling filter.</p>
+    {% else %}
+      <p>
+        No fully priced, currently profitable recipes are available yet. Add current
+        prices for crafted items and every ingredient to populate this page.
+      </p>
+    {% endif %}
   {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/recipe-cart.js" defer></script>{% endblock %}

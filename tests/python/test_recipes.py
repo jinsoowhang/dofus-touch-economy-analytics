@@ -292,10 +292,21 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
                 lot_quantity=1,
                 total_price=100,
                 observed_at=datetime(2026, 8, 23, tzinfo=UTC),
-            ),
+                ),
+            )
+        session.add(
+            SaleListing(
+                item_id=items["alpha"].id,
+                lot_quantity=1,
+                asking_price=100,
+            )
         )
+        session.commit()
 
         report = RecipeCatalogService(session, "Dodge").profit_opportunities()
+        not_selling_report = RecipeCatalogService(session, "Dodge").profit_opportunities(
+            not_currently_selling=True
+        )
 
     assert [item.display_name for item in report.items] == [
         "Alpha Sword",
@@ -309,6 +320,7 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
     assert improving.previous_recipe_cost == 80
     assert improving.previous_roi == Decimal("0.25")
     assert improving.roi_change == Decimal("1.25")
+    assert improving.active_listing_count == 1
     assert improving.completed_sale_count == 0
     assert newly_priced.signal == "Newly priced"
     assert newly_priced.recipe_cost == 20
@@ -316,12 +328,15 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
     assert newly_priced.roi == 4
     assert newly_priced.previous_recipe_cost is None
     assert newly_priced.previous_roi is None
+    assert newly_priced.active_listing_count == 0
     assert newly_priced.completed_sale_count == 0
     assert report.total_count == 2
     assert report.improving_count == 1
     assert report.newly_priced_count == 1
     assert report.top_profit_item is newly_priced
     assert report.top_roi_item is newly_priced
+    assert [item.display_name for item in not_selling_report.items] == ["Delta Shield"]
+    assert not_selling_report.total_count == 1
 
 
 def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(

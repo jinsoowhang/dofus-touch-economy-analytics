@@ -1165,6 +1165,8 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert "157.1%" in response.text
     assert "+128.6%" in response.text
     assert "Completed Sales</dt><dd>0</dd>" in response.text
+    assert "Not currently selling" in response.text
+    assert 'name="not_currently_selling"' in response.text
     assert "Completed Sales do not limit this list." in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
     assert '<details class="row-details">' in response.text
@@ -1172,6 +1174,16 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
         response.text
     )
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+
+    filtered_response = client.get(
+        "/profit-opportunities",
+        params={"not_currently_selling": "true"},
+    )
+
+    assert filtered_response.status_code == 200
+    assert 'name="not_currently_selling"' in filtered_response.text
+    assert "checked" in filtered_response.text
+    assert "Synthetic Widget" in filtered_response.text
 
 
 def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(

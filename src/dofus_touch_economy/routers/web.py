@@ -1562,6 +1562,7 @@ def profit_opportunities_page(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    not_currently_selling: Annotated[bool, Query()] = False,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
@@ -1571,7 +1572,8 @@ def profit_opportunities_page(
             "report": RecipeCatalogService(
                 session,
                 settings.market_context,
-            ).profit_opportunities(),
+            ).profit_opportunities(not_currently_selling=not_currently_selling),
+            "not_currently_selling": not_currently_selling,
         },
     )
 

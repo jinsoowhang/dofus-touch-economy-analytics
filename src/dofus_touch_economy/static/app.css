@@ -224,6 +224,26 @@ form .htmx-indicator {
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
+.opportunity-filter-form {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  margin-block: 1rem;
+}
+
+.checkbox-filter {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.item-availability {
+  color: var(--muted);
+  display: block;
+  font-weight: 500;
+  margin-block-start: 0.2rem;
+}
+
 .sales-filter-form label,
 .recipe-filter-form > label {
   display: grid;

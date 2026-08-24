@@ -104,6 +104,7 @@ class ProfitOpportunity:
     previous_recipe_cost: Decimal | None
     previous_roi: Decimal | None
     roi_change: Decimal | None
+    active_listing_count: int
     completed_sale_count: int
 
 
@@ -261,7 +262,12 @@ class RecipeCatalogService:
             page_count=page_count,
         )
 
-    def profit_opportunities(self, *, limit: int = 100) -> ProfitOpportunityReport:
+    def profit_opportunities(
+        self,
+        *,
+        limit: int = 100,
+        not_currently_selling: bool = False,
+    ) -> ProfitOpportunityReport:
         if limit < 1:
             raise ValueError("limit must be positive")
         recipes = _latest_recipe_catalog(self._session)
@@ -276,6 +282,18 @@ class RecipeCatalogService:
         }
         prices = self._prices.current_and_previous_for_items(priced_item_ids)
         crafted_item_ids = {recipe.crafted_item_id for recipe in recipes}
+        active_listing_counts = dict(
+            self._session.execute(
+                select(SaleListing.item_id, func.count(SaleListing.id))
+                .where(
+                    SaleListing.item_id.in_(crafted_item_ids),
+                    SaleListing.date_sold.is_(None),
+                )
+                .group_by(SaleListing.item_id)
+            )
+            .tuples()
+            .all()
+        )
         completed_sale_counts = dict(
             self._session.execute(
                 select(SaleListing.item_id, func.count(SaleListing.id))
@@ -360,6 +378,10 @@ class RecipeCatalogService:
                     previous_recipe_cost=previous_metrics.recipe_cost,
                     previous_roi=previous_roi,
                     roi_change=roi_change,
+                    active_listing_count=active_listing_counts.get(
+                        recipe.crafted_item_id,
+                        0,
+                    ),
                     completed_sale_count=completed_sale_counts.get(
                         recipe.crafted_item_id,
                         0,
@@ -367,6 +389,8 @@ class RecipeCatalogService:
                 )
             )
 
+        if not_currently_selling:
+            opportunities = [item for item in opportunities if item.active_listing_count == 0]
         signal_order: dict[ProfitOpportunitySignal, int] = {
             "Improving": 0,
             "Newly priced": 1,
