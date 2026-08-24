@@ -159,3 +159,34 @@ Sales Performance on a desktop without touchpad gestures.
   profitable recipes, and the page renders guidance for that empty state.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 234 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Recipe and Item Decision-Flow Refinements
+
+### Context
+
+Fixed a Recipes level-filter input regression and tightened several recipe, price
+history, and Best Sellers decision surfaces.
+
+### Work Completed
+
+- Separated live dual-range track updates from committed endpoint-order enforcement,
+  so typing a multi-digit maximum no longer truncates an existing minimum after the
+  first digit.
+- Deduplicated Item Price History for presentation by UTC Date Observed and total
+  price. The newest valid matching observation supplies the displayed row and delete
+  action, while all append-only observations remain in the audit history.
+- Added a sortable Currently Selling count to the Recipes catalog and linked each
+  count to that item's active Sales filter.
+- Changed the Item Recipe action label to Add to Recipe Calculator while preserving
+  the shared cart's shorter default label on other pages.
+- Moved Top Profit between Most Units Sold and Top Revenue in the Best Sellers
+  summary.
+- Added focused service, web, template-order, and browser-wiring regression coverage
+  for all five changes.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipes.js` and `recipe-cart.js`.
+- All 91 focused recipe, web, and static-asset tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 237 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
