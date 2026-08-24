@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/app.css">
     <script src="/static/htmx.min.js" defer></script>
     <script src="/static/table-sort.js" defer></script>
+    <script src="/static/site-navigation.js" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -27,15 +28,15 @@
                 {% if active_tab == "items" %}aria-current="page"{% endif %}
               >Item Search</a>
               <a
-                href="/recipes"
-                class="site-submenu-link{% if active_tab == 'recipes' %} is-active{% endif %}"
-                {% if active_tab == "recipes" %}aria-current="page"{% endif %}
-              >Recipes</a>
-              <a
                 href="/recipe-calculator"
                 class="site-submenu-link{% if active_tab == 'recipe_calculator' %} is-active{% endif %}"
                 {% if active_tab == "recipe_calculator" %}aria-current="page"{% endif %}
               >Recipe Calculator</a>
+              <a
+                href="/recipes"
+                class="site-submenu-link{% if active_tab == 'recipes' %} is-active{% endif %}"
+                {% if active_tab == "recipes" %}aria-current="page"{% endif %}
+              >Recipes</a>
             </div>
           </details>
           <details class="site-menu">
@@ -47,16 +48,6 @@
             </summary>
             <div class="site-submenu" role="group" aria-label="Sales navigation">
               <a
-                href="/sales"
-                class="site-submenu-link{% if active_tab == 'sales' %} is-active{% endif %}"
-                {% if active_tab == "sales" %}aria-current="page"{% endif %}
-              >Sales Activity</a>
-              <a
-                href="/profit-opportunities"
-                class="site-submenu-link{% if active_tab == 'profit_opportunities' %} is-active{% endif %}"
-                {% if active_tab == "profit_opportunities" %}aria-current="page"{% endif %}
-              >Profit Opportunities</a>
-              <a
                 href="/best-sellers"
                 class="site-submenu-link{% if active_tab == 'best_sellers' %} is-active{% endif %}"
                 {% if active_tab == "best_sellers" %}aria-current="page"{% endif %}
@@ -66,6 +57,16 @@
                 class="site-submenu-link{% if active_tab == 'out_of_stock' %} is-active{% endif %}"
                 {% if active_tab == "out_of_stock" %}aria-current="page"{% endif %}
               >Out of Stock Items</a>
+              <a
+                href="/profit-opportunities"
+                class="site-submenu-link{% if active_tab == 'profit_opportunities' %} is-active{% endif %}"
+                {% if active_tab == "profit_opportunities" %}aria-current="page"{% endif %}
+              >Profit Opportunities</a>
+              <a
+                href="/sales"
+                class="site-submenu-link{% if active_tab == 'sales' %} is-active{% endif %}"
+                {% if active_tab == "sales" %}aria-current="page"{% endif %}
+              >Sales Activity</a>
             </div>
           </details>
           <a

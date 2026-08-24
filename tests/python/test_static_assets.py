@@ -170,7 +170,7 @@ def test_calculator_sales_form_uses_full_width_block_layout() -> None:
     assert "margin-block-start: 0.75rem;" in sales_actions_rule
 
 
-def test_item_navigation_dropdown_supports_hover_click_and_focus() -> None:
+def test_navigation_dropdowns_are_alphabetized_and_close_exclusively() -> None:
     stylesheet = (
         resources.files("dofus_touch_economy")
         .joinpath("static/app.css")
@@ -181,8 +181,32 @@ def test_item_navigation_dropdown_supports_hover_click_and_focus() -> None:
         .joinpath("templates/base.html")
         .read_text(encoding="utf-8")
     )
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/site-navigation.js")
+        .read_text(encoding="utf-8")
+    )
 
     assert '<details class="site-menu">' in template
     assert ".site-menu[open] .site-submenu" in stylesheet
-    assert ".site-menu:hover .site-submenu" in stylesheet
-    assert ".site-menu:focus-within .site-submenu" in stylesheet
+    assert ".site-menu:hover .site-submenu" not in stylesheet
+    assert ".site-menu:focus-within .site-submenu" not in stylesheet
+    assert '<script src="/static/site-navigation.js" defer></script>' in template
+    assert 'menu.addEventListener("toggle"' in script
+    assert "closeSiteMenus(menu)" in script
+    assert 'document.addEventListener("pointerdown"' in script
+    assert 'document.addEventListener("focusin"' in script
+    assert 'event.key !== "Escape"' in script
+
+    item_menu, sales_menu = template.split('aria-label="Sales navigation"', maxsplit=1)
+    assert (
+        item_menu.index(">Item Search</a>")
+        < item_menu.index(">Recipe Calculator</a>")
+        < item_menu.index(">Recipes</a>")
+    )
+    assert (
+        sales_menu.index(">Best Sellers</a>")
+        < sales_menu.index(">Out of Stock Items</a>")
+        < sales_menu.index(">Profit Opportunities</a>")
+        < sales_menu.index(">Sales Activity</a>")
+    )

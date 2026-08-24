@@ -138,9 +138,7 @@ a {
   z-index: 10;
 }
 
-.site-menu[open] .site-submenu,
-.site-menu:hover .site-submenu,
-.site-menu:focus-within .site-submenu {
+.site-menu[open] .site-submenu {
   display: grid;
 }
 
