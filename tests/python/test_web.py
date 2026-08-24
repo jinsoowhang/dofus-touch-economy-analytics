@@ -869,6 +869,7 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     for series in ("sales", "cost", "profit"):
         assert f'class="chart-series chart-series--{series}"' in response.text
         assert f'class="chart-point chart-point--{series}"' in response.text
+        assert f'data-chart-series="{series}"' in response.text
     assert "Sales on 2026-08-23: 4,500 across 1 item" in response.text
     assert "Cost on 2026-08-23: 3,500 across 1 item" in response.text
     assert "Profit on 2026-08-23: 1,000 across 1 item" in response.text
@@ -1165,7 +1166,11 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert "157.1%" in response.text
     assert "+128.6%" in response.text
     assert "Completed Sales</dt><dd>0</dd>" in response.text
-    assert "Not currently selling" in response.text
+    assert "Currently Selling</th>" in response.text
+    assert (
+        f'href="/sales?item_uuid={widget_uuid}&amp;status=active#currently-selling">0</a>'
+        in response.text
+    )
     assert 'name="not_currently_selling"' in response.text
     assert "Completed Sales do not limit this list." in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
@@ -1393,6 +1398,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert suggestions[0]["ingredient_count"] == 1
     assert suggestions[0]["overlap_percent"] == 100
     assert suggestions[0]["matching_selected_item_count"] == 2
+    assert suggestions[0]["active_listing_count"] == 0
+    assert suggestions[0]["completed_sale_count"] == 0
 
     invalid_suggestion_response = client.post(
         "/recipe-calculator/suggestions",

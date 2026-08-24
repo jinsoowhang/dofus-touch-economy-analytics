@@ -469,6 +469,24 @@ def test_recipe_calculator_suggests_unselected_crafts_by_ingredient_overlap(
                 )
             session.add(recipe)
         session.commit()
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=delta.id,
+                    lot_quantity=1,
+                    asking_price=100,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=delta.id,
+                    lot_quantity=1,
+                    asking_price=100,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
 
     with session_factory() as session:
         service = RecipeCalculatorService(session, "Dodge")
@@ -484,10 +502,14 @@ def test_recipe_calculator_suggests_unselected_crafts_by_ingredient_overlap(
     assert suggestions[0].ingredient_count == 1
     assert suggestions[0].overlap_percent == 100
     assert suggestions[0].matching_selected_item_count == 2
+    assert suggestions[0].active_listing_count == 1
+    assert suggestions[0].completed_sale_count == 1
     assert suggestions[1].shared_ingredient_count == 1
     assert suggestions[1].ingredient_count == 2
     assert suggestions[1].overlap_percent == 50
     assert suggestions[1].matching_selected_item_count == 2
+    assert suggestions[1].active_listing_count == 0
+    assert suggestions[1].completed_sale_count == 0
 
 
 def test_recipe_calculator_rejects_noncraftable_selection(session_factory) -> None:

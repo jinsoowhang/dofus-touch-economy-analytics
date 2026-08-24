@@ -194,11 +194,24 @@ if (
             : `level ${suggestion.profession_level}`;
         const selectedItemLabel =
           suggestion.matching_selected_item_count === 1 ? "cart item" : "cart items";
-        button.textContent =
-          `${suggestion.display_name} — ${suggestion.profession}, ${level} — ` +
+        const itemLabel = document.createElement("span");
+        itemLabel.className = "calculator-suggestion-item";
+        itemLabel.textContent = suggestion.display_name;
+        const professionLabel = document.createElement("span");
+        professionLabel.textContent = `${suggestion.profession}, ${level}`;
+        const ingredientsLabel = document.createElement("span");
+        ingredientsLabel.textContent =
           `${suggestion.shared_ingredient_count} of ${suggestion.ingredient_count} ` +
-          `ingredients shared (${suggestion.overlap_percent}%) across ` +
-          `${suggestion.matching_selected_item_count} ${selectedItemLabel} — Add`;
+          `shared (${suggestion.overlap_percent}%) across ` +
+          `${suggestion.matching_selected_item_count} ${selectedItemLabel}`;
+        const salesLabel = document.createElement("span");
+        salesLabel.textContent =
+          `${suggestion.active_listing_count} currently selling · ` +
+          `${suggestion.completed_sale_count} sold`;
+        const addLabel = document.createElement("span");
+        addLabel.className = "calculator-suggestion-add";
+        addLabel.textContent = "Add";
+        button.append(itemLabel, professionLabel, ingredientsLabel, salesLabel, addLabel);
         button.setAttribute("aria-label", `Add suggested craft ${suggestion.display_name}`);
         calculatorSuggestionResults.append(button);
         renderedSuggestionCount += 1;

@@ -1281,6 +1281,8 @@ async def suggest_recipe_calculator_items(
                     "ingredient_count": suggestion.ingredient_count,
                     "overlap_percent": suggestion.overlap_percent,
                     "matching_selected_item_count": (suggestion.matching_selected_item_count),
+                    "active_listing_count": suggestion.active_listing_count,
+                    "completed_sale_count": suggestion.completed_sale_count,
                 }
                 for suggestion in suggestions
             ]

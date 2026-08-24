@@ -60,6 +60,7 @@
               <th data-sort-type="text">Item</th>
               <th data-sort-type="text">Category</th>
               <th data-sort-type="text">Signal</th>
+              <th class="numeric" data-sort-type="number">Currently Selling</th>
               <th class="numeric" data-sort-type="number">Current Profit</th>
               <th class="numeric" data-sort-type="number">Current ROI</th>
               <th class="numeric" data-sort-type="number">ROI Change</th>
@@ -73,20 +74,14 @@
                 <td>
                   <a href="/items/{{ item.item_uuid }}" class="item-label">
                     {% if item.icon_url %}<img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">{% endif %}
-                    <span>
-                      {{ item.display_name }}
-                      <small class="item-availability">
-                        {% if item.active_listing_count %}
-                          {{ item.active_listing_count }} currently selling
-                        {% else %}
-                          Not currently selling
-                        {% endif %}
-                      </small>
-                    </span>
+                    <span>{{ item.display_name }}</span>
                   </a>
                 </td>
                 <td>{{ (item.category or "Uncategorized") | title }}</td>
                 <td><span class="opportunity-signal">{{ item.signal }}</span></td>
+                <td class="numeric">
+                  <a href="/sales?item_uuid={{ item.item_uuid }}&amp;status=active#currently-selling">{{ item.active_listing_count }}</a>
+                </td>
                 <td class="numeric">{{ "{:,}".format(item.profit) }}</td>
                 <td class="numeric">{{ "{:.1%}".format(item.roi) }}</td>
                 <td class="numeric" data-sort-value="{{ item.roi_change if item.roi_change is not none else '' }}">

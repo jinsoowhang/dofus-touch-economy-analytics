@@ -125,6 +125,38 @@ def test_bulk_sale_buttons_share_text_button_geometry() -> None:
     assert "padding: 0.55rem 0.7rem;" in bulk_button_rule
 
 
+def test_sales_chart_series_can_be_toggled_independently() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/sales.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'document.querySelectorAll(".chart-series-toggle")' in script
+    assert 'toggle.addEventListener("change", updateChartSeriesVisibility)' in script
+    assert 'element.classList.toggle("is-hidden", !toggle.checked)' in script
+    assert "checkedToggles.length === 1 && toggle.checked" in script
+
+
+def test_multiselect_options_are_compact_non_reflowing_popovers() -> None:
+    stylesheet = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/app.css")
+        .read_text(encoding="utf-8")
+    )
+
+    options_rule = stylesheet.split(".filter-multiselect-options {", maxsplit=1)[1].split(
+        "}", maxsplit=1
+    )[0]
+    checkbox_rule = stylesheet.split(
+        '.filter-multiselect-options input[type="checkbox"] {', maxsplit=1
+    )[1].split("}", maxsplit=1)[0]
+    assert "position: absolute;" in options_rule
+    assert "font-size: 0.9rem;" in options_rule
+    assert "max-height: 14rem;" in options_rule
+    assert "min-height: 0;" in checkbox_rule
+
+
 def test_out_of_stock_table_restores_cell_spacing() -> None:
     stylesheet = (
         resources.files("dofus_touch_economy")

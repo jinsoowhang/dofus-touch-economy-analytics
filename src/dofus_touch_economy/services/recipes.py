@@ -142,6 +142,8 @@ class RecipeCalculatorSuggestion:
     ingredient_count: int
     overlap_percent: int
     matching_selected_item_count: int
+    active_listing_count: int
+    completed_sale_count: int
 
 
 @dataclass(frozen=True)
@@ -555,6 +557,31 @@ class RecipeCalculatorService:
             return []
 
         recipes = _latest_recipe_catalog(self._session)
+        crafted_item_ids = {recipe.crafted_item_id for recipe in recipes}
+        active_listing_counts = dict(
+            self._session.execute(
+                select(SaleListing.item_id, func.count(SaleListing.id))
+                .where(
+                    SaleListing.item_id.in_(crafted_item_ids),
+                    SaleListing.date_sold.is_(None),
+                )
+                .group_by(SaleListing.item_id)
+            )
+            .tuples()
+            .all()
+        )
+        completed_sale_counts = dict(
+            self._session.execute(
+                select(SaleListing.item_id, func.count(SaleListing.id))
+                .where(
+                    SaleListing.item_id.in_(crafted_item_ids),
+                    SaleListing.date_sold.is_not(None),
+                )
+                .group_by(SaleListing.item_id)
+            )
+            .tuples()
+            .all()
+        )
         recipes_by_item_uuid = {recipe.item_uuid: recipe for recipe in recipes}
         missing = set(selected_item_uuids).difference(recipes_by_item_uuid)
         if missing:
@@ -609,6 +636,8 @@ class RecipeCalculatorService:
                 overlap_percent=(shared_ingredient_count * 100 + ingredient_count // 2)
                 // ingredient_count,
                 matching_selected_item_count=matching_selected_item_count,
+                active_listing_count=active_listing_counts.get(recipe.crafted_item_id, 0),
+                completed_sale_count=completed_sale_counts.get(recipe.crafted_item_id, 0),
             )
             ranked_suggestions.append(
                 (
