@@ -10,6 +10,14 @@ models:
         data_tests: [not_null]
       - name: weight
         description: "Dofus Touch carrying weight in pods; null when no live catalog match exists."
+      - name: touch_catalog_status
+        description: >-
+          Latest live Dofus Touch membership result; excluded rows remain in the
+          analytical dimension for provenance even though the website hides them.
+      - name: touch_catalog_checked_at
+        description: "UTC timestamp of the latest live Dofus Touch membership check."
+      - name: touch_catalog_exclusion_reason
+        description: "Reason retained for an item excluded from website catalog surfaces."
 
   - name: fct_price_observations
     description: "Grain: one valid or invalidated observed item price."

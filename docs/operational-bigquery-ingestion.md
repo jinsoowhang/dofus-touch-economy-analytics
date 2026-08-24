@@ -15,7 +15,7 @@ The loader reads these normalized operational tables in one read-only transactio
 | --- | --- | --- |
 | `import_batches` | `raw_import_batches` | Import checksums, filenames, status, and counts |
 | `source_records` | `raw_source_records` | Accepted and rejected source-row provenance |
-| `items` | `raw_items` | Canonical item catalog, including nullable carrying weight in pods |
+| `items` | `raw_items` | Canonical catalog, including nullable carrying weight and Dofus Touch membership audit fields |
 | `source_item_names` | `raw_source_item_names` | Exact source-name resolution decisions |
 | `recipes` | `raw_recipes` | Versioned recipe headers |
 | `recipe_ingredients` | `raw_recipe_ingredients` | Ordered recipe ingredients and quantities |

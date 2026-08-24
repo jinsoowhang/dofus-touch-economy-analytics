@@ -98,6 +98,15 @@ class Item(Base):
         Integer,
         CheckConstraint("weight IS NULL OR weight >= 0", name="ck_items_nonnegative_weight"),
     )
+    touch_catalog_status: Mapped[str | None] = mapped_column(
+        String(16),
+        CheckConstraint(
+            "touch_catalog_status IS NULL OR touch_catalog_status IN ('verified', 'excluded')",
+            name="ck_items_touch_catalog_status",
+        ),
+    )
+    touch_catalog_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    touch_catalog_exclusion_reason: Mapped[str | None] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )

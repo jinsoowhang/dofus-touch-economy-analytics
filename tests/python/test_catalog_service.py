@@ -69,6 +69,10 @@ def test_confirmed_non_touch_item_is_excluded_without_deleting_provenance(
             normalized_name="violet arrow helmet",
             category="Hat",
             identity_category="hat",
+            touch_catalog_status="excluded",
+            touch_catalog_exclusion_reason=(
+                "Normalized item name absent from Ankama's live Dofus Touch item catalog."
+            ),
         )
         session.add(excluded_item)
         session.commit()
@@ -318,6 +322,26 @@ def test_fully_priced_recipe_returns_exact_decimal_metrics(session_factory, fixt
     assert detail.metrics.profit == Decimal("45")
     assert detail.metrics.roi == Decimal("0.5625")
     assert detail.metrics.is_complete is True
+
+
+def test_detail_hides_recipe_with_excluded_non_touch_ingredient(
+    session_factory, fixture_dir
+) -> None:
+    ImportService(session_factory).import_files(
+        fixture_dir / "item_cost_valid.csv", fixture_dir / "item_recipes_valid.csv"
+    )
+    with session_factory() as session:
+        ingredient = session.scalar(select(Item).where(Item.normalized_name == "synthetic ore"))
+        product = session.scalar(select(Item).where(Item.normalized_name == "synthetic widget"))
+        assert ingredient is not None
+        assert product is not None
+        ingredient.touch_catalog_status = "excluded"
+        session.commit()
+
+        detail = CatalogService(session, "Dodge").detail(product.uuid)
+
+    assert detail.recipe is None
+    assert detail.metrics is None
 
 
 def test_recipe_ingredient_price_freshness_uses_calendar_days(

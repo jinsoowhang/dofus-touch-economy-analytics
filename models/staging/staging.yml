@@ -46,6 +46,14 @@ models:
         data_tests: [not_null]
       - name: weight
         description: "Dofus Touch carrying weight in pods; null when no live catalog match exists."
+      - name: touch_catalog_status
+        description: >-
+          Latest live Dofus Touch membership result: verified, excluded, or null before
+          the first authoritative catalog sync.
+      - name: touch_catalog_checked_at
+        description: "UTC timestamp of the latest live Dofus Touch membership check."
+      - name: touch_catalog_exclusion_reason
+        description: "Reason retained for an item excluded from website catalog surfaces."
 
   - name: stg_operational__source_item_names
     description: >-

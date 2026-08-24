@@ -59,6 +59,16 @@ valid or unambiguous live match keep a null weight; missing weight is never conv
 to zero. This enrichment preserves item identity, provenance, recipes, prices, and
 Sales history.
 
+Every catalog sync also compares every local normalized item name against all names
+in Ankama's current English Dofus Touch `Items` payload, including non-exchangeable
+items. A reviewed legacy-name alias counts as the corresponding current Touch name.
+The result, check timestamp, and exclusion reason are persisted on the item. Items
+absent from that authoritative catalog are hidden from website catalog, recipe,
+price, and Sales surfaces, and recipes containing an excluded ingredient are hidden
+as well. Rows are never deleted: imports, observations, listings, and analytical
+provenance remain available for audit. Items not yet checked remain visible until a
+successful catalog sync records a result.
+
 The same sync may refine only the catch-all `Resource` display category. It prefers
 the exact current Dofus Touch item type, then an exact DofusDB legacy-item match when
 every returned candidate has the same non-generic type. A missing or conflicting
@@ -123,6 +133,7 @@ contract preserves:
 - recorded, observed, listing-started, sold, and invalidation timestamps;
 - market context, invalidation state, and Sales status;
 - nullable live-catalog item weight in pods;
+- nullable Dofus Touch membership status, check timestamp, and exclusion reason;
 - a stable content-derived snapshot ID and UTC extraction timestamp.
 
 All contracted tables are read inside one SQLite transaction. Any missing or

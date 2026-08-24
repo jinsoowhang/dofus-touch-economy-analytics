@@ -195,12 +195,27 @@ def test_recipe_catalog_excludes_confirmed_non_touch_crafted_item(session_factor
         excluded_item.normalized_name = "violet arrow helmet"
         excluded_item.category = "Hat"
         excluded_item.identity_category = "hat"
+        excluded_item.touch_catalog_status = "excluded"
         session.commit()
 
         result = RecipeCatalogService(session, "Dodge").browse()
 
     assert result.total_count == 2
     assert [row.display_name for row in result.rows] == ["Beta Ring", "Gamma Hat"]
+
+
+def test_recipe_catalog_excludes_recipe_with_non_touch_ingredient(session_factory) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        excluded_ingredient = session.get(Item, items["ingredient"].id)
+        assert excluded_ingredient is not None
+        excluded_ingredient.touch_catalog_status = "excluded"
+        session.commit()
+
+        result = RecipeCatalogService(session, "Dodge").browse()
+
+    assert result.total_count == 1
+    assert [row.display_name for row in result.rows] == ["Gamma Hat"]
 
 
 def test_recipe_catalog_counts_and_sorts_active_listings(session_factory) -> None:

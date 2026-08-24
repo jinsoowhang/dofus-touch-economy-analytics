@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -16,7 +17,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from dofus_touch_economy.catalog_scope import active_catalog_item_clause
+from dofus_touch_economy.catalog_scope import (
+    TOUCH_CATALOG_EXCLUDED,
+    TOUCH_CATALOG_EXCLUSION_REASON,
+    TOUCH_CATALOG_VERIFIED,
+    active_catalog_item_clause,
+)
 from dofus_touch_economy.models import Item
 from dofus_touch_economy.normalization import normalize_item_name
 
@@ -70,7 +76,10 @@ class CatalogSyncSummary:
     source_count: int
     matched_count: int
     created_count: int
+    display_name_updated_count: int
     category_refined_count: int
+    verified_count: int
+    excluded_count: int
     catalog_count: int
     cached_count: int
     downloaded_count: int
@@ -137,11 +146,20 @@ def sync_touch_catalog(
         types_payload,
         f"{assets_url.rstrip('/')}/gfx/items",
     )
-    targets, matched_count, created_count, category_refined_count, catalog_count = (
-        _sync_catalog_items(
-            session_factory,
-            candidates,
-        )
+    official_names = _touch_catalog_names(items_payload)
+    (
+        targets,
+        matched_count,
+        created_count,
+        display_name_updated_count,
+        category_refined_count,
+        verified_count,
+        excluded_count,
+        catalog_count,
+    ) = _sync_catalog_items(
+        session_factory,
+        candidates,
+        official_names,
     )
     category_refined_count += _refine_generic_resource_categories(
         session_factory,
@@ -185,7 +203,10 @@ def sync_touch_catalog(
         source_count=len(candidates),
         matched_count=matched_count,
         created_count=created_count,
+        display_name_updated_count=display_name_updated_count,
         category_refined_count=category_refined_count,
+        verified_count=verified_count,
+        excluded_count=excluded_count,
         catalog_count=catalog_count,
         cached_count=len(cached_targets),
         downloaded_count=len(successful_sources) - len(cached_targets),
@@ -382,10 +403,23 @@ def _touch_catalog_candidates(
     )
 
 
+def _touch_catalog_names(items_payload: Any) -> set[str]:
+    if not isinstance(items_payload, dict):
+        raise ValueError("Dofus Touch catalog payload must be an object")
+    return {
+        normalize_item_name(value["nameId"])
+        for value in items_payload.values()
+        if isinstance(value, dict)
+        and isinstance(value.get("nameId"), str)
+        and value["nameId"].strip()
+    }
+
+
 def _sync_catalog_items(
     session_factory: sessionmaker[Session],
     candidates: list[_CatalogCandidate],
-) -> tuple[list[_Target], int, int, int, int]:
+    official_names: set[str],
+) -> tuple[list[_Target], int, int, int, int, int, int, int]:
     candidate_name_counts = Counter(candidate.normalized_name for candidate in candidates)
     with session_factory() as session:
         existing_items = list(session.scalars(select(Item).order_by(Item.id)))
@@ -395,9 +429,15 @@ def _sync_catalog_items(
         by_name: defaultdict[str, list[Item]] = defaultdict(list)
         for item in existing_items:
             by_name[item.normalized_name].append(item)
+        legacy_names_by_official_name: defaultdict[str, list[str]] = defaultdict(list)
+        for legacy_name, official_display_name in LEGACY_NAME_ALIASES.items():
+            legacy_names_by_official_name[normalize_item_name(official_display_name)].append(
+                legacy_name
+            )
 
         matched_count = 0
         created_count = 0
+        display_name_updated_count = 0
         category_refined_count = 0
         targets: list[_Target] = []
         for candidate in candidates:
@@ -409,6 +449,14 @@ def _sync_catalog_items(
                 and len(by_name[candidate.normalized_name]) == 1
             ):
                 item = by_name[candidate.normalized_name][0]
+            if item is None and candidate_name_counts[candidate.normalized_name] == 1:
+                legacy_matches = [
+                    legacy_item
+                    for legacy_name in legacy_names_by_official_name[candidate.normalized_name]
+                    for legacy_item in by_name[legacy_name]
+                ]
+                if len(legacy_matches) == 1:
+                    item = legacy_matches[0]
             if item is None:
                 item = Item(
                     display_name=candidate.display_name,
@@ -425,6 +473,9 @@ def _sync_catalog_items(
                 created_count += 1
             else:
                 matched_count += 1
+                if item.display_name != candidate.display_name:
+                    item.display_name = candidate.display_name
+                    display_name_updated_count += 1
                 item.weight = candidate.weight
                 if (
                     _normalized_optional_label(item.category) == "resource"
@@ -441,13 +492,34 @@ def _sync_catalog_items(
                     icon_source_url=candidate.source_url,
                 )
             )
+        checked_at = datetime.now(UTC)
+        all_items = list(session.scalars(select(Item).order_by(Item.id)))
+        verified_count = 0
+        excluded_count = 0
+        for item in all_items:
+            item.touch_catalog_checked_at = checked_at
+            reviewed_alias = LEGACY_NAME_ALIASES.get(item.normalized_name)
+            reviewed_alias_name = (
+                normalize_item_name(reviewed_alias) if reviewed_alias is not None else None
+            )
+            if item.normalized_name in official_names or reviewed_alias_name in official_names:
+                item.touch_catalog_status = TOUCH_CATALOG_VERIFIED
+                item.touch_catalog_exclusion_reason = None
+                verified_count += 1
+            else:
+                item.touch_catalog_status = TOUCH_CATALOG_EXCLUDED
+                item.touch_catalog_exclusion_reason = TOUCH_CATALOG_EXCLUSION_REASON
+                excluded_count += 1
         session.commit()
         return (
             targets,
             matched_count,
             created_count,
+            display_name_updated_count,
             category_refined_count,
-            len(existing_items) + created_count,
+            verified_count,
+            excluded_count,
+            len(all_items),
         )
 
 

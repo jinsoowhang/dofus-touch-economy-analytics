@@ -68,6 +68,16 @@ class CatalogRepository:
         )
         return list(self._session.scalars(statement))
 
+    def find_excluded_by_normalized_name(self, normalized_name: str) -> Item | None:
+        return self._session.scalar(
+            select(Item)
+            .where(
+                Item.normalized_name == normalized_name,
+                Item.touch_catalog_status == "excluded",
+            )
+            .order_by(Item.id)
+        )
+
     def suggestion_candidates(self, category: str | Collection[str] = "") -> list[Item]:
         statement = select(Item).where(active_catalog_item_clause(Item))
         normalized_categories = _normalized_categories(category)

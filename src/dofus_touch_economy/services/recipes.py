@@ -8,7 +8,10 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased, selectinload
 
-from dofus_touch_economy.catalog_scope import active_catalog_item_clause
+from dofus_touch_economy.catalog_scope import (
+    TOUCH_CATALOG_EXCLUDED,
+    active_catalog_item_clause,
+)
 from dofus_touch_economy.models import Item, Recipe, RecipeIngredient, SaleListing
 from dofus_touch_economy.normalization import format_item_display_name, normalize_item_name
 from dofus_touch_economy.services.pricing import (
@@ -833,6 +836,7 @@ def _latest_recipe_ids():
 
 def _latest_recipe_catalog(session: Session) -> list[_CatalogRecipe]:
     crafted_item = aliased(Item)
+    excluded_ingredient = _excluded_recipe_ingredient_exists()
     latest_recipe_ids = _latest_recipe_ids()
     rows = session.execute(
         select(
@@ -852,7 +856,7 @@ def _latest_recipe_catalog(session: Session) -> list[_CatalogRecipe]:
         .join(latest_recipe_ids, latest_recipe_ids.c.recipe_id == Recipe.id)
         .join(crafted_item, crafted_item.id == Recipe.crafted_item_id)
         .outerjoin(RecipeIngredient, RecipeIngredient.recipe_id == Recipe.id)
-        .where(active_catalog_item_clause(crafted_item))
+        .where(active_catalog_item_clause(crafted_item), ~excluded_ingredient)
         .order_by(Recipe.id, RecipeIngredient.position)
     )
     recipes_by_id: dict[int, _CatalogRecipe] = {}
@@ -903,6 +907,7 @@ def _latest_recipes_for_items(session: Session, item_uuids: tuple[UUID, ...]) ->
                 Recipe.id.in_(latest_recipe_ids),
                 Item.uuid.in_(item_uuids),
                 active_catalog_item_clause(Item),
+                ~_excluded_recipe_ingredient_exists(),
             )
             .options(
                 selectinload(Recipe.crafted_item),
@@ -910,6 +915,21 @@ def _latest_recipes_for_items(session: Session, item_uuids: tuple[UUID, ...]) ->
             )
             .order_by(Recipe.id)
         )
+    )
+
+
+def _excluded_recipe_ingredient_exists():
+    recipe_ingredient = aliased(RecipeIngredient)
+    ingredient_item = aliased(Item)
+    return (
+        select(recipe_ingredient.id)
+        .join(ingredient_item, ingredient_item.id == recipe_ingredient.item_id)
+        .where(
+            recipe_ingredient.recipe_id == Recipe.id,
+            ingredient_item.touch_catalog_status == TOUCH_CATALOG_EXCLUDED,
+        )
+        .correlate(Recipe)
+        .exists()
     )
 
 

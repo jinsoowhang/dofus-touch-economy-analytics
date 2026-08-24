@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from dofus_touch_economy.catalog_scope import catalog_exclusion_for_name
+from dofus_touch_economy.catalog_scope import is_active_catalog_item
 from dofus_touch_economy.models import Item
 from dofus_touch_economy.normalization import (
     format_item_display_name,
@@ -129,9 +129,12 @@ class CatalogService:
 
     def create_manual(self, command: ItemCreate) -> ItemDetailResponse:
         normalized_name = normalize_item_name(command.display_name)
-        exclusion = catalog_exclusion_for_name(normalized_name)
-        if exclusion is not None:
-            raise CatalogItemExcluded(exclusion.reason)
+        excluded_item = self._catalog.find_excluded_by_normalized_name(normalized_name)
+        if excluded_item is not None:
+            raise CatalogItemExcluded(
+                excluded_item.touch_catalog_exclusion_reason
+                or "Item is excluded from the Dofus Touch catalog."
+            )
         category = command.category or infer_item_category(command.display_name)
         identity_category = "" if category is None else normalize_item_name(category)
         existing = self._conflicting_items(
@@ -195,8 +198,16 @@ class CatalogService:
         active_sale_count, sold_sale_count = self._sales.counts_for_item(item.id)
         recipe_response = None
         metrics_response = None
-        if item.recipes:
-            recipe = max(item.recipes, key=lambda candidate: candidate.id)
+        valid_recipes = [
+            recipe
+            for recipe in item.recipes
+            if all(
+                ingredient.item is None or is_active_catalog_item(ingredient.item)
+                for ingredient in recipe.ingredients
+            )
+        ]
+        if valid_recipes:
+            recipe = max(valid_recipes, key=lambda candidate: candidate.id)
             ingredient_responses: list[RecipeIngredientResponse] = []
             ingredient_prices: list[IngredientPrice] = []
             for ingredient in recipe.ingredients:

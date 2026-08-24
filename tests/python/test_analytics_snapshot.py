@@ -23,7 +23,7 @@ def _create_database(path: Path) -> None:
     Base.metadata.create_all(engine)
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
-        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0006')"))
+        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0007')"))
     factory = create_session_factory(engine)
     with factory() as session:
         session.add(
@@ -33,6 +33,8 @@ def _create_database(path: Path) -> None:
                 category="Ore",
                 identity_category="ore",
                 weight=3,
+                touch_catalog_status="verified",
+                touch_catalog_checked_at=datetime(2026, 8, 23, tzinfo=UTC),
                 created_at=datetime(2026, 8, 22, tzinfo=UTC),
                 updated_at=datetime(2026, 8, 22, tzinfo=UTC),
             )
@@ -49,13 +51,16 @@ def test_snapshot_is_complete_and_content_addressed(tmp_path: Path) -> None:
     second = extract_operational_snapshot(database_path)
 
     assert first.snapshot_id == second.snapshot_id
-    assert first.source_schema_version == "0006"
+    assert first.source_schema_version == "0007"
     assert tuple(first.row_counts) == tuple(table.name for table in OPERATIONAL_TABLES)
     assert first.row_counts["items"] == 1
     assert sum(first.row_counts.values()) == 1
     items = next(table for table in first.tables if table.contract.name == "items")
     assert items.rows[0]["display_name"] == "Synthetic Ore"
     assert items.rows[0]["weight"] == 3
+    assert items.rows[0]["touch_catalog_status"] == "verified"
+    assert items.rows[0]["touch_catalog_checked_at"] == "2026-08-23T00:00:00Z"
+    assert items.rows[0]["touch_catalog_exclusion_reason"] is None
     assert items.rows[0]["created_at"] == "2026-08-22T00:00:00Z"
 
 
@@ -100,7 +105,7 @@ def test_bigquery_cli_dry_run_needs_no_credentials(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert "schema=0006" in output
+    assert "schema=0007" in output
     assert "items=1" in output
     assert "dry-run: no BigQuery changes made" in output
     assert "Synthetic Ore" not in output
@@ -206,8 +211,15 @@ def test_bigquery_loader_adds_new_nullable_columns_to_existing_tables(tmp_path: 
     client = _FakeBigQueryClient()
     loader = BigQuerySnapshotLoader("example-project", "US", client=client)
     table_id = "example-project.dofus_dev.raw_items"
+    new_fields = {
+        "touch_catalog_status",
+        "touch_catalog_checked_at",
+        "touch_catalog_exclusion_reason",
+    }
     prior_schema = [
-        field for field in loader._raw_schema(items.contract.columns) if field.name != "weight"
+        field
+        for field in loader._raw_schema(items.contract.columns)
+        if field.name not in new_fields
     ]
     client.tables[table_id] = bigquery.Table(table_id, schema=prior_schema)
 
@@ -215,5 +227,9 @@ def test_bigquery_loader_adds_new_nullable_columns_to_existing_tables(tmp_path: 
 
     assert result[0].loaded is True
     assert client.updated_tables == [table_id]
-    assert client.tables[table_id].schema[-1].name == "weight"
-    assert client.rows[table_id][0]["weight"] == 3
+    assert [field.name for field in client.tables[table_id].schema[-3:]] == [
+        "touch_catalog_status",
+        "touch_catalog_checked_at",
+        "touch_catalog_exclusion_reason",
+    ]
+    assert client.rows[table_id][0]["touch_catalog_status"] == "verified"

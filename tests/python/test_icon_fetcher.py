@@ -80,7 +80,10 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
     assert summary.source_count == 2
     assert summary.matched_count == 1
     assert summary.created_count == 1
+    assert summary.display_name_updated_count == 0
     assert summary.category_refined_count == 0
+    assert summary.verified_count == 2
+    assert summary.excluded_count == 0
     assert summary.catalog_count == 2
     assert summary.cached_count == 0
     assert summary.downloaded_count == 2
@@ -107,10 +110,95 @@ def test_syncs_exchangeable_touch_catalog_and_icons_idempotently(
 
     assert repeated.matched_count == 2
     assert repeated.created_count == 0
+    assert repeated.display_name_updated_count == 0
     assert repeated.category_refined_count == 0
+    assert repeated.verified_count == 2
+    assert repeated.excluded_count == 0
     assert repeated.catalog_count == 2
     assert repeated.cached_count == 2
     assert repeated.downloaded_count == 0
+
+
+def test_sync_corrects_official_casing_and_marks_every_local_item(
+    session_factory,
+    tmp_path,
+) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Item(
+                    display_name="chouquish belt",
+                    normalized_name="chouquish belt",
+                    category="Belt",
+                    identity_category="belt",
+                ),
+                Item(
+                    display_name="Quest Relic",
+                    normalized_name="quest relic",
+                    identity_category="",
+                ),
+                Item(
+                    display_name="PC Only Item",
+                    normalized_name="pc only item",
+                    identity_category="",
+                ),
+            ]
+        )
+        session.commit()
+
+    def fetch_json(url, payload):
+        if "config.json" in url:
+            return {
+                "dataUrl": "https://data.ankama-games.com",
+                "assetsUrl": "https://touch.cdn.ankama.com/assets/version",
+            }
+        if payload == {"class": "Items", "lang": "en"}:
+            return {
+                "1": {
+                    "id": 1,
+                    "iconId": 100,
+                    "nameId": "Chouquish Belt",
+                    "typeId": 10,
+                    "exchangeable": True,
+                    "realWeight": 10,
+                },
+                "2": {
+                    "id": 2,
+                    "iconId": 200,
+                    "nameId": "Quest Relic",
+                    "typeId": 20,
+                    "exchangeable": False,
+                },
+            }
+        if payload == {"class": "ItemTypes", "lang": "en"}:
+            return {
+                "10": {"id": 10, "nameId": "Belt"},
+                "20": {"id": 20, "nameId": "Quest item"},
+            }
+        raise AssertionError(f"unexpected request: {url} {payload}")
+
+    summary = sync_touch_catalog(
+        session_factory,
+        tmp_path / "icons",
+        json_fetcher=fetch_json,
+        bytes_fetcher=lambda _url: PNG_SIGNATURE,
+    )
+
+    assert summary.source_count == 1
+    assert summary.matched_count == 1
+    assert summary.created_count == 0
+    assert summary.display_name_updated_count == 1
+    assert summary.verified_count == 2
+    assert summary.excluded_count == 1
+    assert summary.catalog_count == 3
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+    assert items["chouquish belt"].display_name == "Chouquish Belt"
+    assert items["chouquish belt"].touch_catalog_status == "verified"
+    assert items["quest relic"].touch_catalog_status == "verified"
+    assert items["pc only item"].touch_catalog_status == "excluded"
+    assert "absent" in items["pc only item"].touch_catalog_exclusion_reason
+    assert all(item.touch_catalog_checked_at is not None for item in items.values())
 
 
 def test_sync_preserves_existing_category_for_unique_exact_name(
@@ -265,7 +353,15 @@ def test_sync_refines_legacy_resource_from_unambiguous_exact_fallback(
                 "assetsUrl": "https://touch.cdn.ankama.com/assets/version",
             }
         if payload == {"class": "Items", "lang": "en"}:
-            return {}
+            return {
+                "1": {
+                    "id": 1,
+                    "iconId": 100,
+                    "nameId": "Spitfoux Skin",
+                    "typeId": 10,
+                    "exchangeable": False,
+                }
+            }
         if payload == {"class": "ItemTypes", "lang": "en"}:
             return {}
         if "api.dofusdb.fr" in url:

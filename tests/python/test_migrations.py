@@ -41,6 +41,15 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
                 "CURRENT_TIMESTAMP, 'Dodge', NULL, 'manual', NULL, NULL)"
             )
         )
+        connection.execute(
+            text(
+                "INSERT INTO items "
+                "(uuid, display_name, normalized_name, category, identity_category, "
+                "created_at, updated_at) VALUES "
+                "('00000000000000000000000000000003', 'Violet Arrow Helmet', "
+                "'violet arrow helmet', 'Hat', 'hat', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            )
+        )
     engine.dispose()
 
     subprocess.run(
@@ -68,6 +77,9 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
     assert "created_source" in item_columns
     assert "icon_source_url" in item_columns
     assert "weight" in item_columns
+    assert "touch_catalog_status" in item_columns
+    assert "touch_catalog_checked_at" in item_columns
+    assert "touch_catalog_exclusion_reason" in item_columns
     assert "asking_price" in sale_columns
     with engine.connect() as connection:
         source = connection.scalar(
@@ -80,6 +92,24 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
             )
             is None
         )
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT touch_catalog_status FROM items WHERE normalized_name = 'imported item'"
+                )
+            )
+            is None
+        )
+        violet_status = connection.execute(
+            text(
+                "SELECT touch_catalog_status, touch_catalog_checked_at, "
+                "touch_catalog_exclusion_reason FROM items "
+                "WHERE normalized_name = 'violet arrow helmet'"
+            )
+        ).one()
+        assert violet_status[0] == "excluded"
+        assert violet_status[1] is not None
+        assert "absent" in violet_status[2]
         assert connection.scalar(text("SELECT count(*) FROM price_observations")) == 1
         assert connection.scalar(text("SELECT count(*) FROM sale_listings")) == 1
         assert connection.scalar(text("SELECT asking_price FROM sale_listings")) == 100
