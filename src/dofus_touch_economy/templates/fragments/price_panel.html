@@ -28,7 +28,6 @@
   </form>
 
   <h3>Price History</h3>
-  {% set visible_price_history = detail.price_history | selectattr('invalidated_at', 'none') | list %}
   {% if visible_price_history %}
     <div class="price-history-table-wrap">
       <table class="price-history-table" data-sortable-table>

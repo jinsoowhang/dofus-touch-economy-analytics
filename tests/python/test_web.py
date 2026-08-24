@@ -2162,6 +2162,67 @@ def test_item_current_price_edit_appends_history_and_returns_to_item(
     assert len(detail.price_history) == 1
 
 
+def test_item_price_history_shows_one_row_per_price_and_observed_day(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    with session_factory() as session:
+        price_service = PriceService(session, "Dodge")
+        older_duplicate = price_service.record(
+            catalog_item.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=100,
+                observed_at=datetime(2026, 8, 20, 8, tzinfo=UTC),
+            ),
+        )
+        newer_duplicate = price_service.record(
+            catalog_item.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=100,
+                observed_at=datetime(2026, 8, 20, 9, tzinfo=UTC),
+            ),
+        )
+        price_service.record(
+            catalog_item.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=110,
+                observed_at=datetime(2026, 8, 20, 10, tzinfo=UTC),
+            ),
+        )
+        price_service.record(
+            catalog_item.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=100,
+                observed_at=datetime(2026, 8, 21, 8, tzinfo=UTC),
+            ),
+        )
+
+    page = client.get(f"/items/{catalog_item.uuid}")
+
+    assert page.status_code == 200
+    history_body = page.text.split("<tbody>", maxsplit=1)[1].split("</tbody>", maxsplit=1)[0]
+    displayed_rows = re.findall(
+        r'<tr>\s*<td>([^<]+)</td>\s*<td class="numeric">([^<]+)</td>.*?</tr>',
+        history_body,
+        flags=re.DOTALL,
+    )
+    assert displayed_rows == [
+        ("2026-08-21", "100"),
+        ("2026-08-20", "110"),
+        ("2026-08-20", "100"),
+    ]
+    assert str(newer_duplicate.observation_uuid) in history_body
+    assert str(older_duplicate.observation_uuid) not in history_body
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(catalog_item.uuid)
+    assert len(detail.price_history) == 4
+
+
 def test_price_history_is_a_table_with_confirmed_audit_safe_deletion(
     client,
     session_factory,

@@ -327,6 +327,16 @@ def _detail_context(
     notification: str | None = None,
     include_metrics_oob: bool = False,
 ) -> dict[str, object]:
+    visible_price_history = []
+    seen_daily_prices: set[tuple[date, int]] = set()
+    for observation in detail.price_history:
+        if observation.invalidated_at is not None:
+            continue
+        key = (observation.observed_at.astimezone(UTC).date(), observation.total_price)
+        if key in seen_daily_prices:
+            continue
+        seen_daily_prices.add(key)
+        visible_price_history.append(observation)
     return {
         "detail": detail,
         "error": None,
@@ -337,6 +347,7 @@ def _detail_context(
         "recipe_form_values": recipe_form_values or {},
         "notification": notification,
         "include_metrics_oob": include_metrics_oob,
+        "visible_price_history": visible_price_history,
     }
 
 
