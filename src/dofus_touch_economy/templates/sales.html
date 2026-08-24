@@ -124,10 +124,18 @@
     <summary>
       <span class="section-summary">
         <h2>Currently Selling</h2>
-        <span>{{ active_sales | length }} active · Total Price: {{ "{:,}".format(active_total_price) }}</span>
+        <span>
+          {{ active_sales | length }} active · Total Price: {{ "{:,}".format(active_total_price) }}
+          {% if active_price_reviews %}· {{ active_price_reviews | length }} due for price review{% endif %}
+        </span>
       </span>
     </summary>
     {% if active_sales %}
+      {% if active_price_reviews %}
+        <p class="price-review-summary">
+          Listings shown below have been active for at least {{ active_price_review_days }} days. Suggestions use the lower of a {{ active_price_markdown_percent }}% markdown or the item's completed-sale median.
+        </p>
+      {% endif %}
       <form
         id="active-sales-bulk-form"
         method="post"
@@ -179,6 +187,7 @@
           <tbody>
             {% for sale in active_sales %}
               {% set selling_started_at = sale.selling_started_at | pacific_time %}
+              {% set price_review = active_price_reviews.get(sale.uuid) %}
               <tr>
                 <td class="selection-column">
                   <input
@@ -219,6 +228,31 @@
                       required
                     >
                   </form>
+                  {% if price_review %}
+                    <div class="price-review-suggestion">
+                      <span>
+                        {{ price_review.age_days }} days listed · Suggested {{ "{:,}".format(price_review.suggested_price) }}
+                        {% if price_review.suggestion_basis == "completed_sales_median" %}
+                          · Median of {{ price_review.completed_sale_count }} completed sales
+                        {% else %}
+                          · {{ active_price_markdown_percent }}% markdown
+                        {% endif %}
+                      </span>
+                      <form
+                        method="post"
+                        action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}"
+                        class="inline-form price-review-form"
+                        data-preserve-scroll
+                      >
+                        <input type="hidden" name="asking_price" value="{{ price_review.suggested_price }}">
+                        <button
+                          type="submit"
+                          class="secondary-button"
+                          aria-label="Apply suggested price {{ '{:,}'.format(price_review.suggested_price) }} to {{ sale.display_name }}"
+                        >Apply suggestion</button>
+                      </form>
+                    </div>
+                  {% endif %}
                 </td>
                 <td class="numeric">{{ "{:,}".format(sale.recipe_cost) if sale.recipe_cost is not none else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(sale.profit) if sale.profit is not none else "—" }}</td>

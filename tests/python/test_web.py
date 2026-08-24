@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -188,6 +188,66 @@ def test_sales_item_choice_suggests_median_completed_sale_price(
     assert (
         '<p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>'
     ) in response.text
+
+
+def test_currently_selling_surfaces_and_applies_week_old_price_review(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    now = datetime.now(UTC)
+    with session_factory() as session:
+        active_listing = SaleListing(
+            item_id=catalog_item.id,
+            lot_quantity=1,
+            asking_price=1_000,
+            selling_started_at=now - timedelta(days=8),
+        )
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=700,
+                    selling_started_at=now - timedelta(days=20),
+                    date_sold=now - timedelta(days=19),
+                ),
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=800,
+                    selling_started_at=now - timedelta(days=18),
+                    date_sold=now - timedelta(days=17),
+                ),
+                active_listing,
+            ]
+        )
+        session.commit()
+        listing_uuid = active_listing.uuid
+
+    response = client.get("/sales")
+
+    assert response.status_code == 200
+    assert "1 due for price review" in response.text
+    assert "have been active for at least 7 days" in response.text
+    assert "8 days listed · Suggested 750" in response.text
+    assert "Median of 2 completed sales" in response.text
+    escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
+    assert f'action="/sales/{listing_uuid}/price?{escaped_query}"' in response.text
+    assert 'name="asking_price" value="750"' in response.text
+    assert f'aria-label="Apply suggested price 750 to {catalog_item.display_name}"' in response.text
+
+    updated = client.post(
+        f"/sales/{listing_uuid}/price",
+        data={"asking_price": "750"},
+        follow_redirects=False,
+    )
+
+    assert updated.status_code == 303
+    with session_factory() as session:
+        listing = session.scalar(select(SaleListing).where(SaleListing.uuid == listing_uuid))
+    assert listing is not None
+    assert listing.asking_price == 750
 
 
 def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:

@@ -51,6 +51,8 @@ from dofus_touch_economy.services.recipes import (
     RecipeSortField,
 )
 from dofus_touch_economy.services.sales import (
+    ACTIVE_PRICE_MARKDOWN_PERCENT,
+    ACTIVE_PRICE_REVIEW_DAYS,
     DailySalesTotal,
     SaleItemNotFound,
     SaleListingConflict,
@@ -507,6 +509,11 @@ def _sales_context(
         if show_sold
         else []
     )
+    active_price_reviews = service.active_price_reviews(
+        active_sales,
+        as_of=datetime.now(UTC),
+        display_timezone=PACIFIC_TIME,
+    )
     category_labels: dict[str, str] = {}
     for item in item_choices:
         if item.category_key:
@@ -533,6 +540,9 @@ def _sales_context(
             )
         ],
         "active_sales": active_sales,
+        "active_price_reviews": active_price_reviews,
+        "active_price_markdown_percent": ACTIVE_PRICE_MARKDOWN_PERCENT,
+        "active_price_review_days": ACTIVE_PRICE_REVIEW_DAYS,
         "active_total_price": sum(sale.asking_price or 0 for sale in active_sales),
         "sold_sales": sold_sales,
         "active_sort_columns": _sales_sort_columns(

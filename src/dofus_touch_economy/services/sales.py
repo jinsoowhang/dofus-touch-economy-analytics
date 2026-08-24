@@ -26,6 +26,8 @@ from dofus_touch_economy.services.pricing import (
 
 SaleSortField = Literal["name", "category", "price", "cost", "profit", "started", "sold"]
 SaleSortDirection = Literal["asc", "desc"]
+ACTIVE_PRICE_REVIEW_DAYS = 7
+ACTIVE_PRICE_MARKDOWN_PERCENT = 5
 
 
 class SaleItemNotFound(LookupError):
@@ -113,6 +115,14 @@ class SaleListingFilters:
     display_timezone: tzinfo = UTC
 
 
+@dataclass(frozen=True)
+class ActivePriceReview:
+    age_days: int
+    suggested_price: int
+    suggestion_basis: Literal["completed_sales_median", "standard_markdown"]
+    completed_sale_count: int
+
+
 @dataclass
 class _DailySalesAccumulator:
     total_price: int = 0
@@ -165,6 +175,60 @@ class SalesService:
         listings = self._responses(self._sales.active())
         listings = _filter_listings(listings, filters, use_sold_date=False)
         return _sort_listings(listings, sort_field, sort_direction)
+
+    def active_price_reviews(
+        self,
+        listings: list[SaleListingResponse],
+        *,
+        as_of: datetime,
+        display_timezone: tzinfo,
+        review_after_days: int = ACTIVE_PRICE_REVIEW_DAYS,
+    ) -> dict[UUID, ActivePriceReview]:
+        if not listings:
+            return {}
+        item_ids_by_uuid = dict(
+            self._session.execute(
+                select(Item.uuid, Item.id).where(
+                    Item.uuid.in_({listing.item_uuid for listing in listings})
+                )
+            )
+            .tuples()
+            .all()
+        )
+        sold_prices: dict[int, list[int]] = defaultdict(list)
+        for item_id, asking_price in self._sales.sold_prices():
+            sold_prices[item_id].append(asking_price)
+
+        review_date = _as_utc(as_of).astimezone(display_timezone).date()
+        reviews: dict[UUID, ActivePriceReview] = {}
+        for listing in listings:
+            if listing.asking_price is None or listing.asking_price <= 1:
+                continue
+            started_date = listing.selling_started_at.astimezone(display_timezone).date()
+            age_days = max((review_date - started_date).days, 0)
+            if age_days < review_after_days:
+                continue
+
+            markdown_price = max(
+                1,
+                listing.asking_price * (100 - ACTIVE_PRICE_MARKDOWN_PERCENT) // 100,
+            )
+            markdown_price = min(markdown_price, listing.asking_price - 1)
+            item_sold_prices = sold_prices[item_ids_by_uuid[listing.item_uuid]]
+            median_price = _median_price(item_sold_prices)
+            if median_price is not None and median_price < markdown_price:
+                suggested_price = median_price
+                suggestion_basis = "completed_sales_median"
+            else:
+                suggested_price = markdown_price
+                suggestion_basis = "standard_markdown"
+            reviews[listing.uuid] = ActivePriceReview(
+                age_days=age_days,
+                suggested_price=suggested_price,
+                suggestion_basis=suggestion_basis,
+                completed_sale_count=len(item_sold_prices),
+            )
+        return reviews
 
     def sold(
         self,

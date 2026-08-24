@@ -412,6 +412,82 @@ def test_active_sales_sort_by_each_displayed_field(
     assert [result.display_name for result in results] == expected
 
 
+def test_active_price_reviews_flag_week_old_listings_and_suggest_markdowns(
+    session,
+    catalog_item,
+) -> None:
+    no_history_item = Item(
+        display_name="No History Hat",
+        normalized_name="no history hat",
+        category="Hat",
+        identity_category="hat",
+    )
+    young_item = Item(
+        display_name="Young Hat",
+        normalized_name="young hat",
+        category="Hat",
+        identity_category="hat",
+    )
+    session.add_all([no_history_item, young_item])
+    session.flush()
+    median_review_listing = SaleListing(
+        item_id=catalog_item.id,
+        lot_quantity=1,
+        asking_price=1_000,
+        selling_started_at=datetime(2026, 8, 15, 12, tzinfo=UTC),
+    )
+    markdown_review_listing = SaleListing(
+        item_id=no_history_item.id,
+        lot_quantity=1,
+        asking_price=200,
+        selling_started_at=datetime(2026, 8, 16, 12, tzinfo=UTC),
+    )
+    young_listing = SaleListing(
+        item_id=young_item.id,
+        lot_quantity=1,
+        asking_price=300,
+        selling_started_at=datetime(2026, 8, 17, 12, tzinfo=UTC),
+    )
+    session.add_all(
+        [
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=700,
+                selling_started_at=datetime(2026, 8, 1, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 2, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=800,
+                selling_started_at=datetime(2026, 8, 3, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 4, tzinfo=UTC),
+            ),
+            median_review_listing,
+            markdown_review_listing,
+            young_listing,
+        ]
+    )
+    session.commit()
+    service = SalesService(session, "Dodge")
+
+    reviews = service.active_price_reviews(
+        service.active(),
+        as_of=datetime(2026, 8, 23, 12, tzinfo=UTC),
+        display_timezone=ZoneInfo("America/Los_Angeles"),
+    )
+
+    assert set(reviews) == {median_review_listing.uuid, markdown_review_listing.uuid}
+    assert reviews[median_review_listing.uuid].age_days == 8
+    assert reviews[median_review_listing.uuid].suggested_price == 750
+    assert reviews[median_review_listing.uuid].suggestion_basis == "completed_sales_median"
+    assert reviews[median_review_listing.uuid].completed_sale_count == 2
+    assert reviews[markdown_review_listing.uuid].age_days == 7
+    assert reviews[markdown_review_listing.uuid].suggested_price == 190
+    assert reviews[markdown_review_listing.uuid].suggestion_basis == "standard_markdown"
+
+
 @pytest.mark.parametrize(
     ("sort_field", "sort_direction", "expected"),
     [
