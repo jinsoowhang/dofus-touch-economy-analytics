@@ -240,3 +240,42 @@ remaining Recipes numeric-range peer mutation.
 - The focused Recipe Calculator web regression passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 239 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Profit Availability, Multi-Select Filters, and Catalog Exclusions
+
+### Context
+
+Improved opportunity discovery by sale availability, allowed broader catalog and
+recipe comparisons, and removed a confirmed Dofus-only item from active Dofus Touch
+workflows without destroying imported provenance.
+
+### Work Completed
+
+- Added a Show only items not currently selling checkbox to Profit Opportunities.
+  The service filters on zero active listings before summary calculations and the
+  100-row display limit.
+- Labeled each opportunity with its current active-listing count or an explicit Not
+  currently selling state, and retained active plus completed counts in row details.
+- Replaced Item Search's single Category select with a checkbox-style multi-select.
+  Repeated category query values use OR and persist through HTMX searches, sorting,
+  and pagination.
+- Replaced Recipes' single Category and Profession selects with checkbox-style
+  multi-selects. Values use OR within each group and AND across category,
+  profession, name, level, and economics groups; sorting, pagination, and inline
+  price-update redirects preserve repeated parameters.
+- Verified Violet Arrow Helmet was absent from Ankama's live Dofus Touch catalog.
+  Added a curated normalized-name exclusion shared by catalog reads, recipe and
+  calculator projections, icon targets, and new price and Sales writes.
+- Rejected manual attempts to recreate an excluded item while retaining the private
+  CSV source row, imported recipe, and prior price observation for auditability.
+- Deliberately avoided bulk-removing every exact-name miss from the live catalog
+  comparison because many legitimate Touch items use legacy or aliased names.
+
+### Verification
+
+- Focused Profit Opportunities service and web tests passed.
+- All 101 catalog, recipe, and web tests passed after the multi-select changes.
+- All 92 affected catalog, recipe, API, icon-fetch, and Sales tests passed after the
+  catalog exclusion.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 241 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
