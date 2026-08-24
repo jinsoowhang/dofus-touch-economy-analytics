@@ -224,3 +224,19 @@ remaining Recipes numeric-range peer mutation.
 - All 99 focused Sales, web, and static-asset tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 239 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Recipe Calculator Craft Links
+
+### Work Completed
+
+- Linked each craft name in Select Craftable Items to its Item detail page.
+- Applied the same link to server-rendered selections and rows added or restored by
+  the browser so cart interaction does not change navigation behavior.
+- Added focused rendered-page and browser-wiring regression coverage.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-calculator.js`.
+- The focused Recipe Calculator web regression passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 239 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
