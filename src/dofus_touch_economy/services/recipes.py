@@ -101,6 +101,7 @@ class RecipeCalculatorSelectedItem:
     display_name: str
     icon_url: str | None
     profession: str
+    category: str | None
     profession_level: int | None
     craft_quantity: int
     recipe_unit_cost: Decimal | None
@@ -361,6 +362,7 @@ class RecipeCalculatorService:
                     display_name=recipe.crafted_item.display_name,
                     icon_url=_icon_url(recipe.crafted_item),
                     profession=recipe.profession,
+                    category=recipe.crafted_item.category,
                     profession_level=required_profession_level(len(recipe.ingredients)),
                     craft_quantity=craft_quantity,
                     recipe_unit_cost=recipe_metrics.recipe_cost,

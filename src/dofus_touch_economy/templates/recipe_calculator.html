@@ -207,6 +207,7 @@
                   <th class="selection-column" data-sort-disabled>Sell</th>
                   <th data-sort-type="text">Craftable Item</th>
                   <th data-sort-type="text">Profession</th>
+                  <th data-sort-type="text">Category</th>
                   <th class="numeric" data-sort-type="number">Level</th>
                   <th class="numeric" data-sort-type="number">Quantity</th>
                   <th class="numeric" data-sort-type="number">Sale Price Each</th>
@@ -240,6 +241,7 @@
                       </span>
                     </td>
                     <td>{{ item.profession }}</td>
+                    <td>{{ (item.category or "Uncategorized") | title }}</td>
                     <td class="numeric">{{ item.profession_level if item.profession_level is not none else "—" }}</td>
                     <td class="numeric">{{ item.craft_quantity }}</td>
                     <td class="numeric">

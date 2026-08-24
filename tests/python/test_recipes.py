@@ -214,6 +214,7 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
         "Alpha Sword",
         "Beta Ring",
     ]
+    assert [item.category for item in result.selected_items] == ["Sword", "Ring"]
     assert [item.craft_quantity for item in result.selected_items] == [2, 3]
     assert [item.recipe_unit_cost for item in result.selected_items] == [80, 400]
     assert [item.total_recipe_cost for item in result.selected_items] == [160, 1200]

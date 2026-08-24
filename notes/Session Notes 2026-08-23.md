@@ -67,3 +67,22 @@ unnecessary horizontal scrolling.
 - All 84 focused Recipe Calculator, recipe-service, web, and static-asset tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 230 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Selected Craft Category and Live Profit Regression
+
+### Work Completed
+
+- Carried each crafted catalog item's existing category through the Recipe Calculator
+  selected-item projection.
+- Added sortable Category directly after Profession in Selected craft breakdown and
+  kept missing values explicit as Uncategorized.
+- Expanded the table width for the added decision column.
+- Preserved immediate Total Estimated Profit recalculation on Sale Price Each input
+  and added an explicit regression assertion for the browser input listener.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-calculator.js`.
+- All 84 focused Recipe Calculator, recipe-service, web, and static-asset tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 230 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

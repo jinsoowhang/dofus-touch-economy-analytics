@@ -1161,6 +1161,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
                     observed_at=datetime(2026, 8, 23, tzinfo=UTC),
                 ),
             )
+    alpha_category = (items["alpha sword"].category or "Uncategorized").title()
 
     page = client.get("/recipe-calculator")
     script = client.get("/static/recipe-calculator.js")
@@ -1204,6 +1205,10 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "calculatorForm.requestSubmit()" in script.text
     assert 'document.querySelectorAll(".calculator-sale-price")' in script.text
     assert "updateCalculatorEstimatedProfit(input)" in script.text
+    assert (
+        'input.addEventListener("input", () => updateCalculatorEstimatedProfit(input));'
+        in script.text
+    )
     assert "salePrice * craftQuantity - totalRecipeCost" in script.text
     assert 'const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position"' in (
         script.text
@@ -1263,6 +1268,16 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'action="/recipe-calculator/sales"' in response.text
     assert "Sale Price Each" in response.text
     assert "Total Estimated Profit" in response.text
+    assert re.search(
+        r">Profession</th>\s*<th[^>]*>Category</th>\s*<th[^>]*>Level</th>",
+        response.text,
+    )
+    assert re.search(
+        rf'href="/items/{items["alpha sword"].uuid}#recipe">Alpha Sword</a>.*?'
+        rf"</td>\s*<td>Crafting</td>\s*<td>{re.escape(alpha_category)}</td>",
+        response.text,
+        re.DOTALL,
+    )
     assert re.search(
         r"Total Estimated Profit is Sale\s+Price Each multiplied by Quantity,\s+"
         r"minus Total Recipe Cost\.",
