@@ -190,3 +190,37 @@ history, and Best Sellers decision surfaces.
 - All 91 focused recipe, web, and static-asset tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 237 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Active Price Reviews and Navigation Interaction
+
+### Context
+
+Added an actionable review for older active listings, corrected overlapping Item and
+Sales menus shown in a desktop screenshot, alphabetized submenu links, and fixed the
+remaining Recipes numeric-range peer mutation.
+
+### Work Completed
+
+- Added price reviews for Currently Selling listings after seven Pacific calendar
+  days. Suggestions use the lower of a 5% markdown or the item's all-time completed-
+  sale median, and identify the calculation basis and sale sample count.
+- Kept suggestions advisory: no background or page-load mutation occurs. An explicit
+  Apply suggestion action uses the existing audit-preserving Sales repricing flow and
+  preserves Sales filters, sorting, and scroll position.
+- Added the due-for-review count to the Currently Selling summary and kept the
+  recommendation inside the existing Sale Price cell instead of adding a column.
+- Alphabetized Item and Sales submenu links.
+- Removed hover-only submenu exposure, enforced at most one open menu, and close the
+  active menu after outside pointer/focus interaction or Escape.
+- Split Recipes range rendering from numeric synchronization. Numeric input now
+  updates only its own range value, and committed invalid ordering constrains the
+  edited endpoint without mutating its peer.
+- Added service, rendered workflow, navigation wiring, submenu order, and range peer-
+  isolation regressions.
+
+### Verification
+
+- JavaScript syntax validation passed for `site-navigation.js` and `recipes.js`.
+- All 99 focused Sales, web, and static-asset tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 239 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
