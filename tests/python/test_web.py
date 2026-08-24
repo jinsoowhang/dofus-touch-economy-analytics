@@ -1328,6 +1328,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         "shouldPersist = true)" in script.text
     )
     assert "calculatorSelectedItems.append(row)" in script.text
+    assert 'const itemLabel = document.createElement("a")' in script.text
+    assert "itemLabel.href = `/items/${choice.item_uuid}`" in script.text
     assert "calculatorSelectedCount.textContent = `${selectedCount} selected`" in script.text
     assert "calculatorSaleCount" not in script.text
     assert "saleSelection" not in script.text
@@ -1434,6 +1436,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert response.text.count('name="selected_item_uuid"') == 4
     assert response.text.count('type="hidden" name="selected_item_uuid"') == 2
     assert 'aria-label="Include Alpha Sword in calculation"' in response.text
+    assert f'href="/items/{items["alpha sword"].uuid}"' in response.text
     assert re.search(
         r">Calculate</th>\s*<th[^>]*>Item</th>",
         response.text,

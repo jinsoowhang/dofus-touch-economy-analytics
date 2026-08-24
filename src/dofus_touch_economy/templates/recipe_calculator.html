@@ -65,10 +65,10 @@
                   >
                 </td>
                 <td>
-                  <span class="item-label">
+                  <a class="item-label" href="/items/{{ choice.item_uuid }}">
                     {% if choice.icon_url %}<img class="item-icon" src="{{ choice.icon_url }}" alt="" loading="lazy">{% endif %}
                     <span>{{ choice.display_name }}</span>
-                  </span>
+                  </a>
                 </td>
                 <td>{{ (choice.category or "Uncategorized") | title }}</td>
                 <td>{{ choice.profession }}</td>

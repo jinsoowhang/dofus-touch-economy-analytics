@@ -341,8 +341,9 @@ if (
     selectionCell.append(selection);
     row.append(selectionCell);
     const itemCell = document.createElement("td");
-    const itemLabel = document.createElement("span");
+    const itemLabel = document.createElement("a");
     itemLabel.className = "item-label";
+    itemLabel.href = `/items/${choice.item_uuid}`;
     if (choice.icon_url) {
       const icon = document.createElement("img");
       icon.className = "item-icon";
