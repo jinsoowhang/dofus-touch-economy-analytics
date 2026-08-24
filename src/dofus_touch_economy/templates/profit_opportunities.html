@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Profit Opportunities · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Profit Opportunities</h1>
+  <p class="page-description">
+    Discover currently profitable recipes, including items with no completed Sales,
+    and see which opportunities improved as ingredient prices changed.
+  </p>
+
+  {% if report.items %}
+    <div class="calculator-summary" aria-label="Profit opportunity summary">
+      <div><span>Profitable Recipes</span><strong>{{ report.total_count }}</strong></div>
+      <div><span>Improving</span><strong>{{ report.improving_count }}</strong></div>
+      <div><span>Newly Priced</span><strong>{{ report.newly_priced_count }}</strong></div>
+      <div>
+        <span>Top Current Profit</span>
+        <strong>{{ report.top_profit_item.display_name }} · {{ "{:,}".format(report.top_profit_item.profit) }}</strong>
+      </div>
+      <div>
+        <span>Top Current ROI</span>
+        <strong>{{ report.top_roi_item.display_name }} · {{ "{:.1%}".format(report.top_roi_item.roi) }}</strong>
+      </div>
+    </div>
+
+    <details class="collapsible-section" open>
+      <summary>
+        <span class="section-summary">
+          <h2>Current Opportunities</h2>
+          <span>Showing {{ report.items | length }} of {{ report.total_count }}</span>
+        </span>
+      </summary>
+      <p class="table-context">
+        Current profit and ROI use the latest crafted-item and ingredient prices.
+        Prior ROI holds the crafted-item price constant and uses each ingredient's
+        immediately previous valid price. Newly Priced means a complete prior recipe
+        cost was unavailable. Completed Sales do not limit this list.
+      </p>
+      <div class="recipe-cart-toolbar">
+        <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
+        <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+      </div>
+      <div class="item-table-wrap">
+        <table class="item-table profit-opportunities-table" data-sortable-table>
+          <thead>
+            <tr>
+              <th data-sort-type="text">Item</th>
+              <th data-sort-type="text">Category</th>
+              <th data-sort-type="text">Signal</th>
+              <th class="numeric" data-sort-type="number">Current Profit</th>
+              <th class="numeric" data-sort-type="number">Current ROI</th>
+              <th class="numeric" data-sort-type="number">ROI Change</th>
+              <th data-sort-disabled>Calculator</th>
+              <th data-sort-disabled>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in report.items %}
+              <tr>
+                <td>
+                  <a href="/items/{{ item.item_uuid }}" class="item-label">
+                    {% if item.icon_url %}<img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">{% endif %}
+                    <span>{{ item.display_name }}</span>
+                  </a>
+                </td>
+                <td>{{ (item.category or "Uncategorized") | title }}</td>
+                <td><span class="opportunity-signal">{{ item.signal }}</span></td>
+                <td class="numeric">{{ "{:,}".format(item.profit) }}</td>
+                <td class="numeric">{{ "{:.1%}".format(item.roi) }}</td>
+                <td class="numeric" data-sort-value="{{ item.roi_change if item.roi_change is not none else '' }}">
+                  {{ "{:+.1%}".format(item.roi_change) if item.roi_change is not none else "—" }}
+                </td>
+                <td class="recipe-cart-action">
+                  <button
+                    type="button"
+                    class="recipe-cart-add secondary-button"
+                    data-item-uuid="{{ item.item_uuid }}"
+                    aria-label="Add {{ item.display_name }} to Recipe Calculator"
+                  >Add</button>
+                </td>
+                <td>
+                  <details class="row-details">
+                    <summary>More</summary>
+                    <dl>
+                      <div><dt>Profession</dt><dd>{{ item.profession }}</dd></div>
+                      <div><dt>Required Level</dt><dd>{{ item.profession_level if item.profession_level is not none else "Unknown" }}</dd></div>
+                      <div><dt>Current Price</dt><dd>{{ "{:,}".format(item.current_price) }}</dd></div>
+                      <div><dt>Recipe Cost</dt><dd>{{ "{:,}".format(item.recipe_cost) }}</dd></div>
+                      <div><dt>Prior Recipe Cost</dt><dd>{{ "{:,}".format(item.previous_recipe_cost) if item.previous_recipe_cost is not none else "—" }}</dd></div>
+                      <div><dt>Prior ROI</dt><dd>{{ "{:.1%}".format(item.previous_roi) if item.previous_roi is not none else "—" }}</dd></div>
+                      <div><dt>Completed Sales</dt><dd>{{ item.completed_sale_count }}</dd></div>
+                    </dl>
+                  </details>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% else %}
+    <p>
+      No fully priced, currently profitable recipes are available yet. Add current
+      prices for crafted items and every ingredient to populate this page.
+    </p>
+  {% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/recipe-cart.js" defer></script>{% endblock %}

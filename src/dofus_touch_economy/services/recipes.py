@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased, selectinload
 
-from dofus_touch_economy.models import Item, Recipe, RecipeIngredient
+from dofus_touch_economy.models import Item, Recipe, RecipeIngredient, SaleListing
 from dofus_touch_economy.normalization import format_item_display_name, normalize_item_name
 from dofus_touch_economy.services.pricing import (
     IngredientPrice,
@@ -30,6 +30,7 @@ RecipeSortField = Literal[
 ]
 RecipeSortDirection = Literal["asc", "desc"]
 RecipeEconomicsFilter = Literal["all", "profitable", "non_profitable", "unknown"]
+ProfitOpportunitySignal = Literal["Improving", "Newly priced", "Profitable now"]
 _PROFESSION_LEVEL_BY_INGREDIENT_COUNT = (None, 1, 1, 10, 20, 40, 60, 80, 100)
 
 
@@ -83,6 +84,35 @@ class RecipeCatalogResult:
     page: int
     page_size: int
     page_count: int
+
+
+@dataclass(frozen=True)
+class ProfitOpportunity:
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_url: str | None
+    profession: str
+    profession_level: int | None
+    signal: ProfitOpportunitySignal
+    current_price: Decimal
+    recipe_cost: Decimal
+    profit: Decimal
+    roi: Decimal
+    previous_recipe_cost: Decimal | None
+    previous_roi: Decimal | None
+    roi_change: Decimal | None
+    completed_sale_count: int
+
+
+@dataclass(frozen=True)
+class ProfitOpportunityReport:
+    items: tuple[ProfitOpportunity, ...]
+    total_count: int
+    improving_count: int
+    newly_priced_count: int
+    top_profit_item: ProfitOpportunity | None
+    top_roi_item: ProfitOpportunity | None
 
 
 @dataclass(frozen=True)
@@ -227,6 +257,143 @@ class RecipeCatalogService:
             page=resolved_page,
             page_size=page_size,
             page_count=page_count,
+        )
+
+    def profit_opportunities(self, *, limit: int = 100) -> ProfitOpportunityReport:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        recipes = _latest_recipe_catalog(self._session)
+        priced_item_ids = {
+            item_id
+            for recipe in recipes
+            for item_id in [
+                recipe.crafted_item_id,
+                *(item_id for item_id, _normalized_name, _quantity in recipe.ingredients),
+            ]
+            if item_id is not None
+        }
+        prices = self._prices.current_and_previous_for_items(priced_item_ids)
+        crafted_item_ids = {recipe.crafted_item_id for recipe in recipes}
+        completed_sale_counts = dict(
+            self._session.execute(
+                select(SaleListing.item_id, func.count(SaleListing.id))
+                .where(
+                    SaleListing.item_id.in_(crafted_item_ids),
+                    SaleListing.date_sold.is_not(None),
+                )
+                .group_by(SaleListing.item_id)
+            )
+            .tuples()
+            .all()
+        )
+
+        opportunities: list[ProfitOpportunity] = []
+        for recipe in recipes:
+            crafted_item_price = prices.get(recipe.crafted_item_id)
+            if crafted_item_price is None:
+                continue
+            current_metrics = calculate_recipe_metrics(
+                crafted_item_price.current.unit_price,
+                [
+                    IngredientPrice(
+                        quantity=quantity,
+                        unit_price=(
+                            None
+                            if item_id is None or item_id not in prices
+                            else prices[item_id].current.unit_price
+                        ),
+                    )
+                    for item_id, _normalized_name, quantity in recipe.ingredients
+                ],
+            )
+            if (
+                current_metrics.recipe_cost is None
+                or current_metrics.profit is None
+                or current_metrics.roi is None
+                or current_metrics.profit <= 0
+            ):
+                continue
+
+            previous_metrics = calculate_recipe_metrics(
+                crafted_item_price.current.unit_price,
+                [
+                    IngredientPrice(
+                        quantity=quantity,
+                        unit_price=(
+                            None
+                            if item_id is None
+                            or item_id not in prices
+                            or prices[item_id].previous is None
+                            else prices[item_id].previous.unit_price
+                        ),
+                    )
+                    for item_id, _normalized_name, quantity in recipe.ingredients
+                ],
+            )
+            previous_roi = previous_metrics.roi
+            roi_change = None if previous_roi is None else current_metrics.roi - previous_roi
+            if previous_metrics.recipe_cost is None:
+                signal: ProfitOpportunitySignal = "Newly priced"
+            elif roi_change is not None and roi_change > 0:
+                signal = "Improving"
+            else:
+                signal = "Profitable now"
+            opportunities.append(
+                ProfitOpportunity(
+                    item_uuid=recipe.item_uuid,
+                    display_name=recipe.display_name,
+                    category=recipe.category,
+                    icon_url=(
+                        None
+                        if recipe.icon_source_url is None
+                        else f"/item-icons/{recipe.item_uuid}.png"
+                    ),
+                    profession=recipe.profession,
+                    profession_level=required_profession_level(len(recipe.ingredients)),
+                    signal=signal,
+                    current_price=crafted_item_price.current.unit_price,
+                    recipe_cost=current_metrics.recipe_cost,
+                    profit=current_metrics.profit,
+                    roi=current_metrics.roi,
+                    previous_recipe_cost=previous_metrics.recipe_cost,
+                    previous_roi=previous_roi,
+                    roi_change=roi_change,
+                    completed_sale_count=completed_sale_counts.get(
+                        recipe.crafted_item_id,
+                        0,
+                    ),
+                )
+            )
+
+        signal_order: dict[ProfitOpportunitySignal, int] = {
+            "Improving": 0,
+            "Newly priced": 1,
+            "Profitable now": 2,
+        }
+        opportunities.sort(
+            key=lambda item: (
+                signal_order[item.signal],
+                -(item.roi_change if item.signal == "Improving" else item.roi),
+                -item.roi,
+                -item.profit,
+                item.display_name.casefold(),
+            )
+        )
+        return ProfitOpportunityReport(
+            items=tuple(opportunities[:limit]),
+            total_count=len(opportunities),
+            improving_count=sum(item.signal == "Improving" for item in opportunities),
+            newly_priced_count=sum(item.signal == "Newly priced" for item in opportunities),
+            top_profit_item=max(
+                opportunities,
+                key=lambda item: (item.profit, item.roi, item.display_name.casefold()),
+                default=None,
+            ),
+            top_roi_item=max(
+                opportunities,
+                key=lambda item: (item.roi, item.profit, item.display_name.casefold()),
+                default=None,
+            ),
         )
 
     def _rows(self) -> list[RecipeCatalogRow]:

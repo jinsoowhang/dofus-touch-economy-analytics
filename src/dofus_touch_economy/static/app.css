@@ -610,6 +610,47 @@ th.numeric .client-sort-header {
   padding: 0.75rem;
 }
 
+.profit-opportunities-table {
+  min-width: 68rem;
+}
+
+.profit-opportunities-table td {
+  padding: 0.75rem;
+}
+
+.opportunity-signal {
+  color: var(--accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.row-details summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.row-details dl {
+  display: grid;
+  gap: 0.45rem;
+  margin-block: 0.65rem 0;
+}
+
+.row-details dl div {
+  border-top: 1px solid var(--border);
+  padding-block-start: 0.35rem;
+}
+
+.row-details dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.row-details dd {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
 .sales-table td,
 .sales-table th {
   padding: 0.75rem;

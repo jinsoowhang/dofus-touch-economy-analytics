@@ -187,6 +187,105 @@ def test_recipe_catalog_paginates_after_filtering_and_sorting(session_factory) -
     assert [row.display_name for row in result.rows] == ["Gamma Hat"]
 
 
+def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
+    session_factory,
+) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        batch = session.scalar(select(ImportBatch))
+        assert batch is not None
+        fresh_material = Item(
+            display_name="Fresh Material",
+            normalized_name="fresh material",
+            category="Resource",
+            identity_category="resource",
+        )
+        delta = Item(
+            display_name="Delta Shield",
+            normalized_name="delta shield",
+            category="Shield",
+            identity_category="shield",
+        )
+        session.add_all([fresh_material, delta])
+        session.flush()
+        record = SourceRecord(
+            import_batch=batch,
+            row_number=4,
+            raw_payload_json="{}",
+            status="accepted",
+        )
+        recipe = Recipe(
+            crafted_item=delta,
+            profession="Shield Smith",
+            source_record=record,
+        )
+        recipe.ingredients.append(
+            RecipeIngredient(
+                position=1,
+                item=fresh_material,
+                raw_name=fresh_material.display_name,
+                normalized_name=fresh_material.normalized_name,
+                quantity=1,
+            )
+        )
+        session.add(recipe)
+        session.commit()
+
+        prices = PriceService(session, "Dodge")
+        prices.record(
+            items["ingredient"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=5,
+                observed_at=datetime(2026, 8, 23, tzinfo=UTC),
+            ),
+        )
+        prices.record(
+            fresh_material.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=20,
+                observed_at=datetime(2026, 8, 23, tzinfo=UTC),
+            ),
+        )
+        prices.record(
+            delta.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=100,
+                observed_at=datetime(2026, 8, 23, tzinfo=UTC),
+            ),
+        )
+
+        report = RecipeCatalogService(session, "Dodge").profit_opportunities()
+
+    assert [item.display_name for item in report.items] == [
+        "Alpha Sword",
+        "Delta Shield",
+    ]
+    improving, newly_priced = report.items
+    assert improving.signal == "Improving"
+    assert improving.recipe_cost == 40
+    assert improving.profit == 60
+    assert improving.roi == Decimal("1.5")
+    assert improving.previous_recipe_cost == 80
+    assert improving.previous_roi == Decimal("0.25")
+    assert improving.roi_change == Decimal("1.25")
+    assert improving.completed_sale_count == 0
+    assert newly_priced.signal == "Newly priced"
+    assert newly_priced.recipe_cost == 20
+    assert newly_priced.profit == 80
+    assert newly_priced.roi == 4
+    assert newly_priced.previous_recipe_cost is None
+    assert newly_priced.previous_roi is None
+    assert newly_priced.completed_sale_count == 0
+    assert report.total_count == 2
+    assert report.improving_count == 1
+    assert report.newly_priced_count == 1
+    assert report.top_profit_item is newly_priced
+    assert report.top_roi_item is newly_priced
+
+
 def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
     session_factory,
 ) -> None:

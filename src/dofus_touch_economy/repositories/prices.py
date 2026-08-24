@@ -55,6 +55,43 @@ class PriceRepository:
         )
         return list(self._session.scalars(statement))
 
+    def latest_two_valid_for_items(
+        self,
+        item_ids: set[int],
+        market_context: str,
+    ) -> list[PriceObservation]:
+        if not item_ids:
+            return []
+        ranked = (
+            select(
+                PriceObservation.id.label("observation_id"),
+                PriceObservation.item_id.label("item_id"),
+                func.row_number()
+                .over(
+                    partition_by=PriceObservation.item_id,
+                    order_by=(
+                        PriceObservation.observed_at.desc(),
+                        PriceObservation.recorded_at.desc(),
+                        PriceObservation.id.desc(),
+                    ),
+                )
+                .label("price_rank"),
+            )
+            .where(
+                PriceObservation.item_id.in_(item_ids),
+                PriceObservation.market_context == market_context,
+                PriceObservation.invalidated_at.is_(None),
+            )
+            .subquery()
+        )
+        statement = (
+            select(PriceObservation)
+            .join(ranked, ranked.c.observation_id == PriceObservation.id)
+            .where(ranked.c.price_rank <= 2)
+            .order_by(ranked.c.item_id, ranked.c.price_rank)
+        )
+        return list(self._session.scalars(statement))
+
     def history(self, item_id: int, market_context: str, limit: int = 20) -> list[PriceObservation]:
         statement = (
             select(PriceObservation)

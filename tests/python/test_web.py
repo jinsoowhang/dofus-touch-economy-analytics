@@ -28,6 +28,7 @@ def test_main_pages_include_one_line_descriptions(client) -> None:
         "/recipes": "Filter craftable items, compare recipe economics",
         "/recipe-calculator": "Select the items and quantities you plan to craft",
         "/sales": "Track active listings, record completed sales",
+        "/profit-opportunities": "Discover currently profitable recipes",
         "/best-sellers": "Compare every item with completed Sales history",
         "/out-of-stock-items": "Items appear here after at least one completed sale",
         "/bigquery-sync": "Manually publish one immutable snapshot",
@@ -1040,6 +1041,55 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert '<table class="item-table best-sellers-table" data-sortable-table>' in response.text
     table_body = response.text.split("<tbody>", maxsplit=1)[1]
     assert table_body.index("Synthetic Widget") < table_body.index("Rare Trophy")
+    assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+
+
+def test_profit_opportunities_include_improving_recipes_without_sales_history(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        price_service = PriceService(session, "Dodge")
+        for item_name, price in (
+            ("synthetic ore", 500),
+            ("synthetic fiber", 250),
+            ("synthetic widget", 4_500),
+        ):
+            price_service.record(
+                items[item_name].uuid,
+                PriceObservationCreate(
+                    lot_quantity=1,
+                    total_price=price,
+                    observed_at=datetime(2026, 8, 25, tzinfo=UTC),
+                ),
+            )
+        widget_uuid = items["synthetic widget"].uuid
+
+    response = client.get("/profit-opportunities")
+
+    assert response.status_code == 200
+    assert "Profit Opportunities" in response.text
+    assert 'href="/profit-opportunities"' in response.text
+    assert 'class="site-submenu-link is-active"' in response.text
+    assert 'class="page-shell page-shell--wide"' in response.text
+    assert "Synthetic Widget" in response.text
+    assert "Improving" in response.text
+    assert "2,750" in response.text
+    assert "157.1%" in response.text
+    assert "+128.6%" in response.text
+    assert "Completed Sales</dt><dd>0</dd>" in response.text
+    assert "Completed Sales do not limit this list." in response.text
+    assert f'data-item-uuid="{widget_uuid}"' in response.text
+    assert '<details class="row-details">' in response.text
+    assert '<table class="item-table profit-opportunities-table" data-sortable-table>' in (
+        response.text
+    )
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
 
 

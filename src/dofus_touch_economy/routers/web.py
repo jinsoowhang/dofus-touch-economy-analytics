@@ -1535,6 +1535,25 @@ def best_sellers_page(
     )
 
 
+@router.get("/profit-opportunities", response_class=HTMLResponse)
+def profit_opportunities_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "profit_opportunities.html",
+        context={
+            "active_tab": "profit_opportunities",
+            "report": RecipeCatalogService(
+                session,
+                settings.market_context,
+            ).profit_opportunities(),
+        },
+    )
+
+
 @router.post("/sales", response_class=HTMLResponse, response_model=None)
 async def start_sale(
     request: Request,

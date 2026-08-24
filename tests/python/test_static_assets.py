@@ -71,6 +71,7 @@ def test_every_web_table_has_client_or_server_sorting() -> None:
         "item_detail.html": 0,
         "fragments/price_panel.html": 0,
         "out_of_stock_items.html": 0,
+        "profit_opportunities.html": 0,
         "recipe_calculator.html": 0,
         "recipes.html": 1,
         "sales.html": 2,

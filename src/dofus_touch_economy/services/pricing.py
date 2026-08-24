@@ -45,6 +45,12 @@ class RecipeMetrics:
     is_complete: bool
 
 
+@dataclass(frozen=True)
+class PriceComparison:
+    current: CurrentPriceResponse
+    previous: CurrentPriceResponse | None
+
+
 def unit_price(total_price: int, lot_quantity: int) -> Decimal:
     if total_price <= 0 or lot_quantity <= 0:
         raise ValueError("price and quantity must be positive")
@@ -146,6 +152,26 @@ class PriceService:
             observation.item_id: _current_price_response(observation)
             for observation in self._repository.latest_valid_for_market(self._market_context)
             if observation.item_id in requested_ids
+        }
+
+    def current_and_previous_for_items(
+        self,
+        item_ids: set[int],
+    ) -> dict[int, PriceComparison]:
+        observations_by_item: dict[int, list[CurrentPriceResponse]] = {}
+        for observation in self._repository.latest_two_valid_for_items(
+            item_ids,
+            self._market_context,
+        ):
+            observations_by_item.setdefault(observation.item_id, []).append(
+                _current_price_response(observation)
+            )
+        return {
+            item_id: PriceComparison(
+                current=observations[0],
+                previous=observations[1] if len(observations) == 2 else None,
+            )
+            for item_id, observations in observations_by_item.items()
         }
 
     def history_for_item(self, item_id: int, limit: int = 20) -> list[PriceObservationResponse]:
