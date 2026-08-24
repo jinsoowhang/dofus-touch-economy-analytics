@@ -16,18 +16,18 @@
         <strong>{{ "{:,}".format(report.total_revenue) if report.priced_sale_count else "—" }}</strong>
       </div>
       <div>
-        <span>Top Profit</span>
-        <strong>
-          {% if report.top_profit_item %}{{ report.top_profit_item.display_name }} · {{ "{:,}".format(report.top_profit_item.estimated_profit) }}{% else %}No complete current economics{% endif %}
-        </strong>
-      </div>
-      <div>
         <span>Average Time to Sell</span>
         <strong>{{ "{:.1f}".format(report.average_days_to_sell) }} days</strong>
       </div>
       <div>
         <span>Most Units Sold</span>
         <strong>{{ report.best_seller.display_name }} · {{ report.best_seller.sold_count }}</strong>
+      </div>
+      <div>
+        <span>Top Profit</span>
+        <strong>
+          {% if report.top_profit_item %}{{ report.top_profit_item.display_name }} · {{ "{:,}".format(report.top_profit_item.estimated_profit) }}{% else %}No complete current economics{% endif %}
+        </strong>
       </div>
       <div>
         <span>Top Revenue</span>

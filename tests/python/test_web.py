@@ -1042,6 +1042,11 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert "3.0 days" in response.text
     assert "Synthetic Widget · 2" in response.text
     assert "Rare Trophy · 12,000" in response.text
+    assert (
+        response.text.index("Most Units Sold")
+        < response.text.index("Top Profit")
+        < response.text.index("Top Revenue")
+    )
     assert "Average Sale Price" in response.text
     assert "Average Days to Sell" in response.text
     assert "Active Now" in response.text
