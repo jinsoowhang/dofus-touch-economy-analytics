@@ -119,3 +119,43 @@ setup work.
 - Focused recipe-service and Recipe Calculator web tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 231 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Item Recipe Actions and Sales Opportunity Discovery
+
+### Context
+
+Expanded crafting and Sales decision support across Item detail, a new opportunity
+page, and Best Sellers while reducing the horizontal scrolling required to inspect
+Sales Performance on a desktop without touchpad gestures.
+
+### Work Completed
+
+- Added the crafted item's catalog Category between Profession and Required Level in
+  the Item Recipe heading.
+- Added the shared browser-local Recipe Calculator cart controls to craftable Item
+  detail pages without changing price or Sales persistence.
+- Added Profit Opportunities to the Sales submenu and a wide, sortable page that
+  evaluates every fully priced, currently profitable latest recipe, including items
+  with zero completed Sales.
+- Bulk-selected each ingredient's current and immediately previous valid observation.
+  Prior ROI holds the current crafted-item price fixed, so positive ROI change reflects
+  ingredient-cost improvement rather than output-price movement.
+- Labeled opportunities Improving when ROI increased, Newly Priced when no complete
+  prior recipe cost exists, and Profitable Now otherwise; ranked up to 100 in that
+  signal order and surfaced current profit, ROI, ROI change, top profit, and top ROI.
+- Replaced Best Sellers Price Coverage with Top Profit, defined as the highest
+  complete current estimated per-item profit among items with completed Sales.
+- Reduced the Best Sellers table minimum width from 105rem to 64rem. Kept its primary
+  decision columns visible and moved Category, average price, average time to sell,
+  active count, current price, and recipe cost into native More disclosures that work
+  with mouse, keyboard, and touch rather than hover alone.
+- Added service, routing, navigation, template, cart-action, responsive-table, and
+  zero-sales opportunity regressions.
+
+### Verification
+
+- The local operational database completed the new read-only opportunity scan in
+  1.84 seconds including Python startup; its current state contains zero fully priced
+  profitable recipes, and the page renders guidance for that empty state.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 234 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
