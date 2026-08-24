@@ -15,6 +15,45 @@ const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
 const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position";
 const recipeCalculatorShoppingListSortStorageKey =
   "dofus-recipe-calculator-shopping-list-sort";
+const calculatorKamaFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 20,
+});
+
+const parseCalculatorSalePrice = (value) => {
+  const rawValue = value.trim();
+  if (!/^\+?\d+$/.test(rawValue) && !/^\+?\d{1,3}(?:,\d{3})+$/.test(rawValue)) {
+    return null;
+  }
+  const parsed = Number(rawValue.replaceAll(",", ""));
+  return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const updateCalculatorEstimatedProfit = (input) => {
+  const profitCell = input.closest("tr")?.querySelector(".calculator-estimated-profit");
+  const output = profitCell?.querySelector("output");
+  if (!profitCell || !output) {
+    return;
+  }
+  const salePrice = parseCalculatorSalePrice(input.value);
+  const craftQuantity = Number(profitCell.dataset.craftQuantity);
+  const rawRecipeCost = profitCell.dataset.totalRecipeCost;
+  const totalRecipeCost = Number(rawRecipeCost);
+  const estimatedProfit =
+    salePrice === null ||
+    !Number.isInteger(craftQuantity) ||
+    craftQuantity < 1 ||
+    rawRecipeCost === "" ||
+    !Number.isFinite(totalRecipeCost)
+      ? null
+      : salePrice * craftQuantity - totalRecipeCost;
+  if (estimatedProfit === null || !Number.isFinite(estimatedProfit)) {
+    output.textContent = "—";
+    profitCell.dataset.sortValue = "";
+    return;
+  }
+  output.textContent = calculatorKamaFormatter.format(estimatedProfit);
+  profitCell.dataset.sortValue = String(estimatedProfit);
+};
 
 const saveRecipeCalculatorShoppingListSort = () => {
   const table = document.querySelector(".calculator-shopping-list-table");
@@ -390,6 +429,11 @@ if (
     persistCart();
     persistSelection();
   });
+
+  for (const input of document.querySelectorAll(".calculator-sale-price")) {
+    updateCalculatorEstimatedProfit(input);
+    input.addEventListener("input", () => updateCalculatorEstimatedProfit(input));
+  }
 
   for (const form of document.querySelectorAll(".calculator-ingredient-price-form")) {
     const input = form.querySelector('input[name="unit_price"]');

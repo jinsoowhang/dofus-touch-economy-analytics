@@ -1151,6 +1151,16 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
         items["synthetic wood"].weight = 2
         session.commit()
+        price_service = PriceService(session, "Dodge")
+        for item_name, total_price in (("alpha sword", 100), ("beta ring", 80)):
+            price_service.record(
+                items[item_name].uuid,
+                PriceObservationCreate(
+                    lot_quantity=1,
+                    total_price=total_price,
+                    observed_at=datetime(2026, 8, 23, tzinfo=UTC),
+                ),
+            )
 
     page = client.get("/recipe-calculator")
     script = client.get("/static/recipe-calculator.js")
@@ -1192,6 +1202,9 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'document.querySelectorAll(".calculator-ingredient-price-form")' in script.text
     assert "await fetch(form.action" in script.text
     assert "calculatorForm.requestSubmit()" in script.text
+    assert 'document.querySelectorAll(".calculator-sale-price")' in script.text
+    assert "updateCalculatorEstimatedProfit(input)" in script.text
+    assert "salePrice * craftQuantity - totalRecipeCost" in script.text
     assert 'const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position"' in (
         script.text
     )
@@ -1249,6 +1262,29 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert '<details class="calculator-selected-items" open>' in response.text
     assert 'action="/recipe-calculator/sales"' in response.text
     assert "Sale Price Each" in response.text
+    assert "Total Estimated Profit" in response.text
+    assert re.search(
+        r"Total Estimated Profit is Sale\s+Price Each multiplied by Quantity,\s+"
+        r"minus Total Recipe Cost\.",
+        response.text,
+    )
+    assert response.text.count('class="numeric calculator-estimated-profit"') == 2
+    assert re.search(
+        r'class="numeric calculator-estimated-profit"\s*'
+        r'data-craft-quantity="2"\s*'
+        r'data-total-recipe-cost="40"\s*'
+        r'data-sort-value="160".*?>160</output>',
+        response.text,
+        re.DOTALL,
+    )
+    assert re.search(
+        r'class="numeric calculator-estimated-profit"\s*'
+        r'data-craft-quantity="3"\s*'
+        r'data-total-recipe-cost="150"\s*'
+        r'data-sort-value="90".*?>90</output>',
+        response.text,
+        re.DOTALL,
+    )
     assert "Each craft quantity becomes that many" in response.text
     assert "Add Checked to Sales" in response.text
     assert response.text.index("Selected craft breakdown") < response.text.index(

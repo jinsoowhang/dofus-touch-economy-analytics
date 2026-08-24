@@ -45,3 +45,25 @@ unnecessary horizontal scrolling.
 - All 69 focused static-asset and web tests passed.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 230 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Selected Craft Total Estimated Profit
+
+### Work Completed
+
+- Added a sortable Total Estimated Profit column to every Selected craft breakdown
+  row.
+- Defined the row measure as Sale Price Each multiplied by Quantity minus Total Recipe
+  Cost and documented the formula beside the table.
+- Rendered the initial measure from each whole current-price default and complete
+  recipe cost.
+- Recalculated the displayed value and numeric sort value on every valid sale-price
+  edit; missing, invalid, or incomplete inputs remain an explicit em dash.
+- Increased the table's minimum width to accommodate the new decision column without
+  crowding the existing Sales controls.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-calculator.js`.
+- All 84 focused Recipe Calculator, recipe-service, web, and static-asset tests passed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 230 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
