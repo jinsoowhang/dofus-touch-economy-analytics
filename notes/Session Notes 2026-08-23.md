@@ -279,3 +279,69 @@ workflows without destroying imported provenance.
   catalog exclusion.
 - `./scripts/check.sh` passed: Ruff lint and formatting, all 241 Python tests,
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Crafting and Sales Decision Controls
+
+### Context
+
+Added missing operational counts to crafting decisions, made the Sales chart directly
+comparable, used available opportunity-table width, and corrected the oversized
+multi-value filter layout shown in the desktop screenshot.
+
+### Work Completed
+
+- Added current-listing and completed-sale counts to each Suggested Similar Crafts
+  projection and compact browser-rendered row beside item, profession/level, shared
+  ingredients, and Add.
+- Replaced the Sales Over Time display-only legend with checked Sales, Cost, and Profit
+  controls. Users can show any one, two, or all three series; the browser prevents an
+  empty chart.
+- Added a visible sortable Currently Selling column to Current Opportunities and
+  removed its redundant secondary listing label.
+- Changed checkbox-style multi-value menus into bounded overlay popovers and scoped
+  their checkbox/input geometry so opening Category or Profession no longer expands
+  the form grid, moves the page, or renders oversized options.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-calculator.js` and `sales.js`.
+- Six focused recipe-service, Sales, web, and static-asset regressions passed.
+
+## Authoritative Dofus Touch Catalog Reconciliation
+
+### Context
+
+Replaced the one-item exclusion with a comprehensive, repeatable comparison against
+Ankama's current Dofus Touch client catalog while retaining operational provenance.
+
+### Work Completed
+
+- Added schema 0007 fields for nullable verified/excluded membership status, the UTC
+  check timestamp, and an exclusion reason. The migration seeds the already confirmed
+  Violet Arrow Helmet exclusion without deleting its source or economic history.
+- Extended the live catalog sync to compare every local item with every current
+  English Touch item name, including non-exchangeable items, while accepting reviewed
+  legacy-name aliases. Exact matches also adopt official display-name casing.
+- Applied the live pass to all 11,400 local items: 10,948 are verified and 452 are
+  excluded. `Chouquish Belt` now has official casing; Violet Arrow Helmet and Violet
+  Arrow Cape are excluded.
+- Centralized website scope on persisted status. Search, item detail, recipes, Recipe
+  Calculator, prices, Sales, and icon targets hide excluded items, and recipes with an
+  excluded resolved ingredient are hidden. Unchecked items remain visible until a
+  successful sync, and excluded rows remain available for audit.
+- Added the membership fields to the exact SQLite snapshot contract, BigQuery nullable
+  schema evolution, dbt staging, and `dim_items`, with documentation of their grain and
+  provenance behavior.
+- Preserved the existing icon-cache result: ten items in the official payload still
+  have unavailable upstream icon files, but status reconciliation and capitalization
+  completed before those download failures were reported.
+
+### Verification
+
+- All 61 focused migration, catalog-sync, catalog-service, recipe, and analytics
+  snapshot tests passed.
+- The real database migrated from 0006 to 0007 and read-only checks confirmed 10,948
+  visible verified rows, 452 excluded rows, and 83 recipes with excluded dependencies
+  that are now suppressed.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 246 Python tests,
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
