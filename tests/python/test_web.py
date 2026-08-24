@@ -1909,6 +1909,7 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
 
     assert response.status_code == 200
     assert "Recipe · Crafting ·" in response.text
+    assert re.search(r"Recipe · Crafting ·\s+Uncategorized ·", response.text)
     assert "Required Level 1" in response.text
     assert "2 ingredient slots" in response.text
     assert "Per Unit Price" in response.text
@@ -1921,6 +1922,10 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert 'value="1,000"' in response.text
     assert 'value="500"' in response.text
     assert '<script src="/static/sales.js" defer></script>' in response.text
+    assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+    assert f'data-item-uuid="{items["synthetic widget"].uuid}"' in response.text
+    assert 'aria-label="Add Synthetic Widget to Recipe Calculator"' in response.text
+    assert 'id="recipe-open-calculator"' in response.text
     script = client.get("/static/sales.js")
     assert 'input[name="asking_price"], input[name="unit_price"]' in script.text
     assert 'input[name="current_price"]' in script.text

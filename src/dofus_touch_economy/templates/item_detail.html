@@ -33,6 +33,7 @@
         <summary>
           <h2>
             Recipe · {{ detail.recipe.profession }} ·
+            {{ (detail.category or "Uncategorized") | title }} ·
             {% if detail.recipe.profession_level is not none %}Required Level {{ detail.recipe.profession_level }}{% else %}Required Level Unknown{% endif %}
           </h2>
         </summary>
@@ -40,6 +41,16 @@
           Standard profession requirement based on this recipe's
           {{ detail.recipe.ingredients | length }} ingredient {{ "slot" if detail.recipe.ingredients | length == 1 else "slots" }}.
         </p>
+        <div class="recipe-cart-toolbar">
+          <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
+          <button
+            type="button"
+            class="recipe-cart-add secondary-button"
+            data-item-uuid="{{ detail.uuid }}"
+            aria-label="Add {{ detail.display_name }} to Recipe Calculator"
+          >Add</button>
+          <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+        </div>
         {% if recipe_errors %}
           <div role="alert">
             <p>Could not save the ingredient price:</p>
@@ -119,4 +130,7 @@
     {% include "fragments/recipe_metrics.html" %}
   {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}
+{% block scripts %}
+  <script src="/static/sales.js" defer></script>
+  <script src="/static/recipe-cart.js" defer></script>
+{% endblock %}
