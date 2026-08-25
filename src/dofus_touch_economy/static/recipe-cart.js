@@ -82,7 +82,13 @@ if (recipeCartCount && recipeOpenCalculator) {
 
   for (const button of recipeCartButtons) {
     button.addEventListener("click", () => {
-      cart[button.dataset.itemUuid] = 1;
+      const requestedQuantity = Number(button.dataset.craftQuantity || 1);
+      cart[button.dataset.itemUuid] =
+        Number.isInteger(requestedQuantity) &&
+        requestedQuantity >= 1 &&
+        requestedQuantity <= 1000
+          ? requestedQuantity
+          : 1;
       selectedItems.add(button.dataset.itemUuid);
       writeCart();
       writeSelection();

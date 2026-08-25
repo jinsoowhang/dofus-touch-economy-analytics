@@ -91,6 +91,22 @@ def test_recipe_calculator_sale_submit_is_single_use_and_cleans_successful_cart_
     assert "selection.filter((itemUuid) => !itemUuids.has(itemUuid))" in sales_script
 
 
+def test_recipe_cart_uses_an_optional_validated_craft_quantity() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipe-cart.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert "Number(button.dataset.craftQuantity || 1)" in script
+    assert "Number.isInteger(requestedQuantity)" in script
+    assert "requestedQuantity >= 1" in script
+    assert "requestedQuantity <= 1000" in script
+    assert "? requestedQuantity" in script
+    assert ": 1;" in script
+    assert "craftQuantity.value = String(quantity)" in script
+
+
 def test_recipe_level_number_inputs_defer_cross_endpoint_enforcement() -> None:
     script = (
         resources.files("dofus_touch_economy")

@@ -36,6 +36,34 @@ without recorded Sales activity from making items appear slower to sell.
 - Python compilation, dbt debug and parse, SQLFluff, and the public-file policy all
   passed when run separately after the test-stage stop.
 
+## Suggested Restock Calculator Quantity
+
+### Context
+
+Connected the Restock Candidates recommendation to the Recipe Calculator so its Add
+action carries the recommended inventory count into Craft Quantity.
+
+### Work Completed
+
+- Added the Suggested Restock value as a per-button craft-quantity override on
+  craftable Out of Stock rows and exposed that quantity in the accessible Add label.
+- Updated the shared Recipe Calculator cart bridge to accept only integer overrides
+  from 1 through 1,000 and retain quantity one as the fallback for every other Add
+  surface or malformed value.
+- Preserved existing cart quantities because an already-added item's Add button
+  remains disabled.
+- Kept the existing cart-to-calculator form handoff, which submits the stored value as
+  the selected item's Craft Quantity.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-cart.js`.
+- Ruff lint and formatting passed.
+- Both focused rendering and browser-wiring regressions passed.
+- All 16 static-asset tests and all three Out of Stock or Recipe Calculator web tests
+  passed.
+- The full `./scripts/check.sh` project check passed.
+
 ## Sales Prioritization and Calculator Listing Completion
 
 ### Context
