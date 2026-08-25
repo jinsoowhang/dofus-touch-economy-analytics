@@ -1556,7 +1556,7 @@ def out_of_stock_items_page(
             "out_of_stock_items": SalesService(
                 session,
                 settings.market_context,
-            ).out_of_stock(),
+            ).out_of_stock(PACIFIC_TIME),
         },
     )
 

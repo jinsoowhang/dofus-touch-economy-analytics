@@ -68,6 +68,7 @@ def test_out_of_stock_requires_sales_history_and_no_active_listing(
     [out_of_stock] = service.out_of_stock()
     assert out_of_stock.item_uuid == catalog_item.uuid
     assert out_of_stock.sold_count == 1
+    assert out_of_stock.suggested_restock_quantity == 3
     assert out_of_stock.last_sale_price == 100
     assert out_of_stock.current_price == 100
     assert out_of_stock.recipe_cost is None
@@ -81,8 +82,84 @@ def test_out_of_stock_requires_sales_history_and_no_active_listing(
     service.mark_sold(active.uuid)
     [out_of_stock_again] = service.out_of_stock()
     assert out_of_stock_again.sold_count == 2
+    assert out_of_stock_again.suggested_restock_quantity == 3
     assert out_of_stock_again.last_sale_price == 200
     assert out_of_stock_again.current_price == 200
+
+
+def test_out_of_stock_restock_quantity_counts_only_registered_sales_days(
+    session,
+) -> None:
+    items = [
+        Item(
+            display_name=name,
+            normalized_name=name.casefold(),
+            category="Hat",
+            identity_category="hat",
+        )
+        for name in ("Fast Hat", "Medium Hat", "Slow Hat", "Activity Marker")
+    ]
+    session.add_all(items)
+    session.flush()
+    fast, medium, slow, activity_marker = items
+    started_at = datetime(2026, 8, 1, 12, tzinfo=UTC)
+    session.add_all(
+        [
+            SaleListing(
+                item_id=fast.id,
+                lot_quantity=1,
+                asking_price=100,
+                selling_started_at=started_at,
+                date_sold=datetime(2026, 8, 2, 12, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=medium.id,
+                lot_quantity=1,
+                asking_price=200,
+                selling_started_at=started_at,
+                date_sold=datetime(2026, 9, 1, 12, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=slow.id,
+                lot_quantity=1,
+                asking_price=300,
+                selling_started_at=started_at,
+                date_sold=datetime(2026, 10, 1, 12, tzinfo=UTC),
+            ),
+            *[
+                SaleListing(
+                    item_id=activity_marker.id,
+                    lot_quantity=1,
+                    asking_price=50,
+                    selling_started_at=started_at,
+                    date_sold=datetime(2026, month, day, 12, tzinfo=UTC),
+                )
+                for month, day in (
+                    (8, 3),
+                    (8, 20),
+                    (9, 2),
+                    (9, 3),
+                    (9, 4),
+                    (9, 5),
+                )
+            ],
+            SaleListing(
+                item_id=activity_marker.id,
+                lot_quantity=1,
+                asking_price=50,
+                selling_started_at=datetime(2026, 10, 2, 12, tzinfo=UTC),
+            ),
+        ]
+    )
+    session.commit()
+
+    results = SalesService(session, "Dodge").out_of_stock(UTC)
+
+    assert {item.display_name: item.suggested_restock_quantity for item in results} == {
+        "Fast Hat": 3,
+        "Medium Hat": 2,
+        "Slow Hat": 1,
+    }
 
 
 def test_best_sellers_group_completed_sales_and_rank_decision_metrics(

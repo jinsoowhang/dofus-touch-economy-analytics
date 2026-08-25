@@ -4,7 +4,9 @@
   <h1>Out of Stock Items</h1>
   <p class="page-description">
     Items appear here after at least one completed sale when no listing remains in
-    Currently Selling.
+    Currently Selling. Suggested Restock uses the average observed sales-active days
+    from listing to sale: up to 1 day suggests 3, over 1 through 5 days suggests 2,
+    and over 5 days suggests 1. Days with no registered sales are skipped.
   </p>
 
   <details class="collapsible-section" open>
@@ -26,6 +28,7 @@
               <th data-sort-type="text">Item</th>
               <th data-sort-type="text">Category</th>
               <th class="numeric" data-sort-type="number">Sold Count</th>
+              <th class="numeric" data-sort-type="number">Suggested Restock</th>
               <th data-sort-type="date">Last Sold</th>
               <th class="numeric" data-sort-type="number">Last Sale Price</th>
               <th class="numeric" data-sort-type="number">Current Price</th>
@@ -46,6 +49,7 @@
                 </td>
                 <td>{{ (item.category or "Uncategorized") | title }}</td>
                 <td class="numeric">{{ item.sold_count }}</td>
+                <td class="numeric">{{ item.suggested_restock_quantity }}</td>
                 <td>
                   <time datetime="{{ last_sold_at.isoformat() }}">{{ last_sold_at.strftime("%Y-%m-%d") }}</time>
                 </td>

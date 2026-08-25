@@ -1015,11 +1015,13 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     assert 'class="recipe-cart-add secondary-button"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
     assert '<table class="item-table out-of-stock-table" data-sortable-table>' in response.text
+    assert '<th class="numeric" data-sort-type="number">Suggested Restock</th>' in response.text
     assert '<th data-sort-type="date">Last Sold</th>' in response.text
     assert re.search(
-        r'<td class="numeric">1</td>\s*<td>\s*<time datetime=',
+        r'<td class="numeric">1</td>\s*<td class="numeric">3</td>\s*<td>\s*<time datetime=',
         response.text,
     )
+    assert "Days with no registered sales are skipped." in response.text
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
     assert cart_script.status_code == 200
 

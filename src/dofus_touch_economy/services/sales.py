@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, tzinfo
@@ -62,6 +63,7 @@ class OutOfStockItem:
     category: str | None
     icon_url: str | None
     sold_count: int
+    suggested_restock_quantity: int
     last_sold_at: datetime
     last_sale_price: int | None
     current_price: Decimal | None
@@ -241,13 +243,22 @@ class SalesService:
         listings = _filter_listings(listings, filters, use_sold_date=True)
         return _sort_listings(listings, sort_field, sort_direction)
 
-    def out_of_stock(self) -> list[OutOfStockItem]:
+    def out_of_stock(self, display_timezone: tzinfo = UTC) -> list[OutOfStockItem]:
         active_item_ids = {listing.item_id for listing in self._sales.active()}
-        sold_counts: dict[int, int] = defaultdict(int)
+        sold_listings_by_item: dict[int, list[SaleListing]] = defaultdict(list)
         latest_sold_by_item: dict[int, SaleListing] = {}
-        for listing in self._sales.sold():
-            sold_counts[listing.item_id] += 1
+        sold_listings = self._sales.sold()
+        for listing in sold_listings:
+            sold_listings_by_item[listing.item_id].append(listing)
             latest_sold_by_item.setdefault(listing.item_id, listing)
+
+        sales_activity_dates = sorted(
+            {
+                _as_utc(listing.date_sold).astimezone(display_timezone).date()
+                for listing in sold_listings
+                if listing.date_sold is not None
+            }
+        )
 
         out_of_stock_listings = [
             listing
@@ -280,7 +291,12 @@ class SalesService:
                     display_name=response.display_name,
                     category=response.category,
                     icon_url=response.icon_url,
-                    sold_count=sold_counts[listing.item_id],
+                    sold_count=len(sold_listings_by_item[listing.item_id]),
+                    suggested_restock_quantity=_suggested_restock_quantity(
+                        sold_listings_by_item[listing.item_id],
+                        sales_activity_dates,
+                        display_timezone,
+                    ),
                     last_sold_at=response.date_sold,
                     last_sale_price=response.asking_price,
                     current_price=(None if current_price is None else current_price.unit_price),
@@ -710,6 +726,30 @@ def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _suggested_restock_quantity(
+    sold_listings: list[SaleListing],
+    sales_activity_dates: list[date],
+    display_timezone: tzinfo,
+) -> int:
+    active_days_to_sell = 0
+    for listing in sold_listings:
+        if listing.date_sold is None:  # pragma: no cover - caller supplies sold listings
+            continue
+        started_on = _as_utc(listing.selling_started_at).astimezone(display_timezone).date()
+        sold_on = _as_utc(listing.date_sold).astimezone(display_timezone).date()
+        active_days_to_sell += bisect_right(
+            sales_activity_dates,
+            sold_on,
+        ) - bisect_right(sales_activity_dates, started_on)
+
+    average_active_days = Decimal(active_days_to_sell) / Decimal(len(sold_listings))
+    if average_active_days <= 1:
+        return 3
+    if average_active_days <= 5:
+        return 2
+    return 1
 
 
 def _icon_url(item: Item) -> str | None:
