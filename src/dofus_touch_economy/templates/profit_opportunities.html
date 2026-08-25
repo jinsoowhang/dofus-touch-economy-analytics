@@ -8,6 +8,17 @@
   </p>
 
   <form method="get" action="/profit-opportunities" class="opportunity-filter-form">
+    <input type="hidden" name="profession_filter" value="true">
+    <details class="filter-multiselect">
+      <summary>
+        Professions{% if selected_professions %} · {{ selected_professions | length }} selected{% else %} · All{% endif %}
+      </summary>
+      <div class="filter-multiselect-options">
+        {% for profession in profession_choices %}
+          <label><input type="checkbox" name="profession" value="{{ profession }}"{% if profession in selected_professions %} checked{% endif %}> {{ profession }}</label>
+        {% endfor %}
+      </div>
+    </details>
     <label class="checkbox-filter">
       <input
         type="checkbox"
@@ -17,8 +28,8 @@
       >
       Show only items not currently selling
     </label>
-    <button type="submit">Apply filter</button>
-    {% if not_currently_selling %}<a href="/profit-opportunities">Clear filter</a>{% endif %}
+    <button type="submit">Apply filters</button>
+    <a href="/profit-opportunities">Reset filters</a>
   </form>
 
   {% if report.items %}
@@ -59,6 +70,7 @@
             <tr>
               <th data-sort-type="text">Item</th>
               <th data-sort-type="text">Category</th>
+              <th data-sort-type="text">Profession</th>
               <th data-sort-type="text">Signal</th>
               <th class="numeric" data-sort-type="number">Currently Selling</th>
               <th class="numeric" data-sort-type="number">Current Profit</th>
@@ -78,6 +90,7 @@
                   </a>
                 </td>
                 <td>{{ (item.category or "Uncategorized") | title }}</td>
+                <td>{{ item.profession }}</td>
                 <td><span class="opportunity-signal">{{ item.signal }}</span></td>
                 <td class="numeric">
                   <a href="/sales?item_uuid={{ item.item_uuid }}&amp;status=active#currently-selling">{{ item.active_listing_count }}</a>
@@ -99,7 +112,6 @@
                   <details class="row-details">
                     <summary>More</summary>
                     <dl>
-                      <div><dt>Profession</dt><dd>{{ item.profession }}</dd></div>
                       <div><dt>Required Level</dt><dd>{{ item.profession_level if item.profession_level is not none else "Unknown" }}</dd></div>
                       <div><dt>Current Price</dt><dd>{{ "{:,}".format(item.current_price) }}</dd></div>
                       <div><dt>Recipe Cost</dt><dd>{{ "{:,}".format(item.recipe_cost) }}</dd></div>
@@ -117,8 +129,8 @@
       </div>
     </details>
   {% else %}
-    {% if not_currently_selling %}
-      <p>No profitable recipes match the not-currently-selling filter.</p>
+    {% if not_currently_selling or selected_professions %}
+      <p>No profitable recipes match the selected filters.</p>
     {% else %}
       <p>
         No fully priced, currently profitable recipes are available yet. Add current

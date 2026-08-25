@@ -337,6 +337,9 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
         not_selling_report = RecipeCatalogService(session, "Dodge").profit_opportunities(
             not_currently_selling=True
         )
+        shield_report = RecipeCatalogService(session, "Dodge").profit_opportunities(
+            professions=("shield smith",)
+        )
 
     assert [item.display_name for item in report.items] == [
         "Alpha Sword",
@@ -363,10 +366,13 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
     assert report.total_count == 2
     assert report.improving_count == 1
     assert report.newly_priced_count == 1
+    assert report.professions == ("Jeweller", "Shield Smith", "Sword Smith", "Tailor")
     assert report.top_profit_item is newly_priced
     assert report.top_roi_item is newly_priced
     assert [item.display_name for item in not_selling_report.items] == ["Delta Shield"]
     assert not_selling_report.total_count == 1
+    assert [item.display_name for item in shield_report.items] == ["Delta Shield"]
+    assert shield_report.total_count == 1
 
 
 def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(

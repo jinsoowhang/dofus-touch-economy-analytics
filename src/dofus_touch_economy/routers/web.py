@@ -69,6 +69,7 @@ templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "tem
 PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
 ITEM_PAGE_SIZE = 100
 RECIPE_PAGE_SIZE = 100
+DEFAULT_PROFIT_OPPORTUNITY_PROFESSIONS = ("Shoemaker", "Jeweller", "Tailor")
 
 
 def _pacific_time(value: datetime) -> datetime:
@@ -1583,17 +1584,35 @@ def profit_opportunities_page(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     not_currently_selling: Annotated[bool, Query()] = False,
+    profession: Annotated[list[str] | None, Query()] = None,
+    profession_filter: Annotated[bool, Query()] = False,
 ) -> HTMLResponse:
+    selected_professions = _normalized_filter_values(profession)
+    if profession is None and not profession_filter:
+        selected_professions = DEFAULT_PROFIT_OPPORTUNITY_PROFESSIONS
+    report = RecipeCatalogService(
+        session,
+        settings.market_context,
+    ).profit_opportunities(
+        not_currently_selling=not_currently_selling,
+        professions=selected_professions,
+    )
     return templates.TemplateResponse(
         request,
         "profit_opportunities.html",
         context={
             "active_tab": "profit_opportunities",
-            "report": RecipeCatalogService(
-                session,
-                settings.market_context,
-            ).profit_opportunities(not_currently_selling=not_currently_selling),
+            "report": report,
             "not_currently_selling": not_currently_selling,
+            "selected_professions": selected_professions,
+            "profession_choices": sorted(
+                {
+                    *report.professions,
+                    *DEFAULT_PROFIT_OPPORTUNITY_PROFESSIONS,
+                    *selected_professions,
+                },
+                key=str.casefold,
+            ),
         },
     )
 

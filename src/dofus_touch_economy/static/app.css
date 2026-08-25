@@ -231,6 +231,10 @@ form .htmx-indicator {
   margin-block: 1rem;
 }
 
+.opportunity-filter-form .filter-multiselect {
+  min-width: 14rem;
+}
+
 .checkbox-filter {
   align-items: center;
   display: inline-flex;
@@ -698,7 +702,7 @@ th.numeric .client-sort-header {
 }
 
 .profit-opportunities-table {
-  min-width: 68rem;
+  min-width: 76rem;
 }
 
 .profit-opportunities-table td {

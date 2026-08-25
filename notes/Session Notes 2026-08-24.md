@@ -106,3 +106,31 @@ successfully listed crafts leave the browser-local calculator cart.
   isolation without code changes.
 - Python compilation, dbt debug and parse, SQLFluff, and the public-file policy all
   passed when run separately after the test-stage stop.
+
+## Profit Opportunity Profession Filter
+
+### Context
+
+Made recipe profession a primary Profit Opportunities decision field and focused the
+initial Current Opportunities view on Shoemaker, Jeweller, and Tailor recipes.
+
+### Work Completed
+
+- Promoted Profession from the secondary More disclosure to a visible sortable table
+  column.
+- Added a checkbox-style multi-profession filter populated from the latest recipe
+  catalog. The initial page selects Shoemaker, Jeweller, and Tailor, while an
+  explicitly empty submitted selection means all professions.
+- Applied profession matching case-insensitively before the not-currently-selling
+  filter, summary metrics, ranking limit, and top-profit or top-ROI selections.
+- Preserved the existing not-currently-selling filter so it composes with selected
+  professions.
+- Made the rendered-page economics fixture derive its newer observation time from the
+  import it is testing instead of a fixed date that had become stale.
+
+### Verification
+
+- Focused service and rendered-page Profit Opportunities tests passed.
+- The full `./scripts/check.sh` sequence passed: Ruff lint and formatting, all 249
+  Python tests, Python compilation, dbt debug and parse, SQLFluff, and the public-file
+  policy.

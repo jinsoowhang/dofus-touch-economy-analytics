@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.importers.service import ImportService
-from dofus_touch_economy.models import Item, Recipe, SaleListing
+from dofus_touch_economy.models import Item, PriceObservation, Recipe, SaleListing
 from dofus_touch_economy.schemas import PriceObservationCreate, SaleListingCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
@@ -1159,6 +1159,13 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     )
     with session_factory() as session:
         items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        latest_import_observed_at = session.scalar(
+            select(PriceObservation.observed_at)
+            .order_by(PriceObservation.observed_at.desc())
+            .limit(1)
+        )
+        assert latest_import_observed_at is not None
+        observed_at = latest_import_observed_at.replace(tzinfo=UTC) + timedelta(seconds=1)
         price_service = PriceService(session, "Dodge")
         for item_name, price in (
             ("synthetic ore", 500),
@@ -1170,12 +1177,31 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
                 PriceObservationCreate(
                     lot_quantity=1,
                     total_price=price,
-                    observed_at=datetime(2026, 8, 25, tzinfo=UTC),
+                    observed_at=observed_at,
                 ),
             )
         widget_uuid = items["synthetic widget"].uuid
 
-    response = client.get("/profit-opportunities")
+    default_response = client.get("/profit-opportunities")
+
+    assert default_response.status_code == 200
+    assert "Synthetic Widget" not in default_response.text
+    for profession in ("Shoemaker", "Jeweller", "Tailor"):
+        assert f'name="profession" value="{profession}" checked' in default_response.text
+
+    all_professions_response = client.get(
+        "/profit-opportunities",
+        params={"profession_filter": "true"},
+    )
+
+    assert all_professions_response.status_code == 200
+    assert "Professions · All" in all_professions_response.text
+    assert "Synthetic Widget" in all_professions_response.text
+
+    response = client.get(
+        "/profit-opportunities",
+        params={"profession": "Crafting", "profession_filter": "true"},
+    )
 
     assert response.status_code == 200
     assert "Profit Opportunities" in response.text
@@ -1188,12 +1214,16 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert "157.1%" in response.text
     assert "+128.6%" in response.text
     assert "Completed Sales</dt><dd>0</dd>" in response.text
+    assert '<th data-sort-type="text">Profession</th>' in response.text
+    assert "<td>Crafting</td>" in response.text
     assert "Currently Selling</th>" in response.text
     assert (
         f'href="/sales?item_uuid={widget_uuid}&amp;status=active#currently-selling">0</a>'
         in response.text
     )
     assert 'name="not_currently_selling"' in response.text
+    assert 'name="profession_filter" value="true"' in response.text
+    assert 'name="profession" value="Crafting" checked' in response.text
     assert "Completed Sales do not limit this list." in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
     assert '<details class="row-details">' in response.text
@@ -1204,7 +1234,11 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
 
     filtered_response = client.get(
         "/profit-opportunities",
-        params={"not_currently_selling": "true"},
+        params={
+            "not_currently_selling": "true",
+            "profession": "Crafting",
+            "profession_filter": "true",
+        },
     )
 
     assert filtered_response.status_code == 200

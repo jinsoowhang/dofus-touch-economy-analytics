@@ -120,6 +120,7 @@ class ProfitOpportunityReport:
     newly_priced_count: int
     top_profit_item: ProfitOpportunity | None
     top_roi_item: ProfitOpportunity | None
+    professions: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -273,6 +274,7 @@ class RecipeCatalogService:
         *,
         limit: int = 100,
         not_currently_selling: bool = False,
+        professions: tuple[str, ...] = (),
     ) -> ProfitOpportunityReport:
         if limit < 1:
             raise ValueError("limit must be positive")
@@ -395,6 +397,18 @@ class RecipeCatalogService:
                 )
             )
 
+        available_professions = tuple(
+            sorted({recipe.profession for recipe in recipes}, key=str.casefold)
+        )
+        normalized_professions = {
+            profession.strip().casefold() for profession in professions if profession.strip()
+        }
+        if normalized_professions:
+            opportunities = [
+                item
+                for item in opportunities
+                if item.profession.casefold() in normalized_professions
+            ]
         if not_currently_selling:
             opportunities = [item for item in opportunities if item.active_listing_count == 0]
         signal_order: dict[ProfitOpportunitySignal, int] = {
@@ -426,6 +440,7 @@ class RecipeCatalogService:
                 key=lambda item: (item.roi, item.profit, item.display_name.casefold()),
                 default=None,
             ),
+            professions=available_professions,
         )
 
     def _rows(self) -> list[RecipeCatalogRow]:
