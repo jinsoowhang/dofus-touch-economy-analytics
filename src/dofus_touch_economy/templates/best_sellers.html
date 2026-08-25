@@ -58,6 +58,7 @@
             <tr>
               <th data-sort-type="text">Item</th>
               <th class="numeric" data-sort-type="number" aria-sort="descending">Sold Count</th>
+              <th class="numeric" data-sort-type="number">Currently Selling</th>
               <th class="numeric" data-sort-type="number">Total Revenue</th>
               <th data-sort-type="date">Last Sold</th>
               <th class="numeric" data-sort-type="number">Estimated Profit</th>
@@ -77,6 +78,7 @@
                   </a>
                 </td>
                 <td class="numeric">{{ item.sold_count }}</td>
+                <td class="numeric">{{ item.active_listing_count }}</td>
                 <td class="numeric">{{ "{:,}".format(item.total_revenue) if item.priced_sale_count else "—" }}</td>
                 <td>
                   <time datetime="{{ last_sold_at.isoformat() }}">{{ last_sold_at.strftime("%Y-%m-%d") }}</time>
@@ -102,7 +104,6 @@
                       <div><dt>Category</dt><dd>{{ (item.category or "Uncategorized") | title }}</dd></div>
                       <div><dt>Average Sale Price</dt><dd>{{ "{:,.1f}".format(item.average_sale_price) if item.average_sale_price is not none else "—" }}</dd></div>
                       <div><dt>Average Days to Sell</dt><dd>{{ "{:.1f}".format(item.average_days_to_sell) }}</dd></div>
-                      <div><dt>Active Now</dt><dd>{{ item.active_listing_count }}</dd></div>
                       <div><dt>Current Price</dt><dd>{{ "{:,}".format(item.current_price) if item.current_price is not none else "—" }}</dd></div>
                       <div><dt>Recipe Cost</dt><dd>{{ "{:,}".format(item.recipe_cost) if item.recipe_cost is not none else "—" }}</dd></div>
                     </dl>

@@ -1132,7 +1132,8 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     )
     assert "Average Sale Price" in response.text
     assert "Average Days to Sell" in response.text
-    assert "Active Now" in response.text
+    assert "Currently Selling" in response.text
+    assert "Active Now" not in response.text
     assert "Estimated Profit" in response.text
     assert "Estimated ROI" in response.text
     assert '<details class="row-details">' in response.text
@@ -1144,6 +1145,12 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert f'data-item-uuid="{widget_uuid}"' in response.text
     assert '<table class="item-table best-sellers-table" data-sortable-table>' in response.text
     table_body = response.text.split("<tbody>", maxsplit=1)[1]
+    assert re.search(
+        r"Synthetic Widget.*?</td>\s*<td class=\"numeric\">2</td>\s*"
+        r'<td class="numeric">1</td>',
+        table_body,
+        re.DOTALL,
+    )
     assert table_body.index("Synthetic Widget") < table_body.index("Rare Trophy")
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
 
