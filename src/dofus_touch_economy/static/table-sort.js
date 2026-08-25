@@ -35,6 +35,7 @@ for (const table of document.querySelectorAll("table[data-sortable-table]")) {
     if (header.hasAttribute("data-sort-disabled")) {
       continue;
     }
+    const initialDirection = header.getAttribute("aria-sort");
     const label = header.textContent.trim();
     const type = header.dataset.sortType || "text";
     const button = document.createElement("button");
@@ -48,7 +49,16 @@ for (const table of document.querySelectorAll("table[data-sortable-table]")) {
     arrow.setAttribute("aria-hidden", "true");
     button.append(labelElement, arrow);
     header.replaceChildren(button);
-    header.setAttribute("aria-sort", "none");
+    if (["ascending", "descending"].includes(initialDirection)) {
+      header.setAttribute("aria-sort", initialDirection);
+      arrow.textContent = initialDirection === "ascending" ? "▲" : "▼";
+      button.setAttribute(
+        "aria-label",
+        `Sort by ${label}, ${initialDirection === "ascending" ? "descending" : "ascending"}`,
+      );
+    } else {
+      header.setAttribute("aria-sort", "none");
+    }
 
     button.addEventListener("click", () => {
       const direction = header.getAttribute("aria-sort") === "ascending" ? "descending" : "ascending";

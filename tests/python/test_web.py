@@ -93,7 +93,9 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert "<span>Sales</span>" in response.text
     assert 'class="site-tab is-active"' in response.text
     assert 'aria-current="page"' in response.text
-    assert ">Sales Activity</a>" in response.text
+    assert ">Activity</a>" in response.text
+    assert "<title>Sales Activity · Dofus Touch Economy</title>" in response.text
+    assert "<h1>Sales Activity</h1>" in response.text
     assert ">Best Sellers</a>" in response.text
     assert ">Out of Stock Items</a>" in response.text
     assert "Currently Selling" in response.text
@@ -998,7 +1000,8 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
         service = SalesService(session, "Dodge")
         widget_listing = service.start(SaleListingCreate(item_uuid=widget.uuid, asking_price=4_000))
         service.mark_sold(widget_listing.uuid)
-        service.start(SaleListingCreate(item_uuid=ore.uuid, asking_price=1_000))
+        ore_listing = service.start(SaleListingCreate(item_uuid=ore.uuid, asking_price=1_000))
+        ore_listing_uuid = ore_listing.uuid
 
     response = client.get("/out-of-stock-items")
     cart_script = client.get("/static/recipe-cart.js")
@@ -1011,12 +1014,18 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     assert "Synthetic Ore" not in response.text
     assert "3,500" in response.text
     assert "500" in response.text
+    assert "14.3%" in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
     assert 'class="recipe-cart-add secondary-button"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
     assert '<table class="item-table out-of-stock-table" data-sortable-table>' in response.text
     assert '<th class="numeric" data-sort-type="number">Suggested Restock</th>' in response.text
     assert '<th data-sort-type="date">Last Sold</th>' in response.text
+    assert (
+        '<th class="numeric" data-sort-type="number" aria-sort="descending">'
+        "Profit at Last Sale Price</th>"
+    ) in response.text
+    assert "ROI at Last Sale Price</th>" in response.text
     assert re.search(
         r'<td class="numeric">1</td>\s*<td class="numeric">3</td>\s*<td>\s*<time datetime=',
         response.text,
@@ -1024,6 +1033,15 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     assert "Days with no registered sales are skipped." in response.text
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
     assert cart_script.status_code == 200
+
+    with session_factory() as session:
+        SalesService(session, "Dodge").mark_sold(ore_listing_uuid)
+
+    ranked_response = client.get("/out-of-stock-items")
+
+    assert ranked_response.text.index("Synthetic Widget") < ranked_response.text.index(
+        "Synthetic Ore"
+    )
 
 
 def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(

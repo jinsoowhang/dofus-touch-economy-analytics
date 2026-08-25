@@ -35,3 +35,46 @@ without recorded Sales activity from making items appear slower to sell.
   request-scoped.
 - Python compilation, dbt debug and parse, SQLFluff, and the public-file policy all
   passed when run separately after the test-stage stop.
+
+## Sales Prioritization and Calculator Listing Completion
+
+### Context
+
+Tightened the restocking priority display and completed the Recipe Calculator to
+Sales handoff so accidental repeat submission cannot duplicate listings and
+successfully listed crafts leave the browser-local calculator cart.
+
+### Work Completed
+
+- Defaulted Out of Stock Items to Profit at Last Sale Price descending, with missing
+  profits last, and preserved the initial sort indicator and first-click direction in
+  the shared client table sorter.
+- Added ROI at Last Sale Price as profit divided by the current recipe cost; missing
+  profit and missing or zero recipe cost remain explicit.
+- Renamed the Sales submenu destination to Activity, moved it to preserve alphabetical
+  ordering, and changed the destination page title and H1 to Sales Activity.
+- Made Add Checked to Sales single-use per page submission. The first submit marks the
+  form in flight and disables its button synchronously; subsequent submits are
+  canceled.
+- Stored the checked craft UUIDs as transient tab state and removed them from both
+  calculator cart membership and calculation selection only on the successful
+  `listings-added` Sales redirect. Validation failures clear the pending marker and
+  retain the cart.
+- Reloaded a browser-cached calculator page on Back navigation when its old table still
+  contains crafts removed by a successful Sales handoff.
+
+### Verification
+
+- JavaScript syntax validation passed for `recipe-calculator.js`, `sales.js`, and
+  `table-sort.js`.
+- Ruff lint and formatting passed.
+- All 41 Sales and static-asset tests passed, and all 61 relevant web tests passed.
+- The live operational projection returned known profits in descending order with
+  missing profits last and calculated ROI without errors.
+- The full check reached 246 passing tests out of 248. The previously documented
+  date-sensitive Profit Opportunities test still fails. One unrelated bulk-sale test
+  also encountered a transient WSL wall-clock rollback between listing creation and
+  sale, violated the existing sale-date constraint, and passed immediately in
+  isolation without code changes.
+- Python compilation, dbt debug and parse, SQLFluff, and the public-file policy all
+  passed when run separately after the test-stage stop.

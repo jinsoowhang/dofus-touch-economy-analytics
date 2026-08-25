@@ -69,6 +69,7 @@ class OutOfStockItem:
     current_price: Decimal | None
     recipe_cost: Decimal | None
     last_sale_profit: Decimal | None
+    last_sale_roi: Decimal | None
     is_craftable: bool
 
 
@@ -285,6 +286,13 @@ class SalesService:
             if response.date_sold is None:  # pragma: no cover - sold query guarantees a date
                 continue
             current_price = current_prices.get(listing.item_id)
+            last_sale_roi = (
+                None
+                if response.profit is None
+                or response.recipe_cost is None
+                or response.recipe_cost == 0
+                else response.profit / response.recipe_cost
+            )
             results.append(
                 OutOfStockItem(
                     item_uuid=response.item_uuid,
@@ -302,12 +310,18 @@ class SalesService:
                     current_price=(None if current_price is None else current_price.unit_price),
                     recipe_cost=response.recipe_cost,
                     last_sale_profit=response.profit,
+                    last_sale_roi=last_sale_roi,
                     is_craftable=listing.item_id in craftable_item_ids,
                 )
             )
         return sorted(
             results,
-            key=lambda item: (-item.last_sold_at.timestamp(), item.display_name.casefold()),
+            key=lambda item: (
+                item.last_sale_profit is None,
+                Decimal(0) if item.last_sale_profit is None else -item.last_sale_profit,
+                -item.last_sold_at.timestamp(),
+                item.display_name.casefold(),
+            ),
         )
 
     def best_sellers(self) -> BestSellerReport:

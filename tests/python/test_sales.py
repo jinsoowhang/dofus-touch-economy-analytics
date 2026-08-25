@@ -73,6 +73,7 @@ def test_out_of_stock_requires_sales_history_and_no_active_listing(
     assert out_of_stock.current_price == 100
     assert out_of_stock.recipe_cost is None
     assert out_of_stock.last_sale_profit is None
+    assert out_of_stock.last_sale_roi is None
     assert out_of_stock.is_craftable is False
 
     active = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=200))

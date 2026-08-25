@@ -1,5 +1,57 @@
 "use strict";
 
+const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
+const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
+const recipeCalculatorPendingSalesStorageKey =
+  "dofus-recipe-calculator-pending-sales-v1";
+
+const removeCompletedRecipeCalculatorSales = () => {
+  const parameters = new URLSearchParams(window.location.search);
+  if (parameters.get("notice") !== "listings-added") {
+    return;
+  }
+
+  let pendingSales = null;
+  try {
+    pendingSales = window.sessionStorage.getItem(recipeCalculatorPendingSalesStorageKey);
+    window.sessionStorage.removeItem(recipeCalculatorPendingSalesStorageKey);
+  } catch {
+    return;
+  }
+  if (pendingSales === null) {
+    return;
+  }
+
+  try {
+    const itemUuids = new Set(
+      JSON.parse(pendingSales).filter((itemUuid) => typeof itemUuid === "string"),
+    );
+    const cart = JSON.parse(window.localStorage.getItem(recipeCartStorageKey) || "{}");
+    if (!cart || typeof cart !== "object" || Array.isArray(cart)) {
+      return;
+    }
+    for (const itemUuid of itemUuids) {
+      delete cart[itemUuid];
+    }
+    window.localStorage.setItem(recipeCartStorageKey, JSON.stringify(cart));
+
+    const storedSelection = window.localStorage.getItem(recipeSelectionStorageKey);
+    if (storedSelection !== null) {
+      const selection = JSON.parse(storedSelection);
+      if (Array.isArray(selection)) {
+        window.localStorage.setItem(
+          recipeSelectionStorageKey,
+          JSON.stringify(selection.filter((itemUuid) => !itemUuids.has(itemUuid))),
+        );
+      }
+    }
+  } catch {
+    // Successful listings remain authoritative when browser storage is unavailable.
+  }
+};
+
+removeCompletedRecipeCalculatorSales();
+
 const categorySelect = document.querySelector("#sale-category");
 const itemSelect = document.querySelector("#sale-item");
 const salePriceInput = document.querySelector("#sale-asking-price");

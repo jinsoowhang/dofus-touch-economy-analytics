@@ -44,6 +44,8 @@ def test_client_table_sorter_supports_typed_columns_and_missing_values() -> None
     assert 'type === "number"' in script
     assert 'type === "date"' in script
     assert 'header.setAttribute("aria-sort", direction)' in script
+    assert 'const initialDirection = header.getAttribute("aria-sort")' in script
+    assert '["ascending", "descending"].includes(initialDirection)' in script
     assert "left.value === null" in script
     assert 'button.addEventListener("click"' in script
 
@@ -61,6 +63,32 @@ def test_recipe_calculator_preserves_shopping_list_sort_during_price_reload() ->
     assert "saveRecipeCalculatorShoppingListSort();" in script
     assert "restoreRecipeCalculatorShoppingListSort();" in script
     assert 'sortState.direction === "descending"' in script
+
+
+def test_recipe_calculator_sale_submit_is_single_use_and_cleans_successful_cart_items() -> None:
+    calculator_script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipe-calculator.js")
+        .read_text(encoding="utf-8")
+    )
+    sales_script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/sales.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'document.querySelector(".calculator-sales-form")' in calculator_script
+    assert 'calculatorSalesForm.addEventListener("submit", (event)' in calculator_script
+    assert 'calculatorSalesForm.dataset.submitting === "true"' in calculator_script
+    assert "event.preventDefault();" in calculator_script
+    assert "submitButton.disabled = true;" in calculator_script
+    assert 'submitButton.textContent = "Adding to Sales…"' in calculator_script
+    assert '"dofus-recipe-calculator-pending-sales-v1"' in calculator_script
+    assert 'window.addEventListener("pageshow", (event)' in calculator_script
+    assert "window.location.reload();" in calculator_script
+    assert 'parameters.get("notice") !== "listings-added"' in sales_script
+    assert "delete cart[itemUuid]" in sales_script
+    assert "selection.filter((itemUuid) => !itemUuids.has(itemUuid))" in sales_script
 
 
 def test_recipe_level_number_inputs_defer_cross_endpoint_enforcement() -> None:
@@ -244,8 +272,8 @@ def test_navigation_dropdowns_are_alphabetized_and_close_exclusively() -> None:
         < item_menu.index(">Recipes</a>")
     )
     assert (
-        sales_menu.index(">Best Sellers</a>")
+        sales_menu.index(">Activity</a>")
+        < sales_menu.index(">Best Sellers</a>")
         < sales_menu.index(">Out of Stock Items</a>")
         < sales_menu.index(">Profit Opportunities</a>")
-        < sales_menu.index(">Sales Activity</a>")
     )

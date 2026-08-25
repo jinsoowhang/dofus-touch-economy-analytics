@@ -13,14 +13,23 @@ const calculatorSelectNone = document.querySelector("#calculator-select-none");
 const calculatorRemoveAll = document.querySelector("#calculator-remove-all");
 const calculatorSelectedCount = document.querySelector("#calculator-selected-count");
 const calculatorForm = document.querySelector("#recipe-calculator-form");
+const calculatorSalesForm = document.querySelector(".calculator-sales-form");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
+const recipeCalculatorPendingSalesStorageKey =
+  "dofus-recipe-calculator-pending-sales-v1";
 const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position";
 const recipeCalculatorShoppingListSortStorageKey =
   "dofus-recipe-calculator-shopping-list-sort";
 const calculatorKamaFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 20,
 });
+
+try {
+  window.sessionStorage.removeItem(recipeCalculatorPendingSalesStorageKey);
+} catch {
+  // A failed prior submission cannot leave a stale cart-removal request.
+}
 
 const parseCalculatorSalePrice = (value) => {
   const rawValue = value.trim();
@@ -552,6 +561,19 @@ if (
   updateSelectedCount();
   scheduleSuggestionRefresh();
 
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) {
+      return;
+    }
+    const cart = readCart();
+    const hasRemovedCartItem = Array.from(
+      calculatorSelectedItems.querySelectorAll("[data-item-uuid]"),
+    ).some((row) => !Object.hasOwn(cart, row.dataset.itemUuid));
+    if (hasRemovedCartItem) {
+      window.location.reload();
+    }
+  });
+
   calculatorForm.addEventListener("submit", () => {
     persistCart();
     persistSelection();
@@ -560,6 +582,33 @@ if (
   for (const input of document.querySelectorAll(".calculator-sale-price")) {
     updateCalculatorEstimatedProfit(input);
     input.addEventListener("input", () => updateCalculatorEstimatedProfit(input));
+  }
+
+  if (calculatorSalesForm) {
+    calculatorSalesForm.addEventListener("submit", (event) => {
+      if (calculatorSalesForm.dataset.submitting === "true") {
+        event.preventDefault();
+        return;
+      }
+      calculatorSalesForm.dataset.submitting = "true";
+      const submitButton = calculatorSalesForm.querySelector('button[type="submit"]');
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Adding to Sales…";
+      }
+      const saleItemUuids = Array.from(
+        calculatorSalesForm.querySelectorAll('input[name="sale_item_uuid"]:checked'),
+        (checkbox) => checkbox.value,
+      );
+      try {
+        window.sessionStorage.setItem(
+          recipeCalculatorPendingSalesStorageKey,
+          JSON.stringify(saleItemUuids),
+        );
+      } catch {
+        // Listings still submit when transient browser storage is unavailable.
+      }
+    });
   }
 
   for (const form of document.querySelectorAll(".calculator-ingredient-price-form")) {
