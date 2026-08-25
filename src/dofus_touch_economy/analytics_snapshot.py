@@ -157,6 +157,7 @@ OPERATIONAL_TABLES = (
             _column("asking_price", "INTEGER", required=False),
             _column("selling_started_at", "TIMESTAMP"),
             _column("date_sold", "TIMESTAMP", required=False),
+            _column("recipe_cost_at_sale", "NUMERIC", required=False),
         ),
     ),
 )

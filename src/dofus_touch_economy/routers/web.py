@@ -778,8 +778,8 @@ def _sales_sort_columns(
         else (
             ("name", "Item", False),
             ("price", "Price", True),
-            ("cost", "Cost", True),
-            ("profit", "Profit", True),
+            ("cost", "Cost at Sale", True),
+            ("profit", "Profit at Sale", True),
             ("started", "Selling Started", False),
             ("sold", "Date Sold", False),
         )

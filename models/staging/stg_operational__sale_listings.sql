@@ -7,6 +7,7 @@ select
     asking_price,
     selling_started_at,
     date_sold,
+    recipe_cost_at_sale,
     _snapshot_id as ingestion_snapshot_id,
     _extracted_at as warehouse_extracted_at,
     case when date_sold is null then 'active' else 'sold' end as listing_status

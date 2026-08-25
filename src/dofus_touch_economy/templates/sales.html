@@ -441,7 +441,9 @@
         {% endfor %}
       </div>
       <p class="chart-note">
-        Cost and Profit use current recipe ingredient prices. Items with incomplete recipe costs are excluded from those totals.
+        Cost and Profit use each completed listing's recipe ingredient cost when it
+        was sold. Items without a complete sale-time cost are excluded from those
+        totals.
       </p>
       <div class="sales-chart-wrap">
         <svg
@@ -509,8 +511,8 @@
             <tr>
               <th data-sort-type="date">Date Sold</th>
               <th class="numeric" data-sort-type="number">Sales</th>
-              <th class="numeric" data-sort-type="number">Cost</th>
-              <th class="numeric" data-sort-type="number">Profit</th>
+              <th class="numeric" data-sort-type="number">Cost at Sale</th>
+              <th class="numeric" data-sort-type="number">Profit at Sale</th>
               <th class="numeric" data-sort-type="number">Items Sold</th>
               <th class="numeric" data-sort-type="number">Costed Items</th>
             </tr>

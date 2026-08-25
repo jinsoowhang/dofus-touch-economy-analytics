@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -8,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -251,6 +253,10 @@ class SaleListing(Base):
             "date_sold IS NULL OR date_sold >= selling_started_at",
             name="ck_sale_listings_valid_sale_date",
         ),
+        CheckConstraint(
+            "recipe_cost_at_sale IS NULL OR recipe_cost_at_sale >= 0",
+            name="ck_sale_listings_nonnegative_recipe_cost_at_sale",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -274,6 +280,7 @@ class SaleListing(Base):
         DateTime(timezone=True),
         index=True,
     )
+    recipe_cost_at_sale: Mapped[Decimal | None] = mapped_column(Numeric(38, 9))
 
     item: Mapped[Item] = relationship(back_populates="sale_listings")
     price_observation: Mapped[PriceObservation | None] = relationship(back_populates="sale_listing")

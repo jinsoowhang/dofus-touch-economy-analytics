@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -90,27 +91,47 @@ class SalesRepository:
         )
         return result.rowcount == 1
 
-    def mark_sold(self, listing_uuid: UUID, date_sold: datetime) -> bool:
+    def mark_sold(
+        self,
+        listing_uuid: UUID,
+        date_sold: datetime,
+        recipe_cost_at_sale: Decimal | None,
+    ) -> bool:
         result = self._session.execute(
             update(SaleListing)
             .where(
                 SaleListing.uuid == listing_uuid,
                 SaleListing.date_sold.is_(None),
             )
-            .values(date_sold=date_sold)
+            .values(
+                date_sold=date_sold,
+                recipe_cost_at_sale=recipe_cost_at_sale,
+            )
         )
         return result.rowcount == 1
 
-    def mark_sold_many(self, listing_uuids: list[UUID], date_sold: datetime) -> int:
-        result = self._session.execute(
-            update(SaleListing)
-            .where(
-                SaleListing.uuid.in_(listing_uuids),
-                SaleListing.date_sold.is_(None),
+    def mark_sold_many(
+        self,
+        recipe_costs_at_sale: dict[UUID, Decimal | None],
+        date_sold: datetime,
+    ) -> int:
+        updated_count = 0
+        for listing_uuid, recipe_cost_at_sale in recipe_costs_at_sale.items():
+            updated_count += int(
+                self._session.execute(
+                    update(SaleListing)
+                    .where(
+                        SaleListing.uuid == listing_uuid,
+                        SaleListing.date_sold.is_(None),
+                    )
+                    .values(
+                        date_sold=date_sold,
+                        recipe_cost_at_sale=recipe_cost_at_sale,
+                    )
+                ).rowcount
+                or 0
             )
-            .values(date_sold=date_sold)
-        )
-        return result.rowcount
+        return updated_count
 
     def reopen(self, listing_uuid: UUID) -> bool:
         result = self._session.execute(
@@ -119,6 +140,9 @@ class SalesRepository:
                 SaleListing.uuid == listing_uuid,
                 SaleListing.date_sold.is_not(None),
             )
-            .values(date_sold=None)
+            .values(
+                date_sold=None,
+                recipe_cost_at_sale=None,
+            )
         )
         return result.rowcount == 1

@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -836,6 +837,7 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
                     asking_price=4_500,
                     selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
                     date_sold=datetime(2026, 8, 23, 8, tzinfo=UTC),
+                    recipe_cost_at_sale=Decimal(3_500),
                 ),
                 SaleListing(
                     item_id=widget.id,
@@ -843,6 +845,7 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
                     asking_price=3_000,
                     selling_started_at=datetime(2026, 8, 23, tzinfo=UTC),
                     date_sold=datetime(2026, 8, 24, 8, tzinfo=UTC),
+                    recipe_cost_at_sale=Decimal(3_500),
                 ),
             ]
         )
@@ -856,8 +859,8 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     assert response.status_code == 200
     assert 'aria-label="Sort currently selling by Cost, descending"' in response.text
     assert 'aria-label="Sort currently selling by Profit, ascending"' in response.text
-    assert 'aria-label="Sort sold history by Cost, descending"' in response.text
-    assert 'aria-label="Sort sold history by Profit, descending"' in response.text
+    assert 'aria-label="Sort sold history by Cost at Sale, descending"' in response.text
+    assert 'aria-label="Sort sold history by Profit at Sale, descending"' in response.text
     assert 'name="recipe_cost"' not in response.text
     assert 'name="profit"' not in response.text
     active_section, sold_section = response.text.split("<h2>Sold History</h2>")
@@ -879,6 +882,8 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     assert "<span>Total Cost</span><strong>7,000</strong>" in response.text
     assert "<span>Total Profit</span><strong>500</strong>" in response.text
     assert "<span>Cost Coverage</span><strong>2 of 2</strong>" in response.text
+    assert "recipe ingredient cost when it" in response.text
+    assert "was sold" in response.text
 
     filtered = client.get(
         "/sales",

@@ -160,3 +160,50 @@ selection when sending calculated crafts to Sales.
 - JavaScript syntax validation, Ruff lint and formatting, and diff checks passed.
 - The full `./scripts/check.sh` sequence passed: all 249 Python tests, Python
   compilation, dbt debug and parse, SQLFluff, and the public-file policy.
+
+## Fixed Profit at Sale
+
+### Context
+
+Stopped completed-sale Profit from changing when current ingredient prices change.
+Active listings remain forward-looking estimates, while completed listings now use a
+sale-time cost basis.
+
+### Work Completed
+
+- Added operational schema revision `0008` with nullable, nonnegative
+  `sale_listings.recipe_cost_at_sale` at decimal precision suitable for fractional
+  unit-price observations.
+- Made single and bulk Mark sold operations calculate the recipe from ingredient
+  observations available at one shared sale timestamp and atomically store that cost
+  with `date_sold`.
+- Changed Sold History, cost/profit filtering and sorting, and daily Sales chart totals
+  to use the fixed cost snapshot and asking price. Later ingredient observations no
+  longer rewrite realized Profit.
+- Kept Currently Selling, Best Sellers current estimates, and Out of Stock restock
+  economics on current recipe costs.
+- Made Return to Currently Selling clear both the sale timestamp and cost snapshot so
+  the reopened listing resumes live economics and captures a new basis if sold again.
+- Added a legacy fallback that reconstructs missing snapshots only from the known
+  recipe definition and ingredient observations recorded no later than the sale
+  timestamp; incomplete history remains explicit instead of borrowing today's cost.
+- Exposed `recipe_cost_at_sale` and derived `profit_at_sale` through the operational
+  BigQuery snapshot, staging model, `fct_sales`, schema documentation, and invariant
+  checks.
+- Renamed completed-listing and daily-total fields to Cost at Sale and Profit at Sale
+  and documented their fixed accounting basis on the Sales page.
+- Migrated the ignored local database from `0007` to `0008` without changing its 262
+  Sales rows. It contains 97 completed rows; 3 currently have sufficient historical
+  ingredient observations for legacy reconstruction, while future completed crafts
+  will persist their snapshots directly.
+
+### Verification
+
+- Focused snapshot, migration, Sales service, rendered Sales page, dbt parse, and
+  SQLFluff checks passed.
+- Regression coverage confirms bulk snapshot capture, fixed Sold History sorting and
+  filtering, fixed daily totals, later ingredient-price isolation, legacy historical
+  reconstruction, and snapshot clearing on reopen.
+- The full `./scripts/check.sh` sequence passed: Ruff lint and formatting, all 252
+  Python tests, Python compilation, dbt debug and parse, SQLFluff, and the public-file
+  policy.

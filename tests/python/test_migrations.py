@@ -81,6 +81,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
     assert "touch_catalog_checked_at" in item_columns
     assert "touch_catalog_exclusion_reason" in item_columns
     assert "asking_price" in sale_columns
+    assert "recipe_cost_at_sale" in sale_columns
     with engine.connect() as connection:
         source = connection.scalar(
             text("SELECT created_source FROM items WHERE normalized_name = 'imported item'")
@@ -113,6 +114,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         assert connection.scalar(text("SELECT count(*) FROM price_observations")) == 1
         assert connection.scalar(text("SELECT count(*) FROM sale_listings")) == 1
         assert connection.scalar(text("SELECT asking_price FROM sale_listings")) == 100
+        assert connection.scalar(text("SELECT recipe_cost_at_sale FROM sale_listings")) is None
     engine.dispose()
 
     subprocess.run(

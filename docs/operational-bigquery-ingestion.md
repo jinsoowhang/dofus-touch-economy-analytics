@@ -150,7 +150,8 @@ until repeated development builds pass and costs have been observed.
 
 - `dim_items`: one canonical item.
 - `fct_price_observations`: one valid or invalidated price observation.
-- `fct_sales`: one active or completed application sale listing.
+- `fct_sales`: one active or completed application sale listing, including nullable
+  fixed recipe cost and realized profit at sale.
 - `fct_recipe_ingredients`: one ingredient position in the latest recipe for each
   crafted item.
 - `int_latest_valid_price_observations`: one latest valid price per item and market.

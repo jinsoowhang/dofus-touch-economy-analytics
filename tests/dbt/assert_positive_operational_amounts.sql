@@ -10,4 +10,7 @@ select
     sale_listing_id as record_id,
     'sale_listing' as record_type
 from {{ ref('fct_sales') }}
-where lot_quantity <= 0 or asking_price <= 0
+where
+    lot_quantity <= 0
+    or asking_price <= 0
+    or recipe_cost_at_sale < 0

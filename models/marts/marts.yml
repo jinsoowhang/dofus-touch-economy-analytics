@@ -44,6 +44,10 @@ models:
               arguments:
                 to: ref('dim_items')
                 field: item_id
+      - name: recipe_cost_at_sale
+        description: "Fixed recipe ingredient cost captured when the listing was sold."
+      - name: profit_at_sale
+        description: "Realized asking price minus the fixed recipe cost at sale."
       - name: listing_status
         data_tests:
           - accepted_values:

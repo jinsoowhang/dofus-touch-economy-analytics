@@ -159,6 +159,10 @@ models:
               arguments:
                 to: ref('stg_operational__price_observations')
                 field: price_observation_row_id
+      - name: recipe_cost_at_sale
+        description: >-
+          Recipe ingredient cost captured when the listing was marked sold; null for
+          active listings, incomplete recipes, or legacy rows without a snapshot.
       - name: listing_status
         data_tests:
           - accepted_values:

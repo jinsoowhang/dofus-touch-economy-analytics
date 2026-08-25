@@ -8,9 +8,11 @@ select
     sales.asking_price,
     sales.selling_started_at,
     sales.date_sold,
+    sales.recipe_cost_at_sale,
     sales.listing_status,
     sales.ingestion_snapshot_id,
-    sales.warehouse_extracted_at
+    sales.warehouse_extracted_at,
+    sales.asking_price - sales.recipe_cost_at_sale as profit_at_sale
 from {{ ref('stg_operational__sale_listings') }} as sales
 inner join {{ ref('stg_operational__items') }} as items
     on sales.item_row_id = items.item_row_id

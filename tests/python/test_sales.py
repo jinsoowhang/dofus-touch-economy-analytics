@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -6,7 +6,8 @@ from zoneinfo import ZoneInfo
 import pytest
 from sqlalchemy import select
 
-from dofus_touch_economy.models import Item, PriceObservation, SaleListing
+from dofus_touch_economy.importers.service import ImportService
+from dofus_touch_economy.models import Item, PriceObservation, Recipe, SaleListing
 from dofus_touch_economy.schemas import (
     PriceObservationCreate,
     SaleListingCreate,
@@ -52,6 +53,135 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert reopened.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
     assert service.sold() == []
+
+
+def test_completed_sale_profit_keeps_its_sale_time_recipe_cost(
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        service = SalesService(session, "Dodge")
+        listings = service.start_many(
+            [
+                SaleListingCreate(
+                    item_uuid=items["synthetic widget"].uuid,
+                    asking_price=5_000,
+                ),
+                SaleListingCreate(
+                    item_uuid=items["synthetic widget"].uuid,
+                    asking_price=4_500,
+                ),
+            ]
+        )
+
+        sold = service.mark_sold_many([listing.uuid for listing in listings])
+
+        assert [(listing.recipe_cost, listing.profit) for listing in sold] == [
+            (Decimal(3_500), Decimal(1_500)),
+            (Decimal(3_500), Decimal(1_000)),
+        ]
+        stored_costs = list(
+            session.scalars(select(SaleListing.recipe_cost_at_sale).order_by(SaleListing.id))
+        )
+        assert stored_costs == [Decimal(3_500), Decimal(3_500)]
+
+        later_observed_at = datetime.now(UTC) + timedelta(seconds=1)
+        prices = PriceService(session, "Dodge")
+        prices.record(
+            items["synthetic ore"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=1_500,
+                observed_at=later_observed_at,
+            ),
+        )
+        prices.record(
+            items["synthetic fiber"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=1_000,
+                observed_at=later_observed_at,
+            ),
+        )
+
+        sold_after_price_change = service.sold(sort_field="profit", sort_direction="desc")
+        filtered_sold = service.sold(filters=SaleListingFilters(minimum_profit=Decimal(1_200)))
+        daily_totals = service.daily_totals(UTC, sold_after_price_change)
+
+        assert [(listing.recipe_cost, listing.profit) for listing in sold_after_price_change] == [
+            (Decimal(3_500), Decimal(1_500)),
+            (Decimal(3_500), Decimal(1_000)),
+        ]
+        assert [listing.asking_price for listing in filtered_sold] == [5_000]
+        assert daily_totals[0].total_cost == Decimal(7_000)
+        assert daily_totals[0].total_profit == Decimal(2_500)
+
+        reopened = service.reopen(listings[0].uuid)
+        stored_reopened = session.scalar(
+            select(SaleListing).where(SaleListing.uuid == listings[0].uuid)
+        )
+
+        assert reopened.recipe_cost == Decimal(6_000)
+        assert reopened.profit == Decimal(-1_000)
+        assert stored_reopened is not None
+        assert stored_reopened.recipe_cost_at_sale is None
+
+
+def test_legacy_completed_sale_reconstructs_cost_only_from_sale_time_history(
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        recipe = session.scalar(select(Recipe))
+        latest_recorded_at = session.scalar(
+            select(PriceObservation.recorded_at)
+            .order_by(PriceObservation.recorded_at.desc())
+            .limit(1)
+        )
+        assert recipe is not None
+        assert latest_recorded_at is not None
+        sold_at = latest_recorded_at.replace(tzinfo=UTC) + timedelta(seconds=1)
+        recipe.created_at = sold_at + timedelta(seconds=1)
+        session.add(
+            SaleListing(
+                item_id=items["synthetic widget"].id,
+                lot_quantity=1,
+                asking_price=5_000,
+                selling_started_at=sold_at - timedelta(seconds=1),
+                date_sold=sold_at,
+            )
+        )
+        session.commit()
+        service = SalesService(session, "Dodge")
+
+        [legacy_sale] = service.sold()
+
+        assert legacy_sale.recipe_cost == Decimal(3_500)
+        assert legacy_sale.profit == Decimal(1_500)
+
+        PriceService(session, "Dodge").record(
+            items["synthetic ore"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=2_000,
+                observed_at=sold_at + timedelta(seconds=1),
+            ),
+        )
+
+        [legacy_sale_after_later_price] = service.sold()
+
+        assert legacy_sale_after_later_price.recipe_cost == Decimal(3_500)
+        assert legacy_sale_after_later_price.profit == Decimal(1_500)
 
 
 def test_out_of_stock_requires_sales_history_and_no_active_listing(

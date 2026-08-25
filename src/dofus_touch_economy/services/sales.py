@@ -24,6 +24,7 @@ from dofus_touch_economy.services.pricing import (
     IngredientPrice,
     PriceService,
     calculate_recipe_metrics,
+    unit_price,
 )
 
 SaleSortField = Literal["name", "category", "price", "cost", "profit", "started", "sold"]
@@ -270,7 +271,11 @@ class SalesService:
             return []
 
         item_ids = [listing.item_id for listing in out_of_stock_listings]
-        listing_responses = self._responses(out_of_stock_listings)
+        current_recipe_costs = self._recipe_costs(out_of_stock_listings)
+        listing_responses = [
+            _response(listing, current_recipe_costs.get(listing.item_id))
+            for listing in out_of_stock_listings
+        ]
         current_prices = PriceService(self._session, self._market_context).current_for_items(
             item_ids
         )
@@ -608,7 +613,17 @@ class SalesService:
         return observation
 
     def mark_sold(self, listing_uuid: UUID) -> SaleListingResponse:
-        if not self._sales.mark_sold(listing_uuid, datetime.now(UTC)):
+        listing = self._sales.get_by_uuid(listing_uuid)
+        if listing is None:
+            raise SaleListingNotFound(str(listing_uuid))
+        if listing.date_sold is not None:
+            raise SaleListingConflict(str(listing_uuid))
+        sold_at = datetime.now(UTC)
+        recipe_cost_at_sale = self._recipe_costs_at(
+            [listing],
+            {listing.uuid: sold_at},
+        ).get(listing.uuid)
+        if not self._sales.mark_sold(listing_uuid, sold_at, recipe_cost_at_sale):
             self._session.rollback()
             existing = self._sales.get_by_uuid(listing_uuid)
             if existing is None:
@@ -624,7 +639,12 @@ class SalesService:
         listings = self._selected_listings(listing_uuids)
         if any(listing.date_sold is not None for listing in listings):
             raise SaleListingConflict("only active listings can be marked as sold")
-        if self._sales.mark_sold_many(listing_uuids, datetime.now(UTC)) != len(listings):
+        sold_at = datetime.now(UTC)
+        recipe_costs_at_sale = self._recipe_costs_at(
+            listings,
+            {listing.uuid: sold_at for listing in listings},
+        )
+        if self._sales.mark_sold_many(recipe_costs_at_sale, sold_at) != len(listings):
             self._session.rollback()
             raise SaleListingConflict("selected listings changed before they were updated")
         self._session.commit()
@@ -665,8 +685,36 @@ class SalesService:
         return [listings_by_uuid[value] for value in unique_uuids]
 
     def _responses(self, listings: list[SaleListing]) -> list[SaleListingResponse]:
-        costs = self._recipe_costs(listings)
-        return [_response(listing, costs.get(listing.item_id)) for listing in listings]
+        active_listings = [listing for listing in listings if listing.date_sold is None]
+        current_costs = self._recipe_costs(active_listings)
+        sold_without_snapshot = [
+            listing
+            for listing in listings
+            if listing.date_sold is not None and listing.recipe_cost_at_sale is None
+        ]
+        historical_costs = self._recipe_costs_at(
+            sold_without_snapshot,
+            {
+                listing.uuid: _as_utc(listing.date_sold)
+                for listing in sold_without_snapshot
+                if listing.date_sold is not None
+            },
+        )
+        return [
+            _response(
+                listing,
+                (
+                    current_costs.get(listing.item_id)
+                    if listing.date_sold is None
+                    else (
+                        historical_costs.get(listing.uuid)
+                        if listing.recipe_cost_at_sale is None
+                        else _trim_decimal(listing.recipe_cost_at_sale)
+                    )
+                ),
+            )
+            for listing in listings
+        ]
 
     def _recipe_costs(self, listings: list[SaleListing]) -> dict[int, Decimal | None]:
         crafted_item_ids = {listing.item_id for listing in listings}
@@ -714,6 +762,106 @@ class SalesService:
             )
             costs[item_id] = metrics.recipe_cost
         return costs
+
+    def _recipe_costs_at(
+        self,
+        listings: list[SaleListing],
+        as_of_by_listing_uuid: dict[UUID, datetime],
+    ) -> dict[UUID, Decimal | None]:
+        if not listings:
+            return {}
+        crafted_item_ids = {listing.item_id for listing in listings}
+        recipes_by_item: dict[int, list[Recipe]] = defaultdict(list)
+        for recipe in self._session.scalars(
+            select(Recipe)
+            .where(Recipe.crafted_item_id.in_(crafted_item_ids))
+            .options(selectinload(Recipe.ingredients))
+            .order_by(Recipe.crafted_item_id, Recipe.created_at, Recipe.id)
+        ):
+            recipes_by_item[recipe.crafted_item_id].append(recipe)
+
+        selected_recipes: dict[UUID, Recipe | None] = {}
+        for listing in listings:
+            as_of = _as_utc(as_of_by_listing_uuid[listing.uuid])
+            available_recipes = recipes_by_item[listing.item_id]
+            selected_recipes[listing.uuid] = next(
+                (
+                    recipe
+                    for recipe in reversed(available_recipes)
+                    if _as_utc(recipe.created_at) <= as_of
+                ),
+                available_recipes[-1] if available_recipes else None,
+            )
+
+        ingredient_item_ids = {
+            ingredient.item_id
+            for recipe in selected_recipes.values()
+            if recipe is not None
+            for ingredient in recipe.ingredients
+            if ingredient.item_id is not None
+        }
+        price_history_by_item: dict[int, list[PriceObservation]] = defaultdict(list)
+        if ingredient_item_ids:
+            for observation in self._session.scalars(
+                select(PriceObservation)
+                .where(
+                    PriceObservation.item_id.in_(ingredient_item_ids),
+                    PriceObservation.market_context == self._market_context,
+                    PriceObservation.invalidated_at.is_(None),
+                )
+                .order_by(
+                    PriceObservation.item_id,
+                    PriceObservation.observed_at,
+                    PriceObservation.recorded_at,
+                    PriceObservation.id,
+                )
+            ):
+                price_history_by_item[observation.item_id].append(observation)
+
+        costs: dict[UUID, Decimal | None] = {}
+        for listing in listings:
+            recipe = selected_recipes[listing.uuid]
+            if recipe is None:
+                costs[listing.uuid] = None
+                continue
+            as_of = _as_utc(as_of_by_listing_uuid[listing.uuid])
+            ingredient_prices: list[IngredientPrice] = []
+            for ingredient in recipe.ingredients:
+                observation = (
+                    None
+                    if ingredient.item_id is None
+                    else next(
+                        (
+                            candidate
+                            for candidate in reversed(price_history_by_item[ingredient.item_id])
+                            if _as_utc(candidate.observed_at) <= as_of
+                            and _as_utc(candidate.recorded_at) <= as_of
+                        ),
+                        None,
+                    )
+                )
+                ingredient_prices.append(
+                    IngredientPrice(
+                        quantity=ingredient.quantity,
+                        unit_price=(
+                            None
+                            if observation is None
+                            else unit_price(
+                                observation.total_price,
+                                observation.lot_quantity,
+                            )
+                        ),
+                    )
+                )
+            costs[listing.uuid] = calculate_recipe_metrics(
+                crafted_item_price=None,
+                ingredients=ingredient_prices,
+            ).recipe_cost
+        return costs
+
+
+def _trim_decimal(value: Decimal) -> Decimal:
+    return value.quantize(Decimal(1)) if value == value.to_integral() else value.normalize()
 
 
 def _response(listing: SaleListing, recipe_cost: Decimal | None) -> SaleListingResponse:

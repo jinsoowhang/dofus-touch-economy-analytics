@@ -123,6 +123,14 @@ ROI = profit / recipe cost
 
 Recipe cost is incomplete when an ingredient is unresolved or lacks a current valid price. Profit requires a complete recipe and a current crafted-item price. ROI is absent when recipe cost is zero. Missing values are never treated as zero.
 
+When an active listing is marked sold, the application snapshots the complete recipe
+ingredient cost known at that sale timestamp. Completed-sale profit is then fixed as
+the recorded asking price minus that nullable snapshot; later ingredient observations
+do not rewrite realized profit. Legacy completed listings without a stored snapshot
+may be reconstructed from the known recipe definition and ingredient price
+observations recorded no later than their sale timestamp. If that history is
+incomplete, sale cost and profit remain null.
+
 ## Hosted analytical snapshot
 
 The BigQuery loader reads the normalized SQLite tables, not the source CSV files. Its
@@ -132,6 +140,7 @@ contract preserves:
 - source filename, row number, raw payload, validation messages, and import checksum;
 - recorded, observed, listing-started, sold, and invalidation timestamps;
 - market context, invalidation state, and Sales status;
+- nullable fixed recipe cost at sale for completed listings;
 - nullable live-catalog item weight in pods;
 - nullable Dofus Touch membership status, check timestamp, and exclusion reason;
 - a stable content-derived snapshot ID and UTC extraction timestamp.

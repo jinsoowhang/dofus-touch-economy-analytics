@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from dofus_touch_economy.analytics_snapshot import (
     OPERATIONAL_TABLES,
@@ -15,7 +16,7 @@ from dofus_touch_economy.analytics_snapshot import (
 from dofus_touch_economy.bigquery_loader import BigQuerySnapshotLoader
 from dofus_touch_economy.cli import load_bigquery_main
 from dofus_touch_economy.database import Base, create_engine_for_url, create_session_factory
-from dofus_touch_economy.models import Item
+from dofus_touch_economy.models import Item, SaleListing
 
 
 def _create_database(path: Path) -> None:
@@ -23,7 +24,7 @@ def _create_database(path: Path) -> None:
     Base.metadata.create_all(engine)
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
-        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0007')"))
+        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0008')"))
     factory = create_session_factory(engine)
     with factory() as session:
         session.add(
@@ -51,7 +52,7 @@ def test_snapshot_is_complete_and_content_addressed(tmp_path: Path) -> None:
     second = extract_operational_snapshot(database_path)
 
     assert first.snapshot_id == second.snapshot_id
-    assert first.source_schema_version == "0007"
+    assert first.source_schema_version == "0008"
     assert tuple(first.row_counts) == tuple(table.name for table in OPERATIONAL_TABLES)
     assert first.row_counts["items"] == 1
     assert sum(first.row_counts.values()) == 1
@@ -77,6 +78,41 @@ def test_snapshot_id_changes_when_operational_data_changes(tmp_path: Path) -> No
     after = extract_operational_snapshot(database_path)
 
     assert after.snapshot_id != before.snapshot_id
+
+
+def test_snapshot_includes_nullable_sale_time_recipe_cost(tmp_path: Path) -> None:
+    database_path = tmp_path / "application.sqlite3"
+    _create_database(database_path)
+    engine = create_engine_for_url(f"sqlite+pysqlite:///{database_path}")
+    factory = create_session_factory(engine)
+    with factory() as session:
+        item = session.scalar(select(Item))
+        assert item is not None
+        session.add(
+            SaleListing(
+                item_id=item.id,
+                lot_quantity=1,
+                asking_price=100,
+                selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                recipe_cost_at_sale=Decimal("12.5"),
+            )
+        )
+        session.commit()
+    engine.dispose()
+
+    snapshot = extract_operational_snapshot(database_path)
+    sales = next(table for table in snapshot.tables if table.contract.name == "sale_listings")
+
+    assert sales.rows[0]["recipe_cost_at_sale"] == 12.5
+    assert (
+        next(
+            column.bigquery_type
+            for column in sales.contract.columns
+            if column.name == "recipe_cost_at_sale"
+        )
+        == "NUMERIC"
+    )
 
 
 def test_snapshot_rejects_uncontracted_schema_changes(tmp_path: Path) -> None:
@@ -105,7 +141,7 @@ def test_bigquery_cli_dry_run_needs_no_credentials(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert "schema=0007" in output
+    assert "schema=0008" in output
     assert "items=1" in output
     assert "dry-run: no BigQuery changes made" in output
     assert "Synthetic Ore" not in output

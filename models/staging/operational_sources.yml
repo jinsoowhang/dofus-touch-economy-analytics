@@ -24,4 +24,6 @@ sources:
       - name: raw_price_observations
         description: Append-only observed prices and audit-preserving invalidations.
       - name: raw_sale_listings
-        description: Active and completed application Sales listings.
+        description: >-
+          Active and completed application Sales listings, including nullable fixed
+          recipe cost captured when sold.
