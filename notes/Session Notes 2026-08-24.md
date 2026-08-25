@@ -134,3 +134,29 @@ initial Current Opportunities view on Shoemaker, Jeweller, and Tailor recipes.
 - The full `./scripts/check.sh` sequence passed: Ruff lint and formatting, all 249
   Python tests, Python compilation, dbt debug and parse, SQLFluff, and the public-file
   policy.
+
+## Sales Performance Active Count and Craft Sale Selection
+
+### Context
+
+Made active listing inventory visible in Best Sellers and reduced repetitive row
+selection when sending calculated crafts to Sales.
+
+### Work Completed
+
+- Promoted each Best Seller's active listing count from the More disclosure to a
+  visible sortable Currently Selling column in Sales Performance.
+- Added an accessible checkbox to the Selected craft breakdown Sell header that
+  selects or clears every sale-row checkbox.
+- Kept the header checkbox synchronized with individual row changes, including an
+  indeterminate state when only some crafts are selected.
+- Left calculation selection and Sell selection independent so selecting all crafts
+  for Sales does not alter the Recipe Calculator cart or calculation state.
+
+### Verification
+
+- Focused Best Sellers, Recipe Calculator rendering, and calculator JavaScript
+  regression tests passed.
+- JavaScript syntax validation, Ruff lint and formatting, and diff checks passed.
+- The full `./scripts/check.sh` sequence passed: all 249 Python tests, Python
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.

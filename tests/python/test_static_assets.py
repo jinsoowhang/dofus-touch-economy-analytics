@@ -78,6 +78,13 @@ def test_recipe_calculator_sale_submit_is_single_use_and_cleans_successful_cart_
     )
 
     assert 'document.querySelector(".calculator-sales-form")' in calculator_script
+    assert 'document.querySelector("#calculator-sale-select-all")' in calculator_script
+    assert 'calculatorSalesForm.querySelectorAll(".calculator-sale-checkbox")' in (
+        calculator_script
+    )
+    assert 'calculatorSaleSelectAll.addEventListener("change"' in calculator_script
+    assert "checkbox.checked = calculatorSaleSelectAll.checked;" in calculator_script
+    assert "calculatorSaleSelectAll.indeterminate" in calculator_script
     assert 'calculatorSalesForm.addEventListener("submit", (event)' in calculator_script
     assert 'calculatorSalesForm.dataset.submitting === "true"' in calculator_script
     assert "event.preventDefault();" in calculator_script

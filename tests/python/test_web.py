@@ -1514,6 +1514,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'id="recipe-calculator-form"' in response.text
     assert response.text.count('class="calculator-item-checkbox"') == 2
     assert response.text.count('class="calculator-sale-checkbox"') == 2
+    assert 'id="calculator-sale-select-all"' in response.text
+    assert 'aria-label="Select all crafts to sell"' in response.text
     assert response.text.count('class="calculator-sale-price"') == 2
     assert response.text.count('name="selected_item_uuid"') == 4
     assert response.text.count('type="hidden" name="selected_item_uuid"') == 2

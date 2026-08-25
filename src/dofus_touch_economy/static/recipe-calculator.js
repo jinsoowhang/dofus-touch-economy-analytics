@@ -14,6 +14,7 @@ const calculatorRemoveAll = document.querySelector("#calculator-remove-all");
 const calculatorSelectedCount = document.querySelector("#calculator-selected-count");
 const calculatorForm = document.querySelector("#recipe-calculator-form");
 const calculatorSalesForm = document.querySelector(".calculator-sales-form");
+const calculatorSaleSelectAll = document.querySelector("#calculator-sale-select-all");
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
 const recipeCalculatorPendingSalesStorageKey =
@@ -585,6 +586,35 @@ if (
   }
 
   if (calculatorSalesForm) {
+    const calculatorSaleCheckboxes = Array.from(
+      calculatorSalesForm.querySelectorAll(".calculator-sale-checkbox"),
+    );
+
+    const updateCalculatorSaleSelectAll = () => {
+      if (!calculatorSaleSelectAll) {
+        return;
+      }
+      const selectedCount = calculatorSaleCheckboxes.filter(
+        (checkbox) => checkbox.checked,
+      ).length;
+      calculatorSaleSelectAll.checked = selectedCount === calculatorSaleCheckboxes.length;
+      calculatorSaleSelectAll.indeterminate =
+        selectedCount > 0 && selectedCount < calculatorSaleCheckboxes.length;
+    };
+
+    if (calculatorSaleSelectAll && calculatorSaleCheckboxes.length > 0) {
+      calculatorSaleSelectAll.addEventListener("change", () => {
+        for (const checkbox of calculatorSaleCheckboxes) {
+          checkbox.checked = calculatorSaleSelectAll.checked;
+        }
+        updateCalculatorSaleSelectAll();
+      });
+      for (const checkbox of calculatorSaleCheckboxes) {
+        checkbox.addEventListener("change", updateCalculatorSaleSelectAll);
+      }
+      updateCalculatorSaleSelectAll();
+    }
+
     calculatorSalesForm.addEventListener("submit", (event) => {
       if (calculatorSalesForm.dataset.submitting === "true") {
         event.preventDefault();
