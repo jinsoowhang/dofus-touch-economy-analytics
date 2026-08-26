@@ -114,6 +114,19 @@ def test_recipe_cart_uses_an_optional_validated_craft_quantity() -> None:
     assert "craftQuantity.value = String(quantity)" in script
 
 
+def test_item_detail_scripts_do_not_redeclare_recipe_cart_storage_constants() -> None:
+    static_assets = resources.files("dofus_touch_economy").joinpath("static")
+    sales_script = static_assets.joinpath("sales.js").read_text(encoding="utf-8")
+    cart_script = static_assets.joinpath("recipe-cart.js").read_text(encoding="utf-8")
+
+    assert "const salesRecipeCartStorageKey" in sales_script
+    assert "const salesRecipeSelectionStorageKey" in sales_script
+    assert "const recipeCartStorageKey" not in sales_script
+    assert "const recipeSelectionStorageKey" not in sales_script
+    assert "const recipeCartStorageKey" in cart_script
+    assert "const recipeSelectionStorageKey" in cart_script
+
+
 def test_recipe_level_number_inputs_defer_cross_endpoint_enforcement() -> None:
     script = (
         resources.files("dofus_touch_economy")

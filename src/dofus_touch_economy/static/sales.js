@@ -1,7 +1,7 @@
 "use strict";
 
-const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
-const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
+const salesRecipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
+const salesRecipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
 const recipeCalculatorPendingSalesStorageKey =
   "dofus-recipe-calculator-pending-sales-v1";
 
@@ -26,21 +26,21 @@ const removeCompletedRecipeCalculatorSales = () => {
     const itemUuids = new Set(
       JSON.parse(pendingSales).filter((itemUuid) => typeof itemUuid === "string"),
     );
-    const cart = JSON.parse(window.localStorage.getItem(recipeCartStorageKey) || "{}");
+    const cart = JSON.parse(window.localStorage.getItem(salesRecipeCartStorageKey) || "{}");
     if (!cart || typeof cart !== "object" || Array.isArray(cart)) {
       return;
     }
     for (const itemUuid of itemUuids) {
       delete cart[itemUuid];
     }
-    window.localStorage.setItem(recipeCartStorageKey, JSON.stringify(cart));
+    window.localStorage.setItem(salesRecipeCartStorageKey, JSON.stringify(cart));
 
-    const storedSelection = window.localStorage.getItem(recipeSelectionStorageKey);
+    const storedSelection = window.localStorage.getItem(salesRecipeSelectionStorageKey);
     if (storedSelection !== null) {
       const selection = JSON.parse(storedSelection);
       if (Array.isArray(selection)) {
         window.localStorage.setItem(
-          recipeSelectionStorageKey,
+          salesRecipeSelectionStorageKey,
           JSON.stringify(selection.filter((itemUuid) => !itemUuids.has(itemUuid))),
         );
       }
