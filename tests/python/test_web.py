@@ -1437,6 +1437,10 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         in script.text
     )
     assert "salePrice * craftQuantity - totalRecipeCost" in script.text
+    assert "const updateCalculatorCraftSummary = () =>" in script.text
+    assert "projectedSales += salePrice * craftQuantity" in script.text
+    assert "updateCalculatorCraftSummary();" in script.text
+    assert 'input.addEventListener("input", updateCalculatorCraftSummary)' in script.text
     assert 'await fetch("/recipe-calculator/suggestions"' in script.text
     assert 'formData.append("item_uuid", itemUuid)' in script.text
     assert "scheduleSuggestionRefresh()" in script.text
@@ -1532,6 +1536,25 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     )
     assert '<details class="calculator-selected-items" open>' in response.text
     assert 'action="/recipe-calculator/sales"' in response.text
+    assert 'class="calculator-summary calculator-craft-summary"' in response.text
+    assert 'aria-label="Selected craft summary"' in response.text
+    assert re.search(r"<span>Total Craft Quantity</span>\s*<strong>5</strong>", response.text)
+    assert re.search(
+        r"<span>Total Recipe Cost</span>\s*"
+        r'<strong\s+id="calculator-craft-total-recipe-cost"\s+'
+        r'data-total-recipe-cost="190"\s*>190</strong>',
+        response.text,
+    )
+    assert re.search(
+        r"<span>Projected Sales</span>\s*<strong><output "
+        r'id="calculator-craft-projected-sales"[^>]*>440</output></strong>',
+        response.text,
+    )
+    assert re.search(
+        r"<span>Total Estimated Profit</span>\s*<strong><output "
+        r'id="calculator-craft-estimated-profit"[^>]*>250</output></strong>',
+        response.text,
+    )
     assert "Sale Price Each" in response.text
     assert "Total Estimated Profit" in response.text
     assert re.search(
@@ -1664,6 +1687,14 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Enter a positive whole-number sale price for Beta Ring." in invalid_sales.text
     assert invalid_sales.text.count('class="calculator-sale-checkbox"') == 2
     assert invalid_sales.text.count("checked") >= 4
+    assert re.search(
+        r'id="calculator-craft-projected-sales"[^>]*>Incomplete</output>',
+        invalid_sales.text,
+    )
+    assert re.search(
+        r'id="calculator-craft-estimated-profit"[^>]*>Incomplete</output>',
+        invalid_sales.text,
+    )
     with session_factory() as session:
         assert session.scalar(select(SaleListing.id)) is None
 

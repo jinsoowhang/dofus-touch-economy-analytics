@@ -15,6 +15,15 @@ const calculatorSelectedCount = document.querySelector("#calculator-selected-cou
 const calculatorForm = document.querySelector("#recipe-calculator-form");
 const calculatorSalesForm = document.querySelector(".calculator-sales-form");
 const calculatorSaleSelectAll = document.querySelector("#calculator-sale-select-all");
+const calculatorCraftTotalRecipeCost = document.querySelector(
+  "#calculator-craft-total-recipe-cost",
+);
+const calculatorCraftProjectedSales = document.querySelector(
+  "#calculator-craft-projected-sales",
+);
+const calculatorCraftEstimatedProfit = document.querySelector(
+  "#calculator-craft-estimated-profit",
+);
 const recipeCartStorageKey = "dofus-recipe-calculator-cart-v1";
 const recipeSelectionStorageKey = "dofus-recipe-calculator-selection-v1";
 const recipeCalculatorPendingSalesStorageKey =
@@ -66,6 +75,47 @@ const updateCalculatorEstimatedProfit = (input) => {
   }
   output.textContent = calculatorKamaFormatter.format(estimatedProfit);
   profitCell.dataset.sortValue = String(estimatedProfit);
+};
+
+const updateCalculatorCraftSummary = () => {
+  if (
+    !calculatorSalesForm ||
+    !calculatorCraftTotalRecipeCost ||
+    !calculatorCraftProjectedSales ||
+    !calculatorCraftEstimatedProfit
+  ) {
+    return;
+  }
+
+  let projectedSales = 0;
+  let salePricesComplete = true;
+  for (const input of calculatorSalesForm.querySelectorAll(".calculator-sale-price")) {
+    const profitCell = input.closest("tr")?.querySelector(".calculator-estimated-profit");
+    const salePrice = parseCalculatorSalePrice(input.value);
+    const craftQuantity = Number(profitCell?.dataset.craftQuantity);
+    if (
+      salePrice === null ||
+      !Number.isInteger(craftQuantity) ||
+      craftQuantity < 1
+    ) {
+      salePricesComplete = false;
+      continue;
+    }
+    projectedSales += salePrice * craftQuantity;
+  }
+
+  calculatorCraftProjectedSales.textContent = salePricesComplete
+    ? calculatorKamaFormatter.format(projectedSales)
+    : "Incomplete";
+
+  const rawTotalRecipeCost = calculatorCraftTotalRecipeCost.dataset.totalRecipeCost;
+  const totalRecipeCost = Number(rawTotalRecipeCost);
+  calculatorCraftEstimatedProfit.textContent =
+    salePricesComplete &&
+    rawTotalRecipeCost !== "" &&
+    Number.isFinite(totalRecipeCost)
+      ? calculatorKamaFormatter.format(projectedSales - totalRecipeCost)
+      : "Incomplete";
 };
 
 const saveRecipeCalculatorShoppingListSort = () => {
@@ -583,7 +633,9 @@ if (
   for (const input of document.querySelectorAll(".calculator-sale-price")) {
     updateCalculatorEstimatedProfit(input);
     input.addEventListener("input", () => updateCalculatorEstimatedProfit(input));
+    input.addEventListener("input", updateCalculatorCraftSummary);
   }
+  updateCalculatorCraftSummary();
 
   if (calculatorSalesForm) {
     const calculatorSaleCheckboxes = Array.from(

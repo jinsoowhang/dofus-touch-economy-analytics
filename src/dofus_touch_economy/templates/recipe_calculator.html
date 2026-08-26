@@ -214,6 +214,37 @@
             separate listings at the Sale Price Each. Total Estimated Profit is Sale
             Price Each multiplied by Quantity, minus Total Recipe Cost.
           </p>
+          {% set craft_summary = namespace(projected_sales=0, sale_prices_complete=true) %}
+          {% for item in result.selected_items %}
+            {% if item.item_uuid in sale_prices %}
+              {% set craft_summary.sale_prices_complete = false %}
+            {% else %}
+              {% set summary_sale_price = sale_price_defaults.get(item.item_uuid) %}
+              {% if summary_sale_price is none %}
+                {% set craft_summary.sale_prices_complete = false %}
+              {% else %}
+                {% set craft_summary.projected_sales = craft_summary.projected_sales + summary_sale_price * item.craft_quantity %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          <div class="calculator-summary calculator-craft-summary" aria-label="Selected craft summary">
+            <div><span>Total Craft Quantity</span><strong>{{ result.total_crafts }}</strong></div>
+            <div>
+              <span>Total Recipe Cost</span>
+              <strong
+                id="calculator-craft-total-recipe-cost"
+                data-total-recipe-cost="{{ result.total_cost if result.total_cost is not none else '' }}"
+              >{% if result.total_cost is not none %}{{ "{:,}".format(result.total_cost) }}{% else %}Incomplete{% endif %}</strong>
+            </div>
+            <div>
+              <span>Projected Sales</span>
+              <strong><output id="calculator-craft-projected-sales" aria-live="polite">{% if craft_summary.sale_prices_complete %}{{ "{:,}".format(craft_summary.projected_sales) }}{% else %}Incomplete{% endif %}</output></strong>
+            </div>
+            <div>
+              <span>Total Estimated Profit</span>
+              <strong><output id="calculator-craft-estimated-profit" aria-live="polite">{% if craft_summary.sale_prices_complete and result.total_cost is not none %}{{ "{:,}".format(craft_summary.projected_sales - result.total_cost) }}{% else %}Incomplete{% endif %}</output></strong>
+            </div>
+          </div>
           <div class="item-table-wrap">
             <table class="calculator-results-table calculator-sales-table" data-sortable-table>
               <thead>

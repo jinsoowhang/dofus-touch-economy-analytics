@@ -26,3 +26,30 @@ exposed that the button had no active click handler.
 - The full `./scripts/check.sh` sequence passed: Ruff lint and formatting, all 253
   Python tests, Python compilation, dbt debug and parse, SQLFluff, and the public-file
   policy.
+
+## Selected Craft KPI Summary
+
+### Context
+
+Added a combined decision summary to Selected craft breakdown so the complete craft
+batch can be evaluated without manually adding its row values.
+
+### Work Completed
+
+- Reused the existing responsive calculator KPI cards for Total Craft Quantity, Total
+  Recipe Cost, Projected Sales, and Total Estimated Profit.
+- Aggregated every displayed craft row independently of the Sell checkboxes, which
+  remain controls only for the later Add Checked to Sales action.
+- Recalculated Projected Sales and Total Estimated Profit immediately when any Sale
+  Price Each input changes.
+- Kept incomplete recipe-cost or sale-price coverage explicit instead of treating
+  missing values as zero or presenting a partial total as complete.
+- Added rendered-page and client-wiring regression coverage for initial combined
+  values, live recalculation, and incomplete inputs.
+
+### Verification
+
+- Ten focused Recipe Calculator service, static-asset, and rendered-page tests passed.
+- JavaScript syntax, Ruff lint and formatting, and diff checks passed.
+- The full `./scripts/check.sh` sequence passed: all 253 Python tests, Python
+  compilation, dbt debug and parse, SQLFluff, and the public-file policy.
