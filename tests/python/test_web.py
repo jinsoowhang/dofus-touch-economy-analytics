@@ -938,6 +938,7 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert "<span>Item</span>" in response.text
     assert 'name="profession" value="Crafting" checked' in response.text
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
+    assert 'name="not_currently_selling"' in response.text
     assert 'id="recipe-min-level"' in response.text
     assert 'name="min_level"' in response.text
     assert 'id="recipe-min-level-number"' in response.text
@@ -987,6 +988,18 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     )
     assert 'form.action = "/recipe-calculator"' in cart_script.text
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+
+    not_selling_response = client.get(
+        "/recipes",
+        params={"not_currently_selling": "true"},
+    )
+    checkbox_attributes = not_selling_response.text.split(
+        'name="not_currently_selling"', maxsplit=1
+    )[1].split(">", maxsplit=1)[0]
+    assert not_selling_response.status_code == 200
+    assert "checked" in checkbox_attributes
+    assert "Synthetic Widget" not in not_selling_response.text
+    assert "No recipes match these filters." in not_selling_response.text
 
 
 def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
@@ -1280,6 +1293,7 @@ def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
         params={
             "q": "widget",
             "profession": "Crafting",
+            "not_currently_selling": "true",
             "sort": "profit",
             "direction": "desc",
         },
@@ -1289,7 +1303,8 @@ def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
 
     assert response.status_code == 303
     assert response.headers["location"] == (
-        "/recipes?q=widget&profession=Crafting&sort=profit&direction=desc&"
+        "/recipes?q=widget&profession=Crafting&not_currently_selling=true&"
+        "sort=profit&direction=desc&"
         f"updated={item_uuid}#recipe-catalog"
     )
     updated_page = client.get(response.headers["location"])

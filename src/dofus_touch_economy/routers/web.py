@@ -185,6 +185,7 @@ class RecipeFilterState:
     minimum_level: int | None = None
     maximum_level: int | None = None
     economics: RecipeEconomicsFilter = "all"
+    not_currently_selling: bool = False
 
     def parameters(self) -> dict[str, str | tuple[str, ...]]:
         parameters: dict[str, str | tuple[str, ...]] = {}
@@ -200,6 +201,8 @@ class RecipeFilterState:
             parameters["max_level"] = str(self.maximum_level)
         if self.economics != "all":
             parameters["economics"] = self.economics
+        if self.not_currently_selling:
+            parameters["not_currently_selling"] = "true"
         return parameters
 
     def catalog_filters(self) -> RecipeCatalogFilters:
@@ -210,6 +213,7 @@ class RecipeFilterState:
             minimum_level=self.minimum_level,
             maximum_level=self.maximum_level,
             economics=self.economics,
+            not_currently_selling=self.not_currently_selling,
         )
 
     def errors(self) -> list[str]:
@@ -266,6 +270,7 @@ def _recipe_filter_state(
     min_level: Annotated[int | None, Query(ge=1, le=1000)] = None,
     max_level: Annotated[int | None, Query(ge=1, le=1000)] = None,
     economics: Annotated[RecipeEconomicsFilter, Query()] = "all",
+    not_currently_selling: Annotated[bool, Query()] = False,
 ) -> RecipeFilterState:
     return RecipeFilterState(
         item_query=q.strip(),
@@ -274,6 +279,7 @@ def _recipe_filter_state(
         minimum_level=min_level,
         maximum_level=max_level,
         economics=economics,
+        not_currently_selling=not_currently_selling,
     )
 
 

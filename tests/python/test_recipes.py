@@ -246,6 +246,9 @@ def test_recipe_catalog_counts_and_sorts_active_listings(session_factory) -> Non
             sort_field="active",
             sort_direction="desc",
         )
+        not_selling = RecipeCatalogService(session, "Dodge").browse(
+            RecipeCatalogFilters(not_currently_selling=True)
+        )
 
     assert [row.display_name for row in result.rows] == [
         "Alpha Sword",
@@ -253,6 +256,8 @@ def test_recipe_catalog_counts_and_sorts_active_listings(session_factory) -> Non
         "Gamma Hat",
     ]
     assert [row.active_listing_count for row in result.rows] == [2, 1, 0]
+    assert [row.display_name for row in not_selling.rows] == ["Gamma Hat"]
+    assert not_selling.filtered_count == 1
 
 
 def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(

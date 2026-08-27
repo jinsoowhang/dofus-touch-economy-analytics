@@ -248,6 +248,12 @@ form .htmx-indicator {
   grid-column: auto;
 }
 
+.recipe-filter-form > .checkbox-filter {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
 .filter-multiselect {
   border: 1px solid var(--border);
   border-radius: 0.45rem;

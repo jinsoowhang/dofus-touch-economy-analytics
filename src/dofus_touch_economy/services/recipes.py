@@ -53,6 +53,7 @@ class RecipeCatalogFilters:
     minimum_level: int | None = None
     maximum_level: int | None = None
     economics: RecipeEconomicsFilter = "all"
+    not_currently_selling: bool = False
 
 
 @dataclass(frozen=True)
@@ -980,6 +981,8 @@ def _filter_rows(
         if filters.maximum_level is not None and (
             row.profession_level is None or row.profession_level > filters.maximum_level
         ):
+            return False
+        if filters.not_currently_selling and row.active_listing_count > 0:
             return False
         if filters.economics == "profitable":
             return row.profit is not None and row.profit > 0
