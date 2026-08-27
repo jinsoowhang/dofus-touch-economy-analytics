@@ -419,9 +419,10 @@
     </summary>
     {% if sales_chart %}
       <div class="sales-metrics" aria-label="Sales summary">
-        <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
-        <div><span>Total Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
-        <div><span>Total Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
+        <div><span>All Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Cost-Covered Sales</span><strong>{{ sales_chart.cost_covered_price_label }}</strong></div>
+        <div><span>Covered Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
+        <div><span>Known Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
         <div><span>Items Sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
         <div><span>Average Priced Sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
         <div><span>Cost Coverage</span><strong>{{ sales_chart.cost_coverage_label }}</strong></div>
@@ -441,9 +442,9 @@
         {% endfor %}
       </div>
       <p class="chart-note">
-        Cost and Profit use each completed listing's recipe ingredient cost when it
-        was sold. Items without a complete sale-time cost are excluded from those
-        totals.
+        Known Profit = Cost-Covered Sales − Covered Cost. All Sales includes every
+        priced sale, while the covered figures include only listings with both a sale
+        price and complete recipe ingredient cost when sold.
       </p>
       <div class="sales-chart-wrap">
         <svg
@@ -452,9 +453,9 @@
           role="img"
           aria-labelledby="sales-chart-title sales-chart-description"
         >
-          <title id="sales-chart-title">Daily sales, cost, and profit by date sold</title>
+          <title id="sales-chart-title">Daily all sales, covered cost, and known profit by date sold</title>
           <desc id="sales-chart-description">
-            A multi-line chart of summed sale prices, known recipe costs, and known profits for sold items on each Pacific calendar date.
+            A multi-line chart of all sale prices, covered recipe costs, and known profits for sold items on each Pacific calendar date.
           </desc>
           {% for tick in sales_chart.y_ticks %}
             <line
@@ -510,11 +511,12 @@
           <thead>
             <tr>
               <th data-sort-type="date">Date Sold</th>
-              <th class="numeric" data-sort-type="number">Sales</th>
-              <th class="numeric" data-sort-type="number">Cost at Sale</th>
-              <th class="numeric" data-sort-type="number">Profit at Sale</th>
+              <th class="numeric" data-sort-type="number">All Sales</th>
+              <th class="numeric" data-sort-type="number">Cost-Covered Sales</th>
+              <th class="numeric" data-sort-type="number">Covered Cost</th>
+              <th class="numeric" data-sort-type="number">Known Profit</th>
               <th class="numeric" data-sort-type="number">Items Sold</th>
-              <th class="numeric" data-sort-type="number">Costed Items</th>
+              <th class="numeric" data-sort-type="number">Cost-Covered Items</th>
             </tr>
           </thead>
           <tbody>
@@ -522,6 +524,7 @@
               <tr>
                 <td>{{ day.sold_on.isoformat() }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_price) }}</td>
+                <td class="numeric">{{ "{:,}".format(day.cost_covered_price) if day.cost_covered_price is not none else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_cost) if day.total_cost is not none else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_profit) if day.total_profit is not none else "—" }}</td>
                 <td class="numeric">{{ day.sold_count }}</td>

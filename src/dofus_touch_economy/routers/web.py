@@ -657,9 +657,9 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
 
     series: list[dict[str, object]] = []
     for key, label, attribute, count_attribute in (
-        ("sales", "Sales", "total_price", "sold_count"),
-        ("cost", "Cost", "total_cost", "costed_count"),
-        ("profit", "Profit", "total_profit", "profit_count"),
+        ("sales", "All Sales", "total_price", "sold_count"),
+        ("cost", "Covered Cost", "total_cost", "costed_count"),
+        ("profit", "Known Profit", "total_profit", "profit_count"),
     ):
         points: list[dict[str, object]] = []
         segments: list[str] = []
@@ -698,6 +698,14 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
 
     label_indexes = _chart_label_indexes(len(base_points))
     total_price = sum(point.total_price for point in daily_totals)
+    cost_covered_price = sum(
+        (
+            point.cost_covered_price
+            for point in daily_totals
+            if point.cost_covered_price is not None
+        ),
+        start=0,
+    )
     total_cost = sum(
         (point.total_cost for point in daily_totals if point.total_cost is not None),
         start=Decimal(0),
@@ -732,6 +740,7 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
             for value in range(chart_min, chart_max + 1, tick_step)
         ],
         "total_price_label": f"{total_price:,}",
+        "cost_covered_price_label": ("—" if not costed_count else f"{cost_covered_price:,}"),
         "total_cost_label": "—" if not costed_count else f"{total_cost:,}",
         "total_profit_label": "—" if not profit_count else f"{total_profit:,}",
         "sold_count": sold_count,

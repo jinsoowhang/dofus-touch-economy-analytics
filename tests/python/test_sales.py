@@ -118,6 +118,7 @@ def test_completed_sale_profit_keeps_its_sale_time_recipe_cost(
             (Decimal(3_500), Decimal(1_000)),
         ]
         assert [listing.asking_price for listing in filtered_sold] == [5_000]
+        assert daily_totals[0].cost_covered_price == 9_500
         assert daily_totals[0].total_cost == Decimal(7_000)
         assert daily_totals[0].total_profit == Decimal(2_500)
 
@@ -130,6 +131,50 @@ def test_completed_sale_profit_keeps_its_sale_time_recipe_cost(
         assert reopened.profit == Decimal(-1_000)
         assert stored_reopened is not None
         assert stored_reopened.recipe_cost_at_sale is None
+
+
+def test_daily_totals_separate_all_sales_from_cost_covered_sales(
+    session,
+    catalog_item,
+) -> None:
+    uncosted_item = Item(
+        display_name="Uncosted Cape",
+        normalized_name="uncosted cape",
+        category="Cape",
+        identity_category="cape",
+    )
+    session.add(uncosted_item)
+    session.flush()
+    sold_at = datetime(2026, 8, 23, tzinfo=UTC)
+    session.add_all(
+        [
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=100,
+                selling_started_at=sold_at - timedelta(days=1),
+                date_sold=sold_at,
+                recipe_cost_at_sale=Decimal(80),
+            ),
+            SaleListing(
+                item_id=uncosted_item.id,
+                lot_quantity=1,
+                asking_price=1_000,
+                selling_started_at=sold_at - timedelta(days=1),
+                date_sold=sold_at,
+            ),
+        ]
+    )
+    session.commit()
+
+    daily_total = SalesService(session, "Dodge").daily_totals(UTC)[0]
+
+    assert daily_total.total_price == 1_100
+    assert daily_total.cost_covered_price == 100
+    assert daily_total.total_cost == Decimal(80)
+    assert daily_total.total_profit == Decimal(20)
+    assert daily_total.sold_count == 2
+    assert daily_total.costed_count == 1
 
 
 def test_legacy_completed_sale_reconstructs_cost_only_from_sale_time_history(

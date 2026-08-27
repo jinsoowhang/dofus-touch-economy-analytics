@@ -49,6 +49,7 @@ class SaleListingConflict(RuntimeError):
 class DailySalesTotal:
     sold_on: date
     total_price: int
+    cost_covered_price: int | None
     total_cost: Decimal | None
     total_profit: Decimal | None
     sold_count: int
@@ -131,6 +132,7 @@ class ActivePriceReview:
 @dataclass
 class _DailySalesAccumulator:
     total_price: int = 0
+    cost_covered_price: int = 0
     total_cost: Decimal = Decimal(0)
     total_profit: Decimal = Decimal(0)
     sold_count: int = 0
@@ -485,16 +487,19 @@ class SalesService:
             if listing.asking_price is not None:
                 daily.total_price += listing.asking_price
                 daily.priced_count += 1
-            if listing.recipe_cost is not None:
+            if listing.profit is not None:
+                if listing.asking_price is None or listing.recipe_cost is None:
+                    raise ValueError("known sale profit requires both price and recipe cost")
+                daily.cost_covered_price += listing.asking_price
                 daily.total_cost += listing.recipe_cost
                 daily.costed_count += 1
-            if listing.profit is not None:
                 daily.total_profit += listing.profit
                 daily.profit_count += 1
         return [
             DailySalesTotal(
                 sold_on=sold_on,
                 total_price=values.total_price,
+                cost_covered_price=(None if not values.costed_count else values.cost_covered_price),
                 total_cost=(None if not values.costed_count else values.total_cost),
                 total_profit=(None if not values.profit_count else values.total_profit),
                 sold_count=values.sold_count,

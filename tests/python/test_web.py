@@ -796,9 +796,9 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
 
     assert response.status_code == 200
     assert 'datetime="2026-08-21T19:00:00-07:00"' in response.text
-    assert "Sales on 2026-08-21: 100 across 1 item" in response.text
-    assert "Sales on 2026-08-23: 200 across 1 item" in response.text
-    assert "Daily sales, cost, and profit by date sold" in response.text
+    assert "All Sales on 2026-08-21: 100 across 1 item" in response.text
+    assert "All Sales on 2026-08-23: 200 across 1 item" in response.text
+    assert "Daily all sales, covered cost, and known profit by date sold" in response.text
     assert "Date Sold (Pacific Time)" in response.text
     assert "<strong>300</strong>" in response.text
     assert "<strong>2</strong>" in response.text
@@ -875,15 +875,17 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
         assert f'class="chart-series chart-series--{series}"' in response.text
         assert f'class="chart-point chart-point--{series}"' in response.text
         assert f'data-chart-series="{series}"' in response.text
-    assert "Sales on 2026-08-23: 4,500 across 1 item" in response.text
-    assert "Cost on 2026-08-23: 3,500 across 1 item" in response.text
-    assert "Profit on 2026-08-23: 1,000 across 1 item" in response.text
-    assert "Profit on 2026-08-24: -500 across 1 item" in response.text
-    assert "<span>Total Cost</span><strong>7,000</strong>" in response.text
-    assert "<span>Total Profit</span><strong>500</strong>" in response.text
+    assert "All Sales on 2026-08-23: 4,500 across 1 item" in response.text
+    assert "Covered Cost on 2026-08-23: 3,500 across 1 item" in response.text
+    assert "Known Profit on 2026-08-23: 1,000 across 1 item" in response.text
+    assert "Known Profit on 2026-08-24: -500 across 1 item" in response.text
+    assert "<span>All Sales</span><strong>7,500</strong>" in response.text
+    assert "<span>Cost-Covered Sales</span><strong>7,500</strong>" in response.text
+    assert "<span>Covered Cost</span><strong>7,000</strong>" in response.text
+    assert "<span>Known Profit</span><strong>500</strong>" in response.text
     assert "<span>Cost Coverage</span><strong>2 of 2</strong>" in response.text
-    assert "recipe ingredient cost when it" in response.text
-    assert "was sold" in response.text
+    assert "Known Profit = Cost-Covered Sales − Covered Cost." in response.text
+    assert "All Sales includes every" in response.text
 
     filtered = client.get(
         "/sales",
