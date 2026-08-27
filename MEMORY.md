@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-26
 
 ## Dofus Touch Economy Analytics
 
@@ -97,3 +97,13 @@
   project. ADC remains outside Git and can be revoked separately from dbt Cloud's
   service-account key.
 - The loopback BigQuery Sync page manually runs the fixed content-addressed snapshot loader against configured project `claude-projects-489306`, location `US`, and datasets `dofus_dev` plus `dofus_prod`. A process-local manager rejects overlapping runs and retains the latest capped, timestamped progress log; the browser cannot supply commands, targets, or credentials. Table-level progress never includes source rows. A successful run updates raw snapshots only, so dbt Cloud builds remain separate manual actions.
+- Sales Over Time distinguishes All Sales from Cost-Covered Sales. Covered Cost and
+  Known Profit use exactly the same completed-listing population, so Known Profit =
+  Cost-Covered Sales - Covered Cost. The KPI strip, chart legend, explanatory text,
+  and daily table expose that scope explicitly while retaining cost-coverage counts.
+- Correct accidental duplicate active listings by backing up the operational
+  database and deleting only the duplicate active rows. Do not mark data-entry
+  duplicates as sold because that would corrupt sales history and analytics.
+- The Recipes catalog has an opt-in `not_currently_selling` filter labeled "Show
+  only items not currently selling." It keeps recipe outputs with zero active sale
+  listings and is preserved across recipe sorting, paging, and inline price updates.
