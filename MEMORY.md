@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-29
 
 ## Dofus Touch Economy Analytics
 
@@ -11,11 +11,12 @@
 - Local stack: Python 3.12, uv, FastAPI, Jinja, vendored HTMX, SQLAlchemy, Alembic, SQLite, dbt Core, dbt-duckdb, and DuckDB.
 - Implemented application: a loopback-only FastAPI/Jinja/vendored-HTMX website with versioned JSON endpoints. SQLite owns operational state while DuckDB and dbt remain the downstream analytical layer.
 - Application prices are append-only observations with audit-preserving invalidation. Item Search records total price with implicit quantity one; each new `item_cost.csv` checksum now seeds idempotent, lot-one current-price observations, using the last file occurrence for duplicate identities without creating Sales listings.
-- Hosted dbt models consume the latest fully manifested BigQuery snapshot: nine
-  operational staging models, latest-valid-price and latest-recipe intermediate
-  models, and item, price-observation, Sales, and recipe-ingredient marts. Tests
-  enforce identifiers, relationships, positive amounts, recipe-position uniqueness,
-  and ordered Sales dates.
+- The repository dbt graph consumes the latest fully manifested operational snapshot:
+  nine staging models, four intermediate models, and five marts. Current recipe
+  economics are modeled per crafted item and observed market with explicit ingredient
+  resolution and price coverage; incomplete costs, profit, and ROI remain null.
+  Generic and singular tests enforce identifiers, relationships, amounts, grains,
+  cost arithmetic, completeness rules, and profit and ROI definitions.
 - Raw CSVs, SQLite and DuckDB databases, import reports, secrets, task-observer files, and worktrees stay local and ignored.
 - Canonical local sources: `item_sales.csv`, `item_recipes.csv`, and `item_cost.csv` under `data/raw`.
 - Only synthetic samples may be committed until redistribution rights are established.
@@ -77,9 +78,10 @@
 - The ambiguous `item_sales.csv` still requires deterministic dates and confirmed
   row grain. Hosted Sales analytics instead use normalized application
   `sale_listings`, whose stable IDs and timestamps satisfy the operational contract.
-- Local DuckDB remains the dbt Core profile for parsing and CI. The new operational
-  models require BigQuery raw tables until a local SQLite-to-DuckDB bridge provides
-  equivalent sources.
+- Local DuckDB remains the dbt Core profile and now runs the full model and data-test
+  graph against nine small synthetic operational seeds. The seeds are enabled only
+  for DuckDB, cover two markets plus complete, missing-price, unresolved, and
+  invalidated-price cases, and never substitute for private BigQuery snapshots.
 - Hosted pilot: use a free single-user dbt Developer project with BigQuery while
   retaining dbt Core and DuckDB locally until model parity is demonstrated.
 - Hosted pilot environments use `dofus_dev` and `dofus_prod` base datasets in a
@@ -98,7 +100,8 @@
   development and production BigQuery dbt builds each passed all 96 model and test
   nodes. Both marts datasets contain 11,400 items, 1,138 price observations, 181
   Sales listings, and 18,943 latest-recipe ingredient rows. No scheduled deployment
-  job exists.
+  job exists. Those cloud results predate the local recipe-economics models; no
+  BigQuery publication or hosted build was run for the 2026-08-29 dbt work.
 - Google Cloud CLI 581.0.0 is installed outside the repository under the WSL user
   directory, and user ADC is configured with `claude-projects-489306` as its quota
   project. ADC remains outside Git and can be revoked separately from dbt Cloud's
