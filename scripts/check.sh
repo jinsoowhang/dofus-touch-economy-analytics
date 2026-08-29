@@ -9,5 +9,7 @@ uv run pytest
 uv run python -m compileall -q src
 uv run dbt debug --profiles-dir .
 uv run dbt parse --profiles-dir .
-uv run sqlfluff lint models analyses
+uv run dbt seed --full-refresh --profiles-dir .
+uv run dbt build --exclude resource_type:seed --profiles-dir .
+uv run sqlfluff lint models analyses tests/dbt
 uv run python scripts/check_public_files.py

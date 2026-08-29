@@ -1,0 +1,4 @@
+id,uuid,crafted_item_id,profession,source_record_id,created_at,updated_at,_snapshot_id,_extracted_at
+1,10000000-0000-4000-8000-000000000001,1,Sword Smith,1,2026-01-01T00:00:00+00:00,2026-01-01T00:00:00+00:00,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+2,10000000-0000-4000-8000-000000000002,4,Shield Smith,2,2026-01-01T00:00:00+00:00,2026-01-01T00:00:00+00:00,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+3,10000000-0000-4000-8000-000000000003,6,Jeweller,3,2026-01-01T00:00:00+00:00,2026-01-01T00:00:00+00:00,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00

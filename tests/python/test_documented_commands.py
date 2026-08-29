@@ -40,3 +40,11 @@ def test_full_check_compiles_application_package() -> None:
     check_script = Path("scripts/check.sh").read_text(encoding="utf-8")
 
     assert "uv run python -m compileall -q src" in check_script
+
+
+def test_full_check_builds_dbt_against_synthetic_local_sources() -> None:
+    check_script = Path("scripts/check.sh").read_text(encoding="utf-8")
+
+    assert "uv run dbt seed --full-refresh --profiles-dir ." in check_script
+    assert "uv run dbt build --exclude resource_type:seed --profiles-dir ." in check_script
+    assert "uv run sqlfluff lint models analyses tests/dbt" in check_script

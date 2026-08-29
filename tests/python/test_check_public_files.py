@@ -39,6 +39,7 @@ def test_rejects_private_or_generated_files() -> None:
         "private/local_source.xlsx",
         "data/warehouse/dofus_touch.duckdb",
         "dbt_packages/package/dbt_project.yml",
+        "dbt_internal_packages/package/dbt_project.yml",
         "logs/dbt.log",
         ".user.yml",
         "target/manifest.json",

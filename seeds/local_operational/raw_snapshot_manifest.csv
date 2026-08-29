@@ -1,0 +1,2 @@
+snapshot_id,extracted_at,source_schema_version,total_row_count,table_counts_json
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00,0008,34,"{""import_batches"":1,""items"":6,""price_observations"":9,""recipe_ingredients"":4,""recipes"":3,""sale_listings"":1,""source_item_names"":7,""source_records"":3}"

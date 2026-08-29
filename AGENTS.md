@@ -17,6 +17,7 @@ This repository is a public, reproducible analytics project with a local FastAPI
 - `dbt_project.yml` keeps the dbt project at the repository root.
 - `models/staging/`, `models/intermediate/`, and `models/marts/` define the transformation layers.
 - `analyses/` holds dbt analyses.
+- `seeds/local_operational/` holds synthetic DuckDB-only operational source fixtures.
 - `tests/dbt/` holds singular dbt tests.
 - `tests/python/` holds Python tests.
 - `src/dofus_touch_economy/` contains the FastAPI application, source-contract validation, imports, repositories, services, templates, and vendored assets.
@@ -44,7 +45,9 @@ This repository is a public, reproducible analytics project with a local FastAPI
 - Compile the application package: `uv run python -m compileall -q src`
 - Validate the dbt profile: `DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .`
 - Parse the dbt project: `DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .`
-- Lint SQL: `DO_NOT_TRACK=1 uv run sqlfluff lint models analyses`
+- Load synthetic local dbt sources: `DO_NOT_TRACK=1 uv run dbt seed --full-refresh --profiles-dir .`
+- Build and test local dbt models: `DO_NOT_TRACK=1 uv run dbt build --exclude resource_type:seed --profiles-dir .`
+- Lint SQL: `DO_NOT_TRACK=1 uv run sqlfluff lint models analyses tests/dbt`
 - Enforce public-file policy: `uv run python scripts/check_public_files.py`
 
 ## Conventions
@@ -62,6 +65,8 @@ This repository is a public, reproducible analytics project with a local FastAPI
 - Prefer portable SQL. If DuckDB-specific logic is necessary, isolate it in focused macros or ingestion code.
 - Use generic schema tests for keys and relationships, and singular dbt tests for invariants that need custom assertions.
 - Preserve raw values as observed. Report parsing issues or validation failures explicitly instead of silently repairing them.
+- Keep local operational seeds synthetic and DuckDB-only. Never copy private source or
+  operational rows into tracked fixtures.
 - Keep routers limited to transport concerns; persistence belongs in repositories and commands/calculations belong in services.
 - Treat price observations as append-only lot totals. Invalidate incorrect observations with a reason instead of editing or deleting them.
 - Keep FastAPI writes in SQLite. Do not add request-time DuckDB writes.

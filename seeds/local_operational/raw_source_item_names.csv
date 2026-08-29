@@ -1,0 +1,8 @@
+id,source_record_id,source_field,position,raw_name,normalized_name,item_id,resolution_status,_snapshot_id,_extracted_at
+1,1,crafted_item,0,Synthetic Sword,synthetic sword,1,resolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+2,1,ingredient,1,Synthetic Ore,synthetic ore,2,resolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+3,1,ingredient,2,Synthetic Wood,synthetic wood,3,resolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+4,2,crafted_item,0,Synthetic Shield,synthetic shield,4,resolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+5,2,ingredient,1,Synthetic Fiber,synthetic fiber,5,resolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+6,3,crafted_item,0,Synthetic Amulet,synthetic amulet,6,resolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+7,3,ingredient,1,Mystery Essence,mystery essence,,unresolved,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00

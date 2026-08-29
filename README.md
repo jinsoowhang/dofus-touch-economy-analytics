@@ -9,8 +9,8 @@ The implemented FastAPI website runs locally against SQLite. It imports catalog 
 recipe structure, records append-only market observations and Sales activity, and
 calculates crafting cost, profit, and ROI. An immutable snapshot loader publishes
 normalized operational data to BigQuery, where dbt builds documented and tested
-staging, intermediate, and mart models. DuckDB and dbt Core remain the local parse
-and CI path.
+staging, intermediate, and mart models. DuckDB and dbt Core provide a credential-free
+local and CI build using small synthetic operational fixtures.
 
 The BigQuery and free dbt Developer environments are operational for both development
 and production. Publication is intentionally manual: website changes remain in
@@ -214,6 +214,7 @@ See [docs/data-contract.md](docs/data-contract.md) for exact source and operatio
 - `migrations/`: Alembic operational-database migrations
 - `models/`: dbt staging, intermediate, and marts layers for operational snapshots
 - `analyses/`: dbt analyses and exploratory SQL
+- `seeds/local_operational/`: synthetic DuckDB-only operational source fixtures
 - `tests/dbt/`: dbt singular test SQL
 - `tests/python/`: synthetic application and repository tests
 - `data/raw/`: ignored source exports
@@ -233,7 +234,9 @@ uv run python -m compileall -q src
 uv run dofus-load-bigquery --dry-run
 DO_NOT_TRACK=1 uv run dbt debug --profiles-dir .
 DO_NOT_TRACK=1 uv run dbt parse --profiles-dir .
-DO_NOT_TRACK=1 uv run sqlfluff lint models analyses
+DO_NOT_TRACK=1 uv run dbt seed --full-refresh --profiles-dir .
+DO_NOT_TRACK=1 uv run dbt build --exclude resource_type:seed --profiles-dir .
+DO_NOT_TRACK=1 uv run sqlfluff lint models analyses tests/dbt
 uv run python scripts/check_public_files.py
 ```
 
@@ -245,8 +248,8 @@ See [docs/dbt-cloud-bigquery-setup.md](docs/dbt-cloud-bigquery-setup.md) for the
 BigQuery IAM, dbt connection, GitHub, environment, verification, and cost-control
 steps. See [docs/operational-bigquery-ingestion.md](docs/operational-bigquery-ingestion.md)
 for snapshot loading and sidebar-based verification. Full guarded dbt builds have
-passed in both development and production; local DuckDB checks remain the public,
-credential-free CI path.
+passed in both development and production; local DuckDB builds against synthetic
+operational fixtures remain the public, credential-free CI path.
 
 ## Licensing
 

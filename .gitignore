@@ -16,6 +16,7 @@ htmlcov/
 # dbt and SQLFluff
 target/
 dbt_packages/
+dbt_internal_packages/
 logs/
 .sqlfluffcache
 

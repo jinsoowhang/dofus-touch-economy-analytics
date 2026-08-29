@@ -1,0 +1,5 @@
+id,recipe_id,position,item_id,raw_name,normalized_name,quantity,_snapshot_id,_extracted_at
+1,1,1,2,Synthetic Ore,synthetic ore,3,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+2,1,2,3,Synthetic Wood,synthetic wood,2,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+3,2,1,5,Synthetic Fiber,synthetic fiber,4,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00
+4,3,1,,Mystery Essence,mystery essence,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00

@@ -27,3 +27,8 @@ models:
     marts:
       +materialized: table
       +schema: marts
+
+seeds:
+  dofus_touch_economy_analytics:
+    local_operational:
+      +enabled: "{{ target.type == 'duckdb' }}"

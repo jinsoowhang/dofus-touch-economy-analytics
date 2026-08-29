@@ -1,0 +1,2 @@
+id,uuid,item_id,price_observation_id,lot_quantity,asking_price,selling_started_at,date_sold,recipe_cost_at_sale,_snapshot_id,_extracted_at
+1,30000000-0000-4000-8000-000000000001,1,1,1,1000,2026-01-06T12:00:00+00:00,2026-01-07T12:00:00+00:00,80,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00

@@ -3,8 +3,9 @@ version: 2
 sources:
   - name: operational
     description: >-
-      Private immutable snapshots extracted from the local operational SQLite database.
-      Raw tables are published only when their snapshot has a manifest row.
+      Immutable snapshots extracted from the local operational SQLite database. BigQuery
+      reads private snapshots published only after their manifest row; local DuckDB uses
+      the explicitly synthetic fixtures under seeds/local_operational.
     schema: "{{ target.schema }}"
     tables:
       - name: raw_snapshot_manifest

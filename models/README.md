@@ -13,4 +13,5 @@ Naming conventions:
 - `dim_<entity>`
 - `fct_<process>`
 
-Domain models begin only after the source contracts and full dates are deterministic.
+Only contract-approved operational data with deterministic timestamps may feed domain
+models. Local development uses synthetic fixtures that conform to the same contract.

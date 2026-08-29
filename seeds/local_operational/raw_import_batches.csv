@@ -1,0 +1,2 @@
+id,uuid,dataset,filename,checksum,accepted_count,rejected_count,warning_count,status,started_at,completed_at,_snapshot_id,_extracted_at
+1,40000000-0000-4000-8000-000000000001,synthetic_recipes,synthetic_recipes.csv,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,3,0,1,completed,2026-01-01T00:00:00+00:00,2026-01-01T00:01:00+00:00,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,2026-01-10T00:00:00+00:00

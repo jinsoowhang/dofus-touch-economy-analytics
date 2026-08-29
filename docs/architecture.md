@@ -128,9 +128,10 @@ BigQuery tables reject incompatible or unexpected schema changes. A new nullable
 contract column may be appended in place so existing immutable rows remain valid with
 null values; required additions and type changes still stop publication for review.
 
-DuckDB and dbt Core remain the reproducible local profile and CI parse path during
-the pilot. The operational dbt models require hosted raw tables until an equivalent
-local SQLite-to-DuckDB bridge is implemented.
+DuckDB and dbt Core run the reproducible local and CI build against small synthetic
+relations that implement the operational snapshot contract. The fixtures are enabled
+only for DuckDB; real operational data remains private and reaches dbt only through
+the manifested BigQuery loader.
 
 Transformation SQL should remain portable where practical. DuckDB-specific behavior belongs in focused ingestion code or macros.
 
@@ -147,7 +148,7 @@ Imported cost values and spreadsheet-derived totals, profit, and ROI remain reco
 ## Deferred boundaries
 
 - `item_sales.csv` ingestion until its dates and grain are deterministic;
-- SQLite-to-DuckDB extraction for local execution parity;
+- SQLite-to-DuckDB extraction for local execution against private operational data;
 - public hosting, authentication, authorization, and multi-user behavior;
 - scraping, game-client automation, alerts, and dashboards.
 
@@ -155,7 +156,7 @@ Imported cost values and spreadsheet-derived totals, profit, and ROI remain reco
 
 A dbt Developer and BigQuery pilot executes the dbt project against private,
 contract-approved operational snapshots. Local dbt Core and DuckDB remain the
-canonical reproducible parse path until hosted model parity is demonstrated.
+credential-free contract, transformation, and data-test verification path.
 
 See
 [the setup guide](dbt-cloud-bigquery-setup.md) and

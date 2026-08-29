@@ -11,6 +11,7 @@ FORBIDDEN_PREFIXES = (
     "data/reports/",
     "data/warehouse/",
     "dbt_packages/",
+    "dbt_internal_packages/",
     "logs/",
     "skill-observations/",
     "target/",
