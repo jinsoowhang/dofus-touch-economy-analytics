@@ -96,9 +96,10 @@ price observations immediately. A later import reuses the same normalized
 name/category identity, or enriches a sole uncategorized manual item without changing
 its UUID or price history.
 
-The top navigation contains **Item**, **Sales**, and **BigQuery Sync**. Hovering over
+The top navigation contains **Item**, **Sales**, **Insights**, and **BigQuery Sync**. Hovering over
 or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator**
-submenu. **Sales** opens **Sales Activity**, **Best Sellers**, and **Out of Stock Items**.
+submenu. **Sales** opens **Sales Activity**, **Best Sellers**, **Out of Stock Items**,
+and **Profit Opportunities**.
 The item page lists the full catalog in 100-row alphabetical pages beneath the search
 field, including category, weight, latest unit price, and observation time.
 Typing filters the table by item name. Clicking any row opens item detail, where a new
@@ -121,12 +122,12 @@ it as **Missing price**, **Current price**, or **Stale price** at seven days old
 The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
 Items remain in its browser-local cart until removed, while row checkboxes, **Select
 all**, and **Select none** control which cart items are included in the next calculation.
-It combines shared ingredients into one shopping list with category, total quantity,
-total weight, current unit price, extended cost, price freshness status, price age in
-days, and consuming recipes. Summary cards report complete total weight when every
-weight is known, otherwise the known subtotal remains explicit alongside the
-incomplete state. Price coverage and complete or known-cost totals remain independent
-of weight coverage.
+It builds one shopping-list row per craft and ingredient with category, quantity for
+that craft, quantity across all selected crafts, total weight, current unit price,
+extended cost, price freshness status, price age in days, and consuming recipe.
+Summary cards report complete total weight when every weight is known, otherwise the
+known subtotal remains explicit alongside the incomplete state. Complete or
+known-cost totals remain independent of weight coverage.
 Resolved ingredient unit prices are editable directly in the shopping list; Enter or
 leaving the field appends a price observation, restores the previous scroll position,
 and recalculates every affected total.
@@ -165,6 +166,11 @@ to the Recipe Calculator.
 **Out of Stock Items** lists each item with completed Sales history but no active
 listing, together with its latest sale, current price, recipe cost, estimated profit,
 and an Add-to-Calculator action when a recipe is available.
+**Insights** synthesizes completed and active Sales, current crafting economics, and
+inventory signals into an executive overview, a latest-seven-days versus prior-seven-
+days readout anchored on the latest recorded sale, an action queue, revenue
+concentration, economics confidence, and category performance. Missing historical
+cost coverage remains explicit rather than being treated as zero.
 
 ## Publish analytics updates
 

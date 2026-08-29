@@ -35,6 +35,7 @@ from dofus_touch_economy.services.catalog import (
     ItemSortField,
     SortDirection,
 )
+from dofus_touch_economy.services.insights import InsightsService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
     ObservationConflict,
@@ -1591,6 +1592,26 @@ def best_sellers_page(
         context={
             "active_tab": "best_sellers",
             "report": SalesService(session, settings.market_context).best_sellers(),
+        },
+    )
+
+
+@router.get("/insights", response_class=HTMLResponse)
+def insights_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "insights.html",
+        context={
+            "active_tab": "insights",
+            "report": InsightsService(
+                session,
+                settings.market_context,
+                display_timezone=PACIFIC_TIME,
+            ).report(),
         },
     )
 

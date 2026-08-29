@@ -154,3 +154,36 @@ later learning slice can model item-level sales performance from `fct_sales`.
 - `./scripts/check.sh` was attempted but stopped in its initial Ruff phase on five
   lint errors in unrelated, concurrently added Slack-capture implementation files.
   Those in-progress files were preserved without modification.
+
+## Stakeholder Insights and combined ingredient totals
+
+### Work completed
+
+- Added Insights as a top-level header destination immediately after Sales. The
+  read-only stakeholder report uses existing governed SQLite-backed services and
+  makes no request-time DuckDB, BigQuery, or dbt calls.
+- Added an executive overview for completed sales, recorded revenue, average time to
+  sell, active inventory, listed value, and known historical profit.
+- Added an analyst readout comparing the seven Pacific calendar days ending on the
+  latest recorded sale with the preceding seven days. It also reports repeat demand,
+  revenue concentration, historical cost coverage, and known-profit margin while
+  keeping missing data explicit.
+- Added a current action queue for overdue price reviews, out-of-stock items,
+  profitable recipes, and the highest current ROI, plus a sortable category table
+  weighted by completed listing count.
+- Added All Crafts Total Quantity beside Craft Total Quantity in the Combined
+  Shopping List. Shared canonical ingredients repeat the across-cart requirement on
+  every craft-attributed row, including repeated ingredient slots and unresolved
+  ingredients matched by normalized source name.
+- Removed the Price Coverage summary card without changing the completeness rules
+  that keep incomplete Total Cost explicit.
+
+### Verification
+
+- `uv run pytest -q tests/python/test_web.py` passed: 63 tests.
+- The combined Insights, recipe, and Sales service suites passed: 55 tests.
+- Request-scoped Ruff lint and formatting, package compilation, JavaScript syntax,
+  and whitespace checks passed.
+- `./scripts/check.sh` was attempted but stopped in its initial Ruff phase on eight
+  lint errors in unrelated, concurrently added Slack-capture implementation files.
+  Those in-progress files were preserved without modification.

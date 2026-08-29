@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Insights · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Insights</h1>
+  <p class="page-description">
+    A stakeholder view of sales momentum, demand, inventory, and current crafting
+    economics, with data limitations kept visible.
+  </p>
+
+  {% if report.completed_sale_count %}
+    <p class="insights-report-window">
+      Completed-sales history from {{ report.first_sale_date.isoformat() }} through
+      {{ report.latest_sale_date.isoformat() }}. Trend comparisons anchor on the latest
+      recorded sale date, not today.
+    </p>
+  {% endif %}
+
+  <section aria-labelledby="insights-overview-heading">
+    <h2 id="insights-overview-heading">Executive Overview</h2>
+    <div class="insights-kpi-grid">
+      <div><span>Completed Sales</span><strong>{{ report.completed_sale_count }}</strong></div>
+      <div><span>Recorded Revenue</span><strong>{{ "{:,}".format(report.total_revenue) if report.priced_sale_count else "—" }}</strong></div>
+      <div><span>Average Time to Sell</span><strong>{% if report.average_days_to_sell is not none %}{{ "{:.1f}".format(report.average_days_to_sell) }} days{% else %}—{% endif %}</strong></div>
+      <div><span>Currently Selling</span><strong>{{ report.active_listing_count }}</strong></div>
+      <div><span>Active Listed Value</span><strong>{{ "{:,}".format(report.active_listed_value) if report.active_listing_count else "—" }}</strong></div>
+      <div><span>Known Historical Profit</span><strong>{{ "{:+,}".format(report.total_known_profit) if report.cost_covered_sale_count else "—" }}</strong></div>
+    </div>
+  </section>
+
+  <section class="insights-section" aria-labelledby="analyst-readout-heading">
+    <h2 id="analyst-readout-heading">Analyst Readout</h2>
+    <div class="insights-finding-grid">
+      <article class="insight-finding">
+        <span class="insight-eyebrow">Sales momentum</span>
+        {% if report.latest_period and report.previous_period %}
+          {% if report.previous_period.sold_count == 0 %}
+            <h3>New activity in the latest window</h3>
+          {% elif report.sales_count_change > 0 %}
+            <h3>Sales volume increased {{ "{:.1%}".format(report.sales_count_change) }}</h3>
+          {% elif report.sales_count_change < 0 %}
+            <h3>Sales volume decreased {{ "{:.1%}".format(-report.sales_count_change) }}</h3>
+          {% else %}
+            <h3>Sales volume held steady</h3>
+          {% endif %}
+          <p>
+            {{ report.latest_period.sold_count }} sales and {{ "{:,}".format(report.latest_period.revenue) }} revenue
+            from {{ report.latest_period.started_on.isoformat() }} to {{ report.latest_period.ended_on.isoformat() }},
+            versus {{ report.previous_period.sold_count }} sales and {{ "{:,}".format(report.previous_period.revenue) }} previously.
+            {% if report.revenue_change is not none %}Revenue changed {{ "{:+.1%}".format(report.revenue_change) }}.{% endif %}
+          </p>
+        {% else %}
+          <h3>No completed-sales trend yet</h3>
+          <p>Mark listings sold to establish a recent and prior comparison window.</p>
+        {% endif %}
+      </article>
+
+      <article class="insight-finding">
+        <span class="insight-eyebrow">Demand signal</span>
+        {% if report.top_seller %}
+          <h3><a href="/items/{{ report.top_seller.item_uuid }}">{{ report.top_seller.display_name }}</a> leads {% if report.top_seller.sold_count >= 2 %}repeat{% else %}observed{% endif %} demand</h3>
+          <p>
+            {{ report.top_seller.sold_count }} completed sales totaling
+            {{ "{:,}".format(report.top_seller.total_revenue) }} recorded revenue.
+            {% if report.fastest_repeat_seller %}The fastest repeat seller is
+              <a href="/items/{{ report.fastest_repeat_seller.item_uuid }}">{{ report.fastest_repeat_seller.display_name }}</a>
+              at {{ "{:.1f}".format(report.fastest_repeat_seller.average_days_to_sell) }} average days to sell.
+            {% endif %}
+          </p>
+        {% else %}
+          <h3>Demand is not measurable yet</h3>
+          <p>Completed listings are required before repeat demand can be ranked.</p>
+        {% endif %}
+      </article>
+
+      <article class="insight-finding">
+        <span class="insight-eyebrow">Revenue concentration</span>
+        {% if report.top_revenue_item %}
+          <h3>{{ report.top_revenue_item.display_name }} contributes {{ "{:.1%}".format(report.top_revenue_share) }}</h3>
+          <p>
+            The leading item generated {{ "{:,}".format(report.top_revenue_item.total_revenue) }}
+            of {{ "{:,}".format(report.total_revenue) }} total recorded revenue. A high share means
+            performance depends more heavily on one item.
+          </p>
+        {% else %}
+          <h3>Revenue concentration is unknown</h3>
+          <p>No completed listing has a recorded asking price.</p>
+        {% endif %}
+      </article>
+
+      <article class="insight-finding">
+        <span class="insight-eyebrow">Economics confidence</span>
+        {% if report.cost_coverage is not none %}
+          <h3>{{ "{:.1%}".format(report.cost_coverage) }} of completed sales have cost coverage</h3>
+          <p>
+            Known historical profit is {{ "{:+,}".format(report.total_known_profit) }} across
+            {{ report.cost_covered_sale_count }} sales.
+            {% if report.known_profit_margin is not none %}The known-profit margin on covered revenue is {{ "{:+.1%}".format(report.known_profit_margin) }}.{% endif %}
+            Uncovered sales are excluded rather than treated as zero cost.
+          </p>
+        {% else %}
+          <h3>Historical profit is not measurable yet</h3>
+          <p>Completed sales with recipe-cost snapshots are needed for profit analysis.</p>
+        {% endif %}
+      </article>
+    </div>
+  </section>
+
+  <section class="insights-section" aria-labelledby="action-queue-heading">
+    <h2 id="action-queue-heading">Current Action Queue</h2>
+    <div class="insights-action-grid">
+      <article>
+        <span>Price reviews due</span>
+        <strong>{{ report.price_review_count }}</strong>
+        <p><a href="/sales#currently-selling">Review active listings</a> that have reached the markdown window.</p>
+      </article>
+      <article>
+        <span>Out of stock</span>
+        <strong>{{ report.out_of_stock_count }}</strong>
+        <p><a href="/out-of-stock-items">Review restock candidates</a> with proven completed-sales history.</p>
+      </article>
+      <article>
+        <span>Profitable recipes now</span>
+        <strong>{{ report.profitable_recipe_count }}</strong>
+        {% if report.top_profit_opportunity %}
+          <p>
+            Highest profit per craft:
+            <a href="/items/{{ report.top_profit_opportunity.item_uuid }}#recipe">{{ report.top_profit_opportunity.display_name }}</a>
+            at {{ "{:+,}".format(report.top_profit_opportunity.profit) }}.
+          </p>
+        {% else %}
+          <p>No recipe currently has complete, positive economics.</p>
+        {% endif %}
+      </article>
+      <article>
+        <span>Highest current ROI</span>
+        {% if report.top_roi_opportunity %}
+          <strong>{{ "{:.1%}".format(report.top_roi_opportunity.roi) }}</strong>
+          <p><a href="/items/{{ report.top_roi_opportunity.item_uuid }}#recipe">{{ report.top_roi_opportunity.display_name }}</a> has the strongest complete current return.</p>
+        {% else %}
+          <strong>—</strong>
+          <p>Complete current item and ingredient prices are required.</p>
+        {% endif %}
+      </article>
+    </div>
+  </section>
+
+  <section class="insights-section" aria-labelledby="category-performance-heading">
+    <h2 id="category-performance-heading">Category Performance</h2>
+    {% if report.category_insights %}
+      <p class="table-context">
+        Categories rank by recorded revenue, then completed sales. Average time to sell
+        is weighted by completed listing count.
+      </p>
+      <div class="item-table-wrap">
+        <table class="insights-category-table" data-sortable-table>
+          <thead>
+            <tr>
+              <th data-sort-type="text">Category</th>
+              <th class="numeric" data-sort-type="number">Distinct Items</th>
+              <th class="numeric" data-sort-type="number">Completed Sales</th>
+              <th class="numeric" data-sort-type="number" aria-sort="descending">Recorded Revenue</th>
+              <th class="numeric" data-sort-type="number">Average Days to Sell</th>
+              <th class="numeric" data-sort-type="number">Currently Selling</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for category in report.category_insights %}
+              <tr>
+                <td>{{ category.category }}</td>
+                <td class="numeric">{{ category.item_count }}</td>
+                <td class="numeric">{{ category.sold_count }}</td>
+                <td class="numeric">{{ "{:,}".format(category.revenue) }}</td>
+                <td class="numeric">{{ "{:.1f}".format(category.average_days_to_sell) }}</td>
+                <td class="numeric">{{ category.active_listing_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No completed sales yet. Category performance will appear after listings are marked sold.</p>
+    {% endif %}
+  </section>
+{% endblock %}

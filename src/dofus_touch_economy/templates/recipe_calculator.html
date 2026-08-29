@@ -131,7 +131,6 @@
           <span>Total Cost</span>
           <strong>{% if result.total_cost is not none %}{{ "{:,}".format(result.total_cost) }}{% else %}Incomplete{% endif %}</strong>
         </div>
-        <div><span>Price Coverage</span><strong>{{ result.priced_ingredient_count }} of {{ result.unique_ingredient_count }}</strong></div>
         {% if result.total_cost is none %}<div><span>Known Cost</span><strong>{{ "{:,}".format(result.known_total_cost) }}</strong></div>{% endif %}
         {% if result.total_weight is none %}<div><span>Known Weight</span><strong>{{ "{:,}".format(result.known_total_weight) }} pods</strong></div>{% endif %}
       </div>
@@ -145,7 +144,8 @@
                 <th data-sort-type="text" aria-sort="ascending">Craftable Item</th>
                 <th data-sort-type="text">Ingredient</th>
                 <th data-sort-type="text">Category</th>
-                <th class="numeric" data-sort-type="number">Total Quantity</th>
+                <th class="numeric" data-sort-type="number">Craft Total Quantity</th>
+                <th class="numeric" data-sort-type="number">All Crafts Total Quantity</th>
                 <th class="numeric" data-sort-type="number">Total Weight</th>
                 <th class="numeric" data-sort-type="number">Current Unit Price</th>
                 <th class="numeric" data-sort-type="number">Total Cost</th>
@@ -170,6 +170,7 @@
                   </td>
                   <td>{{ (ingredient.category or "Uncategorized") | title }}</td>
                   <td class="numeric">{{ ingredient.total_quantity }}</td>
+                  <td class="numeric">{{ ingredient.all_crafts_total_quantity }}</td>
                   <td class="numeric">{{ "{:,}".format(ingredient.total_weight) if ingredient.total_weight is not none else "—" }}</td>
                   <td class="numeric">
                     {% if ingredient.item_uuid %}

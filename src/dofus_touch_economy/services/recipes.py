@@ -175,6 +175,7 @@ class RecipeCalculatorIngredient:
     category: str | None
     icon_url: str | None
     total_quantity: int
+    all_crafts_total_quantity: int
     unit_weight: int | None
     total_weight: int | None
     unit_price: Decimal | None
@@ -210,6 +211,7 @@ class _IngredientAccumulator:
     display_name: str
     category: str | None
     icon_url: str | None
+    ingredient_key: tuple[str, object]
     recipe_position: int
     total_quantity: int
     unit_weight: int | None
@@ -733,6 +735,7 @@ class RecipeCalculatorService:
 
         selected_items: list[RecipeCalculatorSelectedItem] = []
         accumulated_ingredients: dict[tuple[UUID, str, object], _IngredientAccumulator] = {}
+        all_crafts_quantities: dict[tuple[str, object], int] = {}
         unique_ingredient_keys: set[tuple[str, object]] = set()
         priced_ingredient_keys: set[tuple[str, object]] = set()
         weighted_ingredient_keys: set[tuple[str, object]] = set()
@@ -801,6 +804,9 @@ class RecipeCalculatorService:
                 if unit_weight is not None:
                     weighted_ingredient_keys.add(ingredient_key)
                 required_quantity = ingredient.quantity * craft_quantity
+                all_crafts_quantities[ingredient_key] = (
+                    all_crafts_quantities.get(ingredient_key, 0) + required_quantity
+                )
                 key = (recipe.crafted_item.uuid, *ingredient_key)
                 existing = accumulated_ingredients.get(key)
                 if existing is None:
@@ -812,6 +818,7 @@ class RecipeCalculatorService:
                         display_name=display_name,
                         category=category,
                         icon_url=icon_url,
+                        ingredient_key=ingredient_key,
                         recipe_position=ingredient.position,
                         total_quantity=required_quantity,
                         unit_weight=unit_weight,
@@ -832,6 +839,7 @@ class RecipeCalculatorService:
                 category=ingredient.category,
                 icon_url=ingredient.icon_url,
                 total_quantity=ingredient.total_quantity,
+                all_crafts_total_quantity=all_crafts_quantities[ingredient.ingredient_key],
                 unit_weight=ingredient.unit_weight,
                 total_weight=(
                     None

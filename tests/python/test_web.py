@@ -33,6 +33,7 @@ def test_main_pages_include_one_line_descriptions(client) -> None:
         "/profit-opportunities": "Discover currently profitable recipes",
         "/best-sellers": "Compare every item with completed Sales history",
         "/out-of-stock-items": "Items appear here after at least one completed sale",
+        "/insights": "A stakeholder view of sales momentum, demand, inventory",
         "/bigquery-sync": "Manually publish one immutable snapshot",
     }
 
@@ -72,6 +73,7 @@ def test_item_search_has_active_item_navigation(client) -> None:
     assert 'aria-current="page"' in response.text
     assert ">Item Search</a>" in response.text
     assert 'href="/sales"' in response.text
+    assert 'href="/insights"' in response.text
     assert 'href="/recipes"' in response.text
 
 
@@ -104,6 +106,44 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert "Sold History" in response.text
     assert "Alpha Item — Hat" in response.text
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
+
+
+def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
+    client,
+    session_factory,
+    catalog_item,
+) -> None:
+    with session_factory() as session:
+        session.add(
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=100,
+                recipe_cost_at_sale=Decimal(80),
+                selling_started_at=datetime(2026, 8, 10, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 11, tzinfo=UTC),
+            )
+        )
+        session.commit()
+
+    response = client.get("/insights")
+
+    assert response.status_code == 200
+    assert "<title>Insights · Dofus Touch Economy</title>" in response.text
+    assert "<h1>Insights</h1>" in response.text
+    assert re.search(r'href="/insights"\s+class="site-tab is-active"', response.text)
+    assert 'aria-current="page"' in response.text
+    assert response.text.index("<span>Sales</span>") < response.text.index(">Insights</a>")
+    assert response.text.index(">Insights</a>") < response.text.index(">BigQuery Sync</a>")
+    assert 'class="page-shell page-shell--wide"' in response.text
+    assert "Executive Overview" in response.text
+    assert "Analyst Readout" in response.text
+    assert "Current Action Queue" in response.text
+    assert "Category Performance" in response.text
+    assert "Known Historical Profit" in response.text
+    assert "+20" in response.text
+    assert "Synthetic Ore</a> leads observed demand" in response.text
+    assert '<table class="insights-category-table" data-sortable-table>' in response.text
 
 
 def test_sales_category_filter_marks_item_options_and_loads_local_script(
@@ -1582,8 +1622,10 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         r"<span>Unique Ingredients</span>\s*<strong>1</strong>",
         response.text,
     )
+    assert "Price Coverage" not in response.text
     assert re.search(
-        r"<span>Price Coverage</span>\s*<strong>1 of 1</strong>",
+        r">Craft Total Quantity</th>\s*"
+        r'<th class="numeric" data-sort-type="number">All Crafts Total Quantity</th>',
         response.text,
     )
     shopping_list = response.text.split(
@@ -1599,14 +1641,14 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert re.search(
         rf'href="/items/{items["alpha sword"].uuid}".*?'
         rf'href="/items/{items["synthetic wood"].uuid}">Synthetic Wood</a>.*?'
-        r'<td class="numeric">4</td>',
+        r'<td class="numeric">4</td>\s*<td class="numeric">19</td>',
         shopping_list,
         re.DOTALL,
     )
     assert re.search(
         rf'href="/items/{items["beta ring"].uuid}".*?'
         rf'href="/items/{items["synthetic wood"].uuid}">Synthetic Wood</a>.*?'
-        r'<td class="numeric">15</td>',
+        r'<td class="numeric">15</td>\s*<td class="numeric">19</td>',
         shopping_list,
         re.DOTALL,
     )

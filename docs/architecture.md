@@ -57,10 +57,10 @@ FastAPI reads and writes SQLite through repositories and services. Routers trans
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
-The shared page layout exposes Item, Sales, and BigQuery Sync as top-level navigation.
+The shared page layout exposes Item, Sales, Insights, and BigQuery Sync as top-level navigation.
 Item opens an accessible hover, click, and keyboard-focus submenu for Item Search,
-Recipes, and Recipe Calculator; Sales uses the same pattern for Sales Activity and
-Out of Stock Items. Item Search renders 100-row pages of alphabetical
+Recipes, and Recipe Calculator; Sales uses the same pattern for Sales Activity, Best
+Sellers, Out of Stock Items, and Profit Opportunities. Item Search renders 100-row pages of alphabetical
 catalog summaries and uses one bulk latest-price query for the active market context.
 Filtering replaces only the table fragment. Item rows link to detail; price changes remain append-only
 observations rather than direct edits. Recipes selects the latest recipe per crafted
@@ -84,9 +84,10 @@ can append quantity-one observations through an inline editor; a successful save
 recalculates the selected recipes without creating Sales listings. User-selected craft
 quantities and calculation selections remain separate browser-local cart state and
 non-authoritative request state. Unchecked items stay in the cart but are omitted from
-the submitted calculation. Shared canonical ingredients are aggregated into one
-shopping-list row. Each row includes catalog category, official pod weight,
-quantity-adjusted total weight, and current-price freshness. The calculator reports a
+the submitted calculation. Each shopping-list row retains its craft attribution,
+while a second quantity reports the canonical ingredient total across every selected
+craft. Each row includes catalog category, official pod weight, quantity-adjusted
+total weight, and current-price freshness. The calculator reports a
 complete total weight only when every ingredient weight is known, and restores the
 previous scroll offset after an inline price edit recalculates the page. Unresolved
 identities and missing prices remain explicit.
@@ -102,6 +103,13 @@ Out of Stock Items is a grouped Sales projection: an item qualifies when it has 
 least one completed listing and zero active listings. It uses the most recent sold
 listing plus bulk current-price and recipe-cost calculations, and exposes craftable
 items through the shared browser-local Recipe Calculator cart without adding listings.
+
+Insights is a read-only operational synthesis over the existing Sales and recipe
+services. It compares the seven calendar days ending on the latest recorded Pacific
+sale date with the preceding seven days, then combines volume, revenue, selling
+velocity, revenue concentration, historical cost coverage, current inventory
+attention, crafting opportunities, and category performance. It does not write data
+or depend on request-time DuckDB, BigQuery, or dbt availability.
 
 BigQuery Sync is a process-local, single-run background controller around the same
 fixed snapshot loader used by the CLI. The loopback web page cannot supply commands
@@ -150,7 +158,7 @@ Imported cost values and spreadsheet-derived totals, profit, and ROI remain reco
 - `item_sales.csv` ingestion until its dates and grain are deterministic;
 - SQLite-to-DuckDB extraction for local execution against private operational data;
 - public hosting, authentication, authorization, and multi-user behavior;
-- scraping, game-client automation, alerts, and dashboards.
+- scraping, game-client automation, alerts, and external BI dashboards.
 
 ## Hosted analytical pilot
 

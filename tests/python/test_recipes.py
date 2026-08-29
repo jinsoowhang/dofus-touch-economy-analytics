@@ -439,6 +439,10 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
     ]
     assert [ingredient.category for ingredient in result.ingredients] == ["Wood", "Wood"]
     assert [ingredient.total_quantity for ingredient in result.ingredients] == [16, 120]
+    assert [ingredient.all_crafts_total_quantity for ingredient in result.ingredients] == [
+        136,
+        136,
+    ]
     assert [ingredient.unit_weight for ingredient in result.ingredients] == [2, 2]
     assert [ingredient.total_weight for ingredient in result.ingredients] == [32, 240]
     assert [ingredient.unit_price for ingredient in result.ingredients] == [10, 10]
