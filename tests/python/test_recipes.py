@@ -48,12 +48,14 @@ def seed_recipe_catalog(session_factory) -> dict[str, Item]:
             normalized_name="alpha sword",
             category="Sword",
             identity_category="sword",
+            icon_source_url="https://example.invalid/alpha.png",
         )
         beta = Item(
             display_name="Beta Ring",
             normalized_name="beta ring",
             category="Ring",
             identity_category="ring",
+            icon_source_url="https://example.invalid/beta.png",
         )
         gamma = Item(
             display_name="Gamma Hat",
@@ -380,7 +382,7 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
     assert shield_report.total_count == 1
 
 
-def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
+def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slots(
     session_factory,
 ) -> None:
     items = seed_recipe_catalog(session_factory)
@@ -405,25 +407,43 @@ def test_recipe_calculator_aggregates_duplicate_ingredients_and_costs(
         "Gamma Hat": None,
     }
     assert [item.display_name for item in result.selected_items] == [
+        "Beta Ring",
+        "Alpha Sword",
+    ]
+    assert [item.category for item in result.selected_items] == ["Ring", "Sword"]
+    assert [item.craft_quantity for item in result.selected_items] == [3, 2]
+    assert [item.recipe_unit_cost for item in result.selected_items] == [400, 80]
+    assert [item.total_recipe_cost for item in result.selected_items] == [1200, 160]
+    assert result.total_crafts == 5
+    assert len(result.ingredients) == 2
+    assert [ingredient.crafted_item_display_name for ingredient in result.ingredients] == [
         "Alpha Sword",
         "Beta Ring",
     ]
-    assert [item.category for item in result.selected_items] == ["Sword", "Ring"]
-    assert [item.craft_quantity for item in result.selected_items] == [2, 3]
-    assert [item.recipe_unit_cost for item in result.selected_items] == [80, 400]
-    assert [item.total_recipe_cost for item in result.selected_items] == [160, 1200]
-    assert result.total_crafts == 5
-    assert len(result.ingredients) == 1
-    assert result.ingredients[0].display_name == "Synthetic Wood"
-    assert result.ingredients[0].category == "Wood"
-    assert result.ingredients[0].total_quantity == 136
-    assert result.ingredients[0].unit_weight == 2
-    assert result.ingredients[0].total_weight == 272
-    assert result.ingredients[0].unit_price == 10
-    assert result.ingredients[0].total_cost == 1360
-    assert result.ingredients[0].price_age_days == 0
-    assert result.ingredients[0].price_status == "Current price"
-    assert result.ingredients[0].used_by == ("Alpha Sword", "Beta Ring")
+    assert [ingredient.crafted_item_uuid for ingredient in result.ingredients] == [
+        items["alpha"].uuid,
+        items["beta"].uuid,
+    ]
+    assert [ingredient.crafted_item_icon_url for ingredient in result.ingredients] == [
+        f"/item-icons/{items['alpha'].uuid}.png",
+        f"/item-icons/{items['beta'].uuid}.png",
+    ]
+    assert [ingredient.display_name for ingredient in result.ingredients] == [
+        "Synthetic Wood",
+        "Synthetic Wood",
+    ]
+    assert [ingredient.category for ingredient in result.ingredients] == ["Wood", "Wood"]
+    assert [ingredient.total_quantity for ingredient in result.ingredients] == [16, 120]
+    assert [ingredient.unit_weight for ingredient in result.ingredients] == [2, 2]
+    assert [ingredient.total_weight for ingredient in result.ingredients] == [32, 240]
+    assert [ingredient.unit_price for ingredient in result.ingredients] == [10, 10]
+    assert [ingredient.total_cost for ingredient in result.ingredients] == [160, 1200]
+    assert [ingredient.price_age_days for ingredient in result.ingredients] == [0, 0]
+    assert [ingredient.price_status for ingredient in result.ingredients] == [
+        "Current price",
+        "Current price",
+    ]
+    assert result.unique_ingredient_count == 1
     assert result.priced_ingredient_count == 1
     assert result.known_total_cost == 1360
     assert result.total_cost == 1360

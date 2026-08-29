@@ -30,7 +30,7 @@ const recipeCalculatorPendingSalesStorageKey =
   "dofus-recipe-calculator-pending-sales-v1";
 const recipeCalculatorScrollStorageKey = "dofus-recipe-calculator-scroll-position";
 const recipeCalculatorShoppingListSortStorageKey =
-  "dofus-recipe-calculator-shopping-list-sort";
+  "dofus-recipe-calculator-shopping-list-sort-v2";
 const calculatorKamaFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 20,
 });

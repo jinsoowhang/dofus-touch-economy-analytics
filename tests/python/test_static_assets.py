@@ -57,7 +57,7 @@ def test_recipe_calculator_preserves_shopping_list_sort_during_price_reload() ->
         .read_text(encoding="utf-8")
     )
 
-    assert '"dofus-recipe-calculator-shopping-list-sort"' in script
+    assert '"dofus-recipe-calculator-shopping-list-sort-v2"' in script
     assert 'document.querySelector(".calculator-shopping-list-table")' in script
     assert 'header.getAttribute("aria-sort")' in script
     assert "saveRecipeCalculatorShoppingListSort();" in script

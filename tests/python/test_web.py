@@ -1389,6 +1389,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     with session_factory() as session:
         items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
         items["synthetic wood"].weight = 2
+        items["alpha sword"].icon_source_url = "https://example.invalid/alpha.png"
+        items["beta ring"].icon_source_url = "https://example.invalid/beta.png"
         session.commit()
         price_service = PriceService(session, "Dodge")
         for item_name, total_price in (("alpha sword", 100), ("beta ring", 80)):
@@ -1522,7 +1524,12 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Total Crafts" not in response.text
     assert "Unit Weight" not in response.text
     assert re.search(
-        r">Status</th>\s*<th[^>]*>Last Updated \(Days\)</th>\s*<th[^>]*>Used By</th>",
+        r'<th data-sort-type="text" aria-sort="ascending">Craftable Item</th>\s*'
+        r'<th data-sort-type="text">Ingredient</th>',
+        response.text,
+    )
+    assert re.search(
+        r">Status</th>\s*<th[^>]*>Last Updated \(Days\)</th>",
         response.text,
     )
     assert re.search(r'>Current price</td>\s*<td class="numeric">0</td>', response.text)
@@ -1533,9 +1540,53 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         in (response.text)
     )
     assert "Synthetic Wood" in response.text
-    assert re.search(r"Total Quantity</th>.*?>19</td>", response.text, re.DOTALL)
     assert "190" in response.text
-    assert "Alpha Sword, Beta Ring" in response.text
+    assert re.search(
+        r"<span>Unique Ingredients</span>\s*<strong>1</strong>",
+        response.text,
+    )
+    assert re.search(
+        r"<span>Price Coverage</span>\s*<strong>1 of 1</strong>",
+        response.text,
+    )
+    shopping_list = response.text.split(
+        'class="calculator-results-table calculator-shopping-list-table"',
+        maxsplit=1,
+    )[1].split("</table>", maxsplit=1)[0]
+    assert shopping_list.index("Alpha Sword") < shopping_list.index("Beta Ring")
+    assert "Alpha Sword, Beta Ring" not in shopping_list
+    assert f'href="/items/{items["alpha sword"].uuid}"' in shopping_list
+    assert f'src="/item-icons/{items["alpha sword"].uuid}.png"' in shopping_list
+    assert f'href="/items/{items["beta ring"].uuid}"' in shopping_list
+    assert f'src="/item-icons/{items["beta ring"].uuid}.png"' in shopping_list
+    assert re.search(
+        rf'href="/items/{items["alpha sword"].uuid}".*?'
+        rf'href="/items/{items["synthetic wood"].uuid}">Synthetic Wood</a>.*?'
+        r'<td class="numeric">4</td>',
+        shopping_list,
+        re.DOTALL,
+    )
+    assert re.search(
+        rf'href="/items/{items["beta ring"].uuid}".*?'
+        rf'href="/items/{items["synthetic wood"].uuid}">Synthetic Wood</a>.*?'
+        r'<td class="numeric">15</td>',
+        shopping_list,
+        re.DOTALL,
+    )
+    assert (
+        shopping_list.count(
+            f'action="/recipe-calculator/ingredients/{items["synthetic wood"].uuid}/price"'
+        )
+        == 2
+    )
+    assert (
+        f'id="calculator-ingredient-price-{items["alpha sword"].uuid}-'
+        f'{items["synthetic wood"].uuid}"' in shopping_list
+    )
+    assert (
+        f'id="calculator-ingredient-price-{items["beta ring"].uuid}-'
+        f'{items["synthetic wood"].uuid}"' in shopping_list
+    )
     assert "5" in response.text
     assert 'id="recipe-calculator-form"' in response.text
     assert response.text.count('class="calculator-item-checkbox"') == 2
@@ -1575,7 +1626,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Sale Price Each" in response.text
     assert "Total Estimated Profit" in response.text
     assert re.search(
-        r">Profession</th>\s*<th[^>]*>Category</th>\s*<th[^>]*>Level</th>",
+        r'<th data-sort-type="text">Craftable Item</th>\s*'
+        r'<th data-sort-type="text" aria-sort="ascending">Profession</th>',
         response.text,
     )
     assert re.search(
@@ -1667,7 +1719,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
 
     assert recalculated.status_code == 200
     assert "Ingredient price updated and shopping list recalculated." in recalculated.text
-    assert re.search(r"Total Quantity</th>.*?>19</td>", recalculated.text, re.DOTALL)
+    assert re.search(r'<td class="numeric">4</td>', recalculated.text)
+    assert re.search(r'<td class="numeric">15</td>', recalculated.text)
     assert "<strong>475</strong>" in recalculated.text
     assert 'value="25"' in recalculated.text
     assert "Current price" in recalculated.text

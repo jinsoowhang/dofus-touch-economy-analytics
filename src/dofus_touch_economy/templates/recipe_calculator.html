@@ -120,7 +120,7 @@
       <h2 id="calculator-results-heading">Combined Shopping List</h2>
       <div class="calculator-summary">
         <div><span>Selected Items</span><strong>{{ result.selected_items | length }}</strong></div>
-        <div><span>Unique Ingredients</span><strong>{{ result.ingredients | length }}</strong></div>
+        <div><span>Unique Ingredients</span><strong>{{ result.unique_ingredient_count }}</strong></div>
         <div>
           <span>Total Weight</span>
           <strong>{% if result.total_weight is not none %}{{ "{:,}".format(result.total_weight) }} pods{% else %}Incomplete{% endif %}</strong>
@@ -129,7 +129,7 @@
           <span>Total Cost</span>
           <strong>{% if result.total_cost is not none %}{{ "{:,}".format(result.total_cost) }}{% else %}Incomplete{% endif %}</strong>
         </div>
-        <div><span>Price Coverage</span><strong>{{ result.priced_ingredient_count }} of {{ result.ingredients | length }}</strong></div>
+        <div><span>Price Coverage</span><strong>{{ result.priced_ingredient_count }} of {{ result.unique_ingredient_count }}</strong></div>
         {% if result.total_cost is none %}<div><span>Known Cost</span><strong>{{ "{:,}".format(result.known_total_cost) }}</strong></div>{% endif %}
         {% if result.total_weight is none %}<div><span>Known Weight</span><strong>{{ "{:,}".format(result.known_total_weight) }} pods</strong></div>{% endif %}
       </div>
@@ -140,6 +140,7 @@
           <table class="calculator-results-table calculator-shopping-list-table" data-sortable-table>
             <thead>
               <tr>
+                <th data-sort-type="text" aria-sort="ascending">Craftable Item</th>
                 <th data-sort-type="text">Ingredient</th>
                 <th data-sort-type="text">Category</th>
                 <th class="numeric" data-sort-type="number">Total Quantity</th>
@@ -148,12 +149,17 @@
                 <th class="numeric" data-sort-type="number">Total Cost</th>
                 <th data-sort-type="number">Status</th>
                 <th class="numeric" data-sort-type="number">Last Updated (Days)</th>
-                <th data-sort-type="text">Used By</th>
               </tr>
             </thead>
             <tbody>
               {% for ingredient in result.ingredients %}
                 <tr>
+                  <td>
+                    <a class="item-label" href="/items/{{ ingredient.crafted_item_uuid }}">
+                      {% if ingredient.crafted_item_icon_url %}<img class="item-icon" src="{{ ingredient.crafted_item_icon_url }}" alt="" loading="lazy">{% endif %}
+                      <span>{{ ingredient.crafted_item_display_name }}</span>
+                    </a>
+                  </td>
                   <td>
                     <span class="item-label">
                       {% if ingredient.icon_url %}<img class="item-icon" src="{{ ingredient.icon_url }}" alt="" loading="lazy">{% endif %}
@@ -171,11 +177,11 @@
                         class="price-edit-form calculator-ingredient-price-form"
                         data-item-uuid="{{ ingredient.item_uuid }}"
                       >
-                        <label class="visually-hidden" for="calculator-ingredient-price-{{ ingredient.item_uuid }}">
+                        <label class="visually-hidden" for="calculator-ingredient-price-{{ ingredient.crafted_item_uuid }}-{{ ingredient.item_uuid }}">
                           Current Unit Price for {{ ingredient.display_name }}
                         </label>
                         <input
-                          id="calculator-ingredient-price-{{ ingredient.item_uuid }}"
+                          id="calculator-ingredient-price-{{ ingredient.crafted_item_uuid }}-{{ ingredient.item_uuid }}"
                           name="unit_price"
                           inputmode="numeric"
                           value="{{ '{:,}'.format(ingredient.unit_price) if ingredient.unit_price is not none else '' }}"
@@ -196,7 +202,6 @@
                     data-sort-value="{{ 0 if ingredient.price_status == 'Missing price' else (1 if ingredient.price_status == 'Stale price' else 2) }}"
                   >{{ ingredient.price_status }}</td>
                   <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
-                  <td>{{ ingredient.used_by | join(", ") }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -258,7 +263,7 @@
                     >
                   </th>
                   <th data-sort-type="text">Craftable Item</th>
-                  <th data-sort-type="text">Profession</th>
+                  <th data-sort-type="text" aria-sort="ascending">Profession</th>
                   <th data-sort-type="text">Category</th>
                   <th class="numeric" data-sort-type="number">Level</th>
                   <th class="numeric" data-sort-type="number">Quantity</th>
