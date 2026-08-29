@@ -625,7 +625,7 @@ button {
   padding: 0.8rem;
 }
 
-.recipe-quantity-preview > div {
+.recipe-quantity-field {
   display: grid;
   gap: 0.3rem;
 }
@@ -647,6 +647,11 @@ button {
 
 .recipe-quantity-preview small {
   flex-basis: 100%;
+}
+
+.recipe-item-actions {
+  margin-inline-start: auto;
+  padding-block-end: 0;
 }
 
 .recipe-cart-action {

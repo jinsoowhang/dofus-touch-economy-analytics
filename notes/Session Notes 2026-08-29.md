@@ -187,3 +187,27 @@ later learning slice can model item-level sales performance from `fct_sales`.
 - `./scripts/check.sh` was attempted but stopped in its initial Ruff phase on eight
   lint errors in unrelated, concurrently added Slack-capture implementation files.
   Those in-progress files were preserved without modification.
+
+## Compact item recipe controls and quantity continuity
+
+### Implementation
+
+- Consolidated Craft Quantity, the total-cost preview, calculator cart status/action,
+  and Open Recipe Calculator into one responsive horizontal control bar on item
+  detail. The existing help text remains below the controls, and narrow screens may
+  wrap rather than overflow.
+- Added one-use, item-keyed session state for Craft Quantity around recipe ingredient
+  price submissions. The redirected page restores the quantity before recalculating
+  ingredient quantities and costs, then removes the transient value; the preview
+  remains non-authoritative and resets after the user leaves the item workflow.
+- Extended the item recipe web test to cover the consolidated control structure and
+  the save/restore browser-state hooks.
+
+### Verification
+
+- `uv run pytest -q tests/python/test_web.py`: 63 passed.
+- JavaScript syntax, scoped Python lint and formatting, package compilation,
+  whitespace, and public-file-policy checks passed.
+- `./scripts/check.sh` was attempted and stopped at Ruff on eight unrelated errors in
+  the concurrently added Slack-capture implementation and tests. Those files were
+  preserved without modification.

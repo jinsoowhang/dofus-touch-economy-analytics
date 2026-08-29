@@ -2344,6 +2344,13 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert 'id="recipe-craft-quantity"' in response.text
     assert 'min="1"' in response.text
     assert 'max="1000"' in response.text
+    assert 'class="recipe-quantity-preview item-recipe-controls"' in response.text
+    assert response.text.index('id="recipe-craft-quantity"') < response.text.index(
+        'class="recipe-cart-toolbar recipe-item-actions"'
+    )
+    assert response.text.index(
+        'class="recipe-cart-toolbar recipe-item-actions"'
+    ) < response.text.index('id="recipe-open-calculator"')
     assert 'id="recipe-total-cost-preview"' in response.text
     assert 'data-unit-recipe-cost="3500"' in response.text
     assert 'data-unit-quantity="2"' in response.text
@@ -2356,6 +2363,9 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert "unitQuantity * craftQuantity" in recipe_script.text
     assert "Number(unitTotalCost) * craftQuantity" in recipe_script.text
     assert "Number(unitRecipeCost) * craftQuantity" in recipe_script.text
+    assert 'document.querySelectorAll(".recipe-price-edit-form")' in recipe_script.text
+    assert "window.sessionStorage.setItem(quantityStorageKey" in recipe_script.text
+    assert "window.sessionStorage.removeItem(quantityStorageKey)" in recipe_script.text
     assert f'data-item-uuid="{items["synthetic widget"].uuid}"' in response.text
     assert 'data-add-label="Add to Recipe Calculator"' in response.text
     assert ">Add to Recipe Calculator</button>" in response.text

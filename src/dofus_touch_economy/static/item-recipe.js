@@ -7,8 +7,20 @@ if (recipeCraftQuantity && recipeTotalCostPreview) {
   const kamaFormatter = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 20,
   });
+  const quantityStorageKey =
+    `dofus-item-recipe-craft-quantity-v1:${recipeCraftQuantity.dataset.itemUuid}`;
   const quantityCells = document.querySelectorAll(".recipe-scaled-quantity");
   const totalCostCells = document.querySelectorAll(".recipe-scaled-total-cost");
+
+  try {
+    const storedQuantity = Number(window.sessionStorage.getItem(quantityStorageKey));
+    window.sessionStorage.removeItem(quantityStorageKey);
+    if (Number.isInteger(storedQuantity) && storedQuantity >= 1 && storedQuantity <= 1000) {
+      recipeCraftQuantity.value = String(storedQuantity);
+    }
+  } catch {
+    // The preview still works when transient browser storage is unavailable.
+  }
 
   const updateRecipeQuantityPreview = () => {
     const craftQuantity = Number(recipeCraftQuantity.value);
@@ -46,6 +58,20 @@ if (recipeCraftQuantity && recipeTotalCostPreview) {
         `${kamaFormatter.format(Number(unitRecipeCost) * craftQuantity)} kama`;
     }
   };
+
+  for (const form of document.querySelectorAll(".recipe-price-edit-form")) {
+    form.addEventListener("submit", () => {
+      const craftQuantity = Number(recipeCraftQuantity.value);
+      if (!Number.isInteger(craftQuantity) || craftQuantity < 1 || craftQuantity > 1000) {
+        return;
+      }
+      try {
+        window.sessionStorage.setItem(quantityStorageKey, String(craftQuantity));
+      } catch {
+        // Saving the ingredient price does not depend on browser storage.
+      }
+    });
+  }
 
   recipeCraftQuantity.addEventListener("input", updateRecipeQuantityPreview);
   updateRecipeQuantityPreview();

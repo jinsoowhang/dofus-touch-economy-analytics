@@ -41,19 +41,8 @@
           Standard profession requirement based on this recipe's
           {{ detail.recipe.ingredients | length }} ingredient {{ "slot" if detail.recipe.ingredients | length == 1 else "slots" }}.
         </p>
-        <div class="recipe-cart-toolbar">
-          <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
-          <button
-            type="button"
-            class="recipe-cart-add secondary-button"
-            data-item-uuid="{{ detail.uuid }}"
-            data-add-label="Add to Recipe Calculator"
-            aria-label="Add {{ detail.display_name }} to Recipe Calculator"
-          >Add to Recipe Calculator</button>
-          <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
-        </div>
-        <div class="recipe-quantity-preview">
-          <div>
+        <div class="recipe-quantity-preview item-recipe-controls">
+          <div class="recipe-quantity-field">
             <label for="recipe-craft-quantity">Craft Quantity</label>
             <input
               id="recipe-craft-quantity"
@@ -62,6 +51,7 @@
               min="1"
               max="1000"
               value="1"
+              data-item-uuid="{{ detail.uuid }}"
               aria-describedby="recipe-quantity-help"
               required
             >
@@ -77,6 +67,17 @@
               >{% if detail.metrics.recipe_cost is not none %}{{ "{:,}".format(detail.metrics.recipe_cost) }} kama{% else %}Incomplete{% endif %}</output>
             </strong>
           </p>
+          <div class="recipe-cart-toolbar recipe-item-actions">
+            <span id="recipe-cart-count" aria-live="polite">0 items in calculator</span>
+            <button
+              type="button"
+              class="recipe-cart-add secondary-button"
+              data-item-uuid="{{ detail.uuid }}"
+              data-add-label="Add to Recipe Calculator"
+              aria-label="Add {{ detail.display_name }} to Recipe Calculator"
+            >Add to Recipe Calculator</button>
+            <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+          </div>
           <small id="recipe-quantity-help">Preview only; this does not change the saved recipe.</small>
         </div>
         {% if recipe_errors %}
