@@ -977,6 +977,7 @@ def _recipe_calculator_context(
                 "icon_url": choice.icon_url,
                 "profession": choice.profession,
                 "profession_level": choice.profession_level,
+                "recipe_cost": (None if choice.recipe_cost is None else str(choice.recipe_cost)),
             }
             for choice in available_choices
         ],
@@ -1895,6 +1896,7 @@ async def update_sale_price(
             sort_state,
             "listing-price-updated",
             filter_state=filter_state,
+            anchor="currently-selling",
         ),
         status_code=303,
     )

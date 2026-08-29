@@ -52,6 +52,33 @@
           >Add to Recipe Calculator</button>
           <a id="recipe-open-calculator" class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
         </div>
+        <div class="recipe-quantity-preview">
+          <div>
+            <label for="recipe-craft-quantity">Craft Quantity</label>
+            <input
+              id="recipe-craft-quantity"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max="1000"
+              value="1"
+              aria-describedby="recipe-quantity-help"
+              required
+            >
+          </div>
+          <p>
+            <span>Total Recipe Cost</span>
+            <strong>
+              <output
+                id="recipe-total-cost-preview"
+                for="recipe-craft-quantity"
+                data-unit-recipe-cost="{{ detail.metrics.recipe_cost if detail.metrics.recipe_cost is not none else '' }}"
+                aria-live="polite"
+              >{% if detail.metrics.recipe_cost is not none %}{{ "{:,}".format(detail.metrics.recipe_cost) }} kama{% else %}Incomplete{% endif %}</output>
+            </strong>
+          </p>
+          <small id="recipe-quantity-help">Preview only; this does not change the saved recipe.</small>
+        </div>
         {% if recipe_errors %}
           <div role="alert">
             <p>Could not save the ingredient price:</p>
@@ -85,7 +112,11 @@
                   {% endif %}
                 </span>
               </td>
-              <td class="numeric">{{ ingredient.quantity }}</td>
+              <td
+                class="numeric recipe-scaled-quantity"
+                data-unit-quantity="{{ ingredient.quantity }}"
+                data-sort-value="{{ ingredient.quantity }}"
+              ><output for="recipe-craft-quantity">{{ ingredient.quantity }}</output></td>
               <td class="numeric">
                 {% if ingredient.item_uuid %}
                   {% set is_edited_ingredient = recipe_form_values.get('ingredient_uuid') == ingredient.item_uuid|string %}
@@ -113,9 +144,11 @@
                   —
                 {% endif %}
               </td>
-              <td class="numeric">
-                {% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}
-              </td>
+              <td
+                class="numeric recipe-scaled-total-cost"
+                data-unit-total-cost="{{ ingredient.extended_cost if ingredient.extended_cost is not none else '' }}"
+                data-sort-value="{{ ingredient.extended_cost if ingredient.extended_cost is not none else '' }}"
+              ><output for="recipe-craft-quantity">{% if ingredient.extended_cost is not none %}{{ "{:,}".format(ingredient.extended_cost) }}{% else %}—{% endif %}</output></td>
               <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>
               <td
                 class="status"
@@ -134,4 +167,5 @@
 {% block scripts %}
   <script src="/static/sales.js" defer></script>
   <script src="/static/recipe-cart.js" defer></script>
+  <script src="/static/item-recipe.js" defer></script>
 {% endblock %}

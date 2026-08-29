@@ -435,6 +435,14 @@ if (
     row.append(
       createCell(choice.profession_level === null ? "—" : String(choice.profession_level), "numeric"),
     );
+    row.append(
+      createCell(
+        choice.recipe_cost === null
+          ? "—"
+          : calculatorKamaFormatter.format(Number(choice.recipe_cost)),
+        "numeric",
+      ),
+    );
 
     const quantityCell = document.createElement("td");
     quantityCell.className = "numeric";

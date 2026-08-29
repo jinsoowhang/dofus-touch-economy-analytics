@@ -406,6 +406,11 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
         "Beta Ring": 30,
         "Gamma Hat": None,
     }
+    assert {choice.display_name: choice.recipe_cost for choice in choices} == {
+        "Alpha Sword": 80,
+        "Beta Ring": 400,
+        "Gamma Hat": 0,
+    }
     assert [item.display_name for item in result.selected_items] == [
         "Beta Ring",
         "Alpha Sword",
@@ -450,6 +455,50 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
     assert result.weighted_ingredient_count == 1
     assert result.known_total_weight == 272
     assert result.total_weight == 272
+
+
+def test_recipe_calculator_keeps_ingredients_in_source_order_within_each_craft(
+    session_factory,
+) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        recipe = session.scalar(
+            select(Recipe).join(Recipe.crafted_item).where(Item.uuid == items["alpha"].uuid)
+        )
+        assert recipe is not None
+        ore = Item(
+            display_name="Aardvark Ore",
+            normalized_name="aardvark ore",
+            category="Ore",
+            identity_category="ore",
+        )
+        session.add(ore)
+        session.flush()
+        recipe.ingredients.append(
+            RecipeIngredient(
+                position=5,
+                item=ore,
+                raw_name=ore.display_name,
+                normalized_name=ore.normalized_name,
+                quantity=1,
+            )
+        )
+        session.commit()
+        PriceService(session, "Dodge").record(
+            ore.uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=7,
+                observed_at=datetime(2026, 8, 22, tzinfo=UTC),
+            ),
+        )
+
+        result = RecipeCalculatorService(session, "Dodge").calculate({items["alpha"].uuid: 1})
+
+    assert [ingredient.display_name for ingredient in result.ingredients] == [
+        "Synthetic Wood",
+        "Aardvark Ore",
+    ]
 
 
 def test_recipe_calculator_suggests_unselected_crafts_by_ingredient_overlap(

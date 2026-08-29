@@ -259,11 +259,10 @@ for (const form of document.querySelectorAll("form[data-preserve-scroll]")) {
   });
 }
 
-window.addEventListener("load", () => {
+window.addEventListener("pageshow", () => {
   let savedScrollPosition = null;
   try {
     savedScrollPosition = window.sessionStorage.getItem(salesScrollStorageKey);
-    window.sessionStorage.removeItem(salesScrollStorageKey);
   } catch {
     return;
   }
@@ -272,7 +271,22 @@ window.addEventListener("load", () => {
   }
   const scrollPosition = Number(savedScrollPosition);
   if (Number.isFinite(scrollPosition) && scrollPosition >= 0) {
-    window.requestAnimationFrame(() => window.scrollTo(0, scrollPosition));
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPosition);
+        try {
+          window.sessionStorage.removeItem(salesScrollStorageKey);
+        } catch {
+          // The restored position is already applied.
+        }
+      });
+    });
+  } else {
+    try {
+      window.sessionStorage.removeItem(salesScrollStorageKey);
+    } catch {
+      // Ignore unavailable browser storage.
+    }
   }
 });
 

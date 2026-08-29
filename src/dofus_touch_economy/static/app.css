@@ -613,6 +613,42 @@ button {
   text-decoration: none;
 }
 
+.recipe-quantity-preview {
+  align-items: end;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-block-end: 1rem;
+  padding: 0.8rem;
+}
+
+.recipe-quantity-preview > div {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.recipe-quantity-preview input {
+  max-width: 8rem;
+}
+
+.recipe-quantity-preview p {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+}
+
+.recipe-quantity-preview p span,
+.recipe-quantity-preview small {
+  color: var(--muted);
+}
+
+.recipe-quantity-preview small {
+  flex-basis: 100%;
+}
+
 .recipe-cart-action {
   padding: 0.45rem 0.75rem !important;
   text-align: center;
@@ -1273,7 +1309,7 @@ th.numeric .client-sort-header {
 }
 
 .calculator-selected-table {
-  min-width: 56rem;
+  min-width: 64rem;
 }
 
 .calculator-shopping-list-table {

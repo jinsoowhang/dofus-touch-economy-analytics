@@ -132,6 +132,7 @@ class RecipeCalculatorChoice:
     icon_url: str | None
     profession: str
     profession_level: int | None
+    recipe_cost: Decimal | None
     sale_price: int | None
 
 
@@ -209,6 +210,7 @@ class _IngredientAccumulator:
     display_name: str
     category: str | None
     icon_url: str | None
+    recipe_position: int
     total_quantity: int
     unit_weight: int | None
     unit_price: Decimal | None
@@ -532,9 +534,16 @@ class RecipeCalculatorService:
 
     def choices(self) -> list[RecipeCalculatorChoice]:
         recipes = _latest_recipe_catalog(self._session)
-        current_prices = self._prices.current_for_items(
-            [recipe.crafted_item_id for recipe in recipes]
-        )
+        item_ids = {
+            item_id
+            for recipe in recipes
+            for item_id in (
+                recipe.crafted_item_id,
+                *(ingredient[0] for ingredient in recipe.ingredients),
+            )
+            if item_id is not None
+        }
+        current_prices = self._prices.current_for_items(list(item_ids))
         return sorted(
             (
                 RecipeCalculatorChoice(
@@ -548,6 +557,20 @@ class RecipeCalculatorService:
                     ),
                     profession=recipe.profession,
                     profession_level=required_profession_level(len(recipe.ingredients)),
+                    recipe_cost=calculate_recipe_metrics(
+                        None,
+                        [
+                            IngredientPrice(
+                                quantity=quantity,
+                                unit_price=(
+                                    None
+                                    if item_id is None or item_id not in current_prices
+                                    else current_prices[item_id].unit_price
+                                ),
+                            )
+                            for item_id, _normalized_name, quantity in recipe.ingredients
+                        ],
+                    ).recipe_cost,
                     sale_price=(
                         None
                         if (
@@ -789,6 +812,7 @@ class RecipeCalculatorService:
                         display_name=display_name,
                         category=category,
                         icon_url=icon_url,
+                        recipe_position=ingredient.position,
                         total_quantity=required_quantity,
                         unit_weight=unit_weight,
                         unit_price=unit_price,
@@ -827,6 +851,7 @@ class RecipeCalculatorService:
                 accumulated_ingredients.values(),
                 key=lambda ingredient: (
                     ingredient.crafted_item_display_name.casefold(),
+                    ingredient.recipe_position,
                     ingredient.display_name.casefold(),
                 ),
             )

@@ -147,6 +147,8 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert 'activeSalesSelectAll.addEventListener("change"' in script.text
     assert "window.sessionStorage.setItem(salesScrollStorageKey" in script.text
+    assert 'window.addEventListener("pageshow"' in script.text
+    assert script.text.count("window.requestAnimationFrame(() =>") >= 2
     assert "window.scrollTo(0, scrollPosition)" in script.text
     assert "Delete the selected sales rows? This cannot be undone." in script.text
 
@@ -422,7 +424,7 @@ def test_sales_page_duplicates_and_reprices_a_listing(
 
     assert repriced.status_code == 303
     assert repriced.headers["location"] == (
-        f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-price-updated"
+        f"/sales?{DEFAULT_SALES_QUERY}&notice=listing-price-updated#currently-selling"
     )
     page = client.get(repriced.headers["location"])
     assert "Sale price has been updated." in page.text
@@ -1446,10 +1448,12 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "0 selected" in page.text
     assert "in cart" not in page.text
     assert "Calculate Selected" in page.text
+    assert "Cost Per Item" in page.text
     assert "Add Checked to Sales" not in page.text
     assert "Sale Price Each" not in page.text
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
+    assert '"recipe_cost": "20"' in page.text
     assert script.status_code == 200
     assert 'calculatorSearch.addEventListener("input"' in script.text
     assert (
@@ -1457,6 +1461,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         "shouldPersist = true)" in script.text
     )
     assert "calculatorSelectedItems.append(row)" in script.text
+    assert "choice.recipe_cost === null" in script.text
     assert 'const itemLabel = document.createElement("a")' in script.text
     assert "itemLabel.href = `/items/${choice.item_uuid}`" in script.text
     assert "calculatorSelectedCount.textContent = `${selectedCount} selected`" in script.text
@@ -1546,6 +1551,13 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Total Weight" in response.text
     assert "<strong>38 pods</strong>" in response.text
     assert "Category" in response.text
+    selected_table = response.text.split(
+        '<table class="calculator-selected-table" data-sortable-table>',
+        maxsplit=1,
+    )[1].split("</table>", maxsplit=1)[0]
+    assert "Cost Per Item" in selected_table
+    assert re.search(r"<td class=\"numeric\">20</td>", selected_table)
+    assert re.search(r"<td class=\"numeric\">50</td>", selected_table)
     assert "Total Crafts" not in response.text
     assert "Unit Weight" not in response.text
     assert re.search(
@@ -2286,6 +2298,22 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert 'value="500"' in response.text
     assert '<script src="/static/sales.js" defer></script>' in response.text
     assert '<script src="/static/recipe-cart.js" defer></script>' in response.text
+    assert '<script src="/static/item-recipe.js" defer></script>' in response.text
+    assert 'id="recipe-craft-quantity"' in response.text
+    assert 'min="1"' in response.text
+    assert 'max="1000"' in response.text
+    assert 'id="recipe-total-cost-preview"' in response.text
+    assert 'data-unit-recipe-cost="3500"' in response.text
+    assert 'data-unit-quantity="2"' in response.text
+    assert 'data-unit-quantity="3"' in response.text
+    assert 'data-unit-total-cost="2000"' in response.text
+    assert 'data-unit-total-cost="1500"' in response.text
+    recipe_script = client.get("/static/item-recipe.js")
+    assert recipe_script.status_code == 200
+    assert 'recipeCraftQuantity.addEventListener("input"' in recipe_script.text
+    assert "unitQuantity * craftQuantity" in recipe_script.text
+    assert "Number(unitTotalCost) * craftQuantity" in recipe_script.text
+    assert "Number(unitRecipeCost) * craftQuantity" in recipe_script.text
     assert f'data-item-uuid="{items["synthetic widget"].uuid}"' in response.text
     assert 'data-add-label="Add to Recipe Calculator"' in response.text
     assert ">Add to Recipe Calculator</button>" in response.text
@@ -2304,7 +2332,7 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert "500 kama" in response.text
     assert "14.29%" in response.text
     for value in ("2,000", "1,500"):
-        assert re.search(rf'<td class="numeric">\s*{value}\s*</td>', response.text)
+        assert re.search(rf'<output for="recipe-craft-quantity">{value}</output>', response.text)
 
 
 def test_recipe_unit_price_edit_updates_history_without_starting_sale(
@@ -2330,7 +2358,7 @@ def test_recipe_unit_price_edit_updates_history_without_starting_sale(
     updated_page = client.get(response.headers["location"])
     assert "Synthetic Ore price has been updated." in updated_page.text
     assert 'value="1,250"' in updated_page.text
-    assert re.search(r'<td class="numeric">\s*2,500\s*</td>', updated_page.text)
+    assert '<output for="recipe-craft-quantity">2,500</output>' in updated_page.text
     assert "Last Updated (Days)" in updated_page.text
     assert re.search(r'<td class="numeric">\s*0\s*</td>', updated_page.text)
     assert re.search(r'<td\s+class="status".*?>Current price</td>', updated_page.text, re.DOTALL)

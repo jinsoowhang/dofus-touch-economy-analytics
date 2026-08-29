@@ -45,6 +45,7 @@
               <th scope="col" data-sort-type="text">Category</th>
               <th scope="col" data-sort-type="text">Profession</th>
               <th scope="col" class="numeric" data-sort-type="number">Level</th>
+              <th scope="col" class="numeric" data-sort-type="number">Cost Per Item</th>
               <th scope="col" class="numeric" data-sort-type="number">Craft Quantity</th>
               <th scope="col" data-sort-disabled>Action</th>
             </tr>
@@ -73,6 +74,7 @@
                 <td>{{ (choice.category or "Uncategorized") | title }}</td>
                 <td>{{ choice.profession }}</td>
                 <td class="numeric">{{ choice.profession_level if choice.profession_level is not none else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(choice.recipe_cost) if choice.recipe_cost is not none else "—" }}</td>
                 <td class="numeric">
                   <label class="visually-hidden" for="calculator-quantity-{{ choice.item_uuid }}">Craft quantity for {{ choice.display_name }}</label>
                   <input

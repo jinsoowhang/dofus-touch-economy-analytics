@@ -127,3 +127,30 @@ later learning slice can model item-level sales performance from `fct_sales`.
   compilation, dbt profile validation and parsing, nine seed loads, the 126-node dbt
   build, SQLFluff, and public-file policy. The Python suite retains the same existing
   Starlette deprecation warning.
+
+## Sales position and recipe planning improvements
+
+### Work completed
+
+- Restored the exact Currently Selling scroll offset after manual repricing or
+  Apply suggestion on the later `pageshow` lifecycle, after browser navigation has
+  settled. The Currently Selling section anchor remains the no-storage fallback.
+- Added sortable Cost Per Item to Select Craftable Items. The value is the current
+  complete ingredient cost for one craft and remains an explicit em dash when any
+  ingredient price is missing.
+- Kept Combined Shopping List crafts alphabetized while ordering each craft's
+  consolidated ingredients by their first source recipe position rather than by
+  ingredient name.
+- Added a browser-only Craft Quantity control to item recipe sections. It scales
+  displayed ingredient quantities, row total costs, and Total Recipe Cost from one
+  through 1,000 without mutating recipe or price data.
+
+### Verification
+
+- Recipe service tests passed: 21 tests.
+- Web tests passed: 62 tests.
+- JavaScript syntax checks, request-scoped Ruff lint and formatting, and whitespace
+  checks passed.
+- `./scripts/check.sh` was attempted but stopped in its initial Ruff phase on five
+  lint errors in unrelated, concurrently added Slack-capture implementation files.
+  Those in-progress files were preserved without modification.
