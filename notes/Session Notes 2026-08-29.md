@@ -70,3 +70,32 @@ explicitly credential-free and did not publish to or run against BigQuery.
 After review, publish the current operational snapshot and run the new graph in the
 BigQuery development environment before considering a manual production build. A
 later learning slice can model item-level sales performance from `fct_sales`.
+
+## Download screenshot sales reconciliation
+
+- Reviewed the private `IMG_9199.jpg` screenshot in the user's Downloads folder; it
+  remained outside the repository.
+- Found four visible sale messages. Graytess Cape at 47,000 kamas, Snowy Grale Boots
+  at 149,000 kamas, and Royal Coco Amublop at 74,000 kamas had exact active
+  item-name and asking-price matches. Where identical active listings existed, the
+  oldest row was selected first.
+- Marked the three matched listings sold atomically at one shared timestamp for
+  270,000 kamas. Historical ingredient-price coverage was incomplete, so all three
+  recipe-cost-at-sale snapshots remained null rather than treating missing costs as
+  zero.
+- Left Minoskito Skin at 1,517 kamas unchanged because the catalog item had no Sales
+  listing; no listing or sale data was fabricated.
+- Created the ignored recovery backup
+  `data/app/backups/dofus_touch-before-download-screenshot-sales-20260829T230346Z.sqlite3`.
+  No BigQuery snapshot was published.
+
+### Verification
+
+- Independent reconciliation confirmed that the latest sale batch contains exactly
+  the three expected name-and-price pairs at the shared timestamp.
+- Active listings changed from 172 to 169, completed listings from 164 to 167, and
+  completed recorded revenue from 13,126,997 to 13,396,997 kamas.
+- SQLite `PRAGMA integrity_check` returned `ok` for both the recovery backup and the
+  updated operational database.
+- The full application check suite was not run because application code, schemas,
+  dependencies, and model behavior were unchanged.

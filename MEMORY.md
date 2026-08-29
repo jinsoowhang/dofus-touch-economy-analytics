@@ -124,3 +124,7 @@
   oldest identical active listing first, back up SQLite before mutation, and write
   the confirmed batch atomically with recipe-cost snapshots calculated at the
   assigned sale timestamps. Never fabricate missing listings or guessed sale data.
+- A 2026-08-29 screenshot reconciliation completed three exact active matches for
+  270,000 kamas. A fourth visible message, Minoskito Skin at 1,517 kamas, remained
+  unchanged because the catalog item had no Sales listing; screenshot evidence does
+  not authorize fabricating a missing listing.
