@@ -76,3 +76,40 @@ models:
               arguments:
                 to: ref('dim_items')
                 field: item_id
+
+  - name: fct_recipe_economics
+    description: >-
+      Grain: one crafted item using its latest recipe per observed market context.
+      This current-state fact exposes governed price coverage, complete recipe cost,
+      estimated profit, and estimated return on investment for analytical consumers.
+    columns:
+      - name: recipe_id
+        data_tests: [not_null]
+      - name: crafted_item_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_items')
+                field: item_id
+      - name: market_context
+        data_tests: [not_null]
+      - name: ingredient_count
+        data_tests: [not_null]
+      - name: price_coverage_ratio
+        description: Priced ingredient positions divided by all ingredient positions.
+        data_tests: [not_null]
+      - name: cost_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['complete', 'missing_price', 'unresolved_ingredient']
+      - name: recipe_cost
+        description: Complete current ingredient cost; null for incomplete recipes.
+      - name: current_item_unit_price
+        description: Latest valid per-unit observation for the crafted item and market.
+      - name: estimated_profit
+        description: Current item unit price minus complete recipe cost.
+      - name: estimated_return_on_investment
+        description: Estimated profit divided by complete recipe cost, expressed as a ratio.

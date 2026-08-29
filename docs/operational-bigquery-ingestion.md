@@ -7,6 +7,22 @@ latest complete snapshot into documented staging, intermediate, and mart models.
 The SQLite database and its row data remain ignored local files. The public
 repository contains only the loader, schemas, transformations, and synthetic tests.
 
+## Build locally without BigQuery
+
+The DuckDB profile uses the small public fixtures under `seeds/local_operational/`.
+They cover complete pricing, missing pricing, unresolved ingredients, multiple market
+contexts, and an invalidated observation. Build the complete transformation graph and
+run its data tests without credentials:
+
+```bash
+DO_NOT_TRACK=1 uv run dbt seed --full-refresh --profiles-dir .
+DO_NOT_TRACK=1 uv run dbt build --exclude resource_type:seed --profiles-dir .
+```
+
+The seeds are disabled for non-DuckDB targets. These commands do not connect to or
+modify BigQuery, and the synthetic relations are not a substitute for publishing a
+real operational snapshot.
+
 ## What is loaded
 
 The loader reads these normalized operational tables in one read-only transaction:
@@ -140,7 +156,7 @@ After new dbt code is present in the connected GitHub branch:
    or lineage view to inspect the tested models.
 5. Return to Google Cloud **BigQuery > Explorer**. Refresh the project and expand
    `dofus_dev_marts`; it should contain `dim_items`, `fct_price_observations`,
-   `fct_sales`, and `fct_recipe_ingredients`.
+   `fct_sales`, `fct_recipe_ingredients`, and `fct_recipe_economics`.
 
 The production raw snapshot is available immediately after loading, but production
 dbt marts appear only after a deployment job runs `dbt build`. Keep that job manual
@@ -154,8 +170,14 @@ until repeated development builds pass and costs have been observed.
   fixed recipe cost and realized profit at sale.
 - `fct_recipe_ingredients`: one ingredient position in the latest recipe for each
   crafted item.
+- `fct_recipe_economics`: one crafted item using its latest recipe per observed
+  market context, with explicit cost coverage and nullable current cost, estimated
+  profit, and return on investment.
 - `int_latest_valid_price_observations`: one latest valid price per item and market.
 - `int_latest_recipes`: one latest recipe version per crafted item.
+- `int_recipe_ingredient_costs`: one latest-recipe ingredient position per market.
+- `int_recipe_costs`: one latest recipe per market with governed cost completeness.
 
 Every model has schema tests for its keys and relationships. Singular tests enforce
-positive quantities and prices, ordered sale dates, and unique recipe positions.
+positive quantities and prices, ordered sale dates, composite recipe-economics
+grains, ingredient-cost arithmetic, and complete-cost profit and ROI definitions.

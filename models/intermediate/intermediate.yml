@@ -22,3 +22,56 @@ models:
         data_tests: [not_null, unique]
       - name: crafted_item_row_id
         data_tests: [not_null, unique]
+
+  - name: int_recipe_ingredient_costs
+    description: >-
+      Grain: one ordered ingredient position in the latest recipe per market context,
+      enriched with its latest valid unit price and quantity-adjusted cost.
+    columns:
+      - name: recipe_id
+        data_tests: [not_null]
+      - name: crafted_item_row_id
+        data_tests: [not_null]
+      - name: ingredient_position
+        data_tests: [not_null]
+      - name: ingredient_item_row_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_operational__items')
+                field: item_row_id
+      - name: quantity
+        data_tests: [not_null]
+      - name: market_context
+        data_tests: [not_null]
+      - name: extended_ingredient_cost
+        description: >-
+          Required quantity multiplied by the latest valid unit price; null when no
+          current price is available.
+
+  - name: int_recipe_costs
+    description: >-
+      Grain: one latest recipe per market context, with explicit resolution and price
+      coverage and a recipe cost only when every ingredient has a valid price.
+    columns:
+      - name: recipe_id
+        data_tests: [not_null]
+      - name: crafted_item_row_id
+        data_tests: [not_null]
+      - name: market_context
+        data_tests: [not_null]
+      - name: ingredient_count
+        data_tests: [not_null]
+      - name: price_coverage_ratio
+        description: Priced ingredient positions divided by all ingredient positions.
+        data_tests: [not_null]
+      - name: cost_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['complete', 'missing_price', 'unresolved_ingredient']
+      - name: recipe_cost
+        description: >-
+          Sum of quantity-adjusted ingredient costs; null unless price coverage is
+          complete.
