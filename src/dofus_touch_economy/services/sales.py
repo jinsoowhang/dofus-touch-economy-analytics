@@ -27,7 +27,16 @@ from dofus_touch_economy.services.pricing import (
     unit_price,
 )
 
-SaleSortField = Literal["name", "category", "price", "cost", "profit", "started", "sold"]
+SaleSortField = Literal[
+    "name",
+    "category",
+    "price",
+    "cost",
+    "profit",
+    "started",
+    "relisted",
+    "sold",
+]
 SaleSortDirection = Literal["asc", "desc"]
 ACTIVE_PRICE_REVIEW_DAYS = 7
 ACTIVE_PRICE_MARKDOWN_PERCENT = 5
@@ -211,7 +220,8 @@ class SalesService:
         for listing in listings:
             if listing.asking_price is None or listing.asking_price <= 1:
                 continue
-            started_date = listing.selling_started_at.astimezone(display_timezone).date()
+            review_started_at = listing.relisted_at or listing.selling_started_at
+            started_date = review_started_at.astimezone(display_timezone).date()
             age_days = max((review_date - started_date).days, 0)
             if age_days < review_after_days:
                 continue
@@ -594,6 +604,7 @@ class SalesService:
         ):
             self._session.rollback()
             raise SaleListingConflict(str(listing_uuid))
+        existing.price_observation = observation
         self._session.commit()
         listing = self._sales.get_by_uuid(listing_uuid)
         if listing is None:  # pragma: no cover - protected by successful update
@@ -875,6 +886,14 @@ def _response(listing: SaleListing, recipe_cost: Decimal | None) -> SaleListingR
         if listing.asking_price is None or recipe_cost is None
         else Decimal(listing.asking_price) - recipe_cost
     )
+    selling_started_at = _as_utc(listing.selling_started_at)
+    observation = listing.price_observation
+    observation_time = None if observation is None else _as_utc(observation.observed_at)
+    relisted_at = (
+        observation_time
+        if observation_time is not None and observation_time > selling_started_at
+        else None
+    )
     return SaleListingResponse(
         uuid=listing.uuid,
         item_uuid=listing.item.uuid,
@@ -884,7 +903,8 @@ def _response(listing: SaleListing, recipe_cost: Decimal | None) -> SaleListingR
         asking_price=listing.asking_price,
         recipe_cost=recipe_cost,
         profit=profit,
-        selling_started_at=_as_utc(listing.selling_started_at),
+        selling_started_at=selling_started_at,
+        relisted_at=relisted_at,
         date_sold=None if listing.date_sold is None else _as_utc(listing.date_sold),
     )
 
@@ -1003,6 +1023,8 @@ def _sort_listings(
             return listing.profit
         if sort_field == "started":
             return listing.selling_started_at
+        if sort_field == "relisted":
+            return listing.relisted_at
         return listing.date_sold
 
     with_value = [listing for listing in listings if value(listing) is not None]

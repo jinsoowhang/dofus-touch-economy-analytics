@@ -788,6 +788,7 @@ def _sales_sort_columns(
             ("cost", "Cost", True),
             ("profit", "Profit", True),
             ("started", "Selling Since", False),
+            ("relisted", "Relisted Date", False),
         )
         if table == "active"
         else (

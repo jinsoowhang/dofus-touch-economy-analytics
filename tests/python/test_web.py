@@ -2,6 +2,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
@@ -232,8 +233,9 @@ def test_currently_selling_surfaces_and_applies_week_old_price_review(
 
     assert response.status_code == 200
     assert "1 due for price review" in response.text
-    assert "have been active for at least 7 days" in response.text
+    assert "gone at least 7 days since listing or their latest relist" in response.text
     assert "8 days listed · Suggested 750" in response.text
+    assert "Relisted Date" in response.text
     assert "Median of 2 completed sales" in response.text
     escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
     assert f'action="/sales/{listing_uuid}/price?{escaped_query}"' in response.text
@@ -249,8 +251,19 @@ def test_currently_selling_surfaces_and_applies_week_old_price_review(
     assert updated.status_code == 303
     with session_factory() as session:
         listing = session.scalar(select(SaleListing).where(SaleListing.uuid == listing_uuid))
-    assert listing is not None
-    assert listing.asking_price == 750
+        assert listing is not None
+        assert listing.asking_price == 750
+        assert listing.price_observation is not None
+        relisted_at = listing.price_observation.observed_at
+        if relisted_at.tzinfo is None:
+            relisted_at = relisted_at.replace(tzinfo=UTC)
+        relisted_date = relisted_at.astimezone(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d")
+
+    updated_page = client.get(updated.headers["location"])
+    assert "due for price review" not in updated_page.text
+    assert "days listed · Suggested" not in updated_page.text
+    assert "days since relist · Suggested" not in updated_page.text
+    assert relisted_date in updated_page.text
 
 
 def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalog_item) -> None:
@@ -607,9 +620,15 @@ def test_sales_tables_sort_independently_and_show_directions(
         "active_sort=price&amp;active_direction=desc&amp;sold_sort=sold&amp;"
         "sold_direction=desc#sold-history"
     ) in response.text
+    assert (
+        "active_sort=relisted&amp;active_direction=desc&amp;sold_sort=name&amp;"
+        "sold_direction=asc#currently-selling"
+    ) in response.text
+    assert 'aria-label="Sort currently selling by Relisted Date, descending"' in response.text
     assert '<details id="sold-history" class="collapsible-section" open>' in response.text
     active_section, sold_section = response.text.split("<h2>Sold History</h2>")
     active_section = active_section.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
+    assert active_section.index("Selling Since") < active_section.index("Relisted Date")
     assert active_section.index("Alpha Hat") < active_section.index(catalog_item.display_name)
     assert sold_section.index("Alpha Hat") < sold_section.index(catalog_item.display_name)
 

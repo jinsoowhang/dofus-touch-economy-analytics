@@ -99,3 +99,31 @@ later learning slice can model item-level sales performance from `fct_sales`.
   updated operational database.
 - The full application check suite was not run because application code, schemas,
   dependencies, and model behavior were unchanged.
+
+## Currently Selling relist dates
+
+- Added a sortable Relisted Date directly after Selling Since in Currently Selling.
+  The original selling date remains unchanged, while listings that have not been
+  repriced show an em dash.
+- Derived the relist timestamp from the listing's existing linked append-only price
+  observation when it occurred after `selling_started_at`. This gives existing
+  repriced listings their historical relist date without a schema migration or
+  duplicated operational state.
+- Made both manual price edits and Apply suggestion reset the seven-Pacific-day
+  price-review clock. The existing age and markdown prompt disappears immediately
+  after repricing; when it becomes due again, its age is labeled as days since
+  relist.
+- Eager-loaded linked price observations with Sales rows to avoid per-row queries
+  while deriving relist dates.
+- Added service and web regressions for initial null relist dates, independent
+  repricing, relist sorting with nulls last, reset price-review eligibility, the
+  new table column, and the Apply suggestion flow.
+
+### Verification
+
+- Focused Sales service and web tests passed: 94 tests with the existing Starlette
+  deprecation warning.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 259 Python tests, package
+  compilation, dbt profile validation and parsing, nine seed loads, the 126-node dbt
+  build, SQLFluff, and public-file policy. The Python suite retains the same existing
+  Starlette deprecation warning.

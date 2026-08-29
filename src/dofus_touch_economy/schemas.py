@@ -143,6 +143,7 @@ class SaleListingResponse(BaseModel):
     recipe_cost: DecimalString | None
     profit: DecimalString | None
     selling_started_at: datetime
+    relisted_at: datetime | None
     date_sold: datetime | None
 
 

@@ -133,7 +133,7 @@
     {% if active_sales %}
       {% if active_price_reviews %}
         <p class="price-review-summary">
-          Listings shown below have been active for at least {{ active_price_review_days }} days. Suggestions use the lower of a {{ active_price_markdown_percent }}% markdown or the item's completed-sale median.
+          Listings shown below have gone at least {{ active_price_review_days }} days since listing or their latest relist. Suggestions use the lower of a {{ active_price_markdown_percent }}% markdown or the item's completed-sale median.
         </p>
       {% endif %}
       <form
@@ -187,6 +187,7 @@
           <tbody>
             {% for sale in active_sales %}
               {% set selling_started_at = sale.selling_started_at | pacific_time %}
+              {% set relisted_at = sale.relisted_at | pacific_time if sale.relisted_at else none %}
               {% set price_review = active_price_reviews.get(sale.uuid) %}
               <tr>
                 <td class="selection-column">
@@ -231,7 +232,7 @@
                   {% if price_review %}
                     <div class="price-review-suggestion">
                       <span>
-                        {{ price_review.age_days }} days listed · Suggested {{ "{:,}".format(price_review.suggested_price) }}
+                        {{ price_review.age_days }} days {{ "since relist" if sale.relisted_at else "listed" }} · Suggested {{ "{:,}".format(price_review.suggested_price) }}
                         {% if price_review.suggestion_basis == "completed_sales_median" %}
                           · Median of {{ price_review.completed_sale_count }} completed sales
                         {% else %}
@@ -260,6 +261,15 @@
                   <time datetime="{{ selling_started_at.isoformat() }}">
                     {{ selling_started_at.strftime("%Y-%m-%d") }}
                   </time>
+                </td>
+                <td>
+                  {% if relisted_at %}
+                    <time datetime="{{ relisted_at.isoformat() }}">
+                      {{ relisted_at.strftime("%Y-%m-%d") }}
+                    </time>
+                  {% else %}
+                    —
+                  {% endif %}
                 </td>
                 <td>
                   <div class="row-actions">

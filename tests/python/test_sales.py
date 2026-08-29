@@ -35,6 +35,7 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert listing.display_name == catalog_item.display_name
     assert listing.asking_price == 50_000
     assert listing.selling_started_at.tzinfo == UTC
+    assert listing.relisted_at is None
     assert listing.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
     current_price = PriceService(session, "Dodge").current_for_item(catalog_item.id)
@@ -579,8 +580,12 @@ def test_sale_can_be_duplicated_and_repriced_independently(session, catalog_item
     )
     active_by_uuid = {listing.uuid: listing for listing in service.active()}
     assert updated.asking_price == 45_000
+    assert updated.relisted_at is not None
+    assert updated.relisted_at > updated.selling_started_at
     assert active_by_uuid[original.uuid].asking_price == 50_000
     assert active_by_uuid[duplicate.uuid].asking_price == 45_000
+    assert active_by_uuid[original.uuid].relisted_at is None
+    assert active_by_uuid[duplicate.uuid].relisted_at == updated.relisted_at
     history = PriceService(session, "Dodge").history_for_item(catalog_item.id)
     assert [observation.total_price for observation in history] == [45_000, 50_000]
 
@@ -613,6 +618,8 @@ def test_unknown_sale_cannot_be_duplicated_or_repriced(session) -> None:
         ("category", "asc", ["Zeta Belt", "Alpha Hat", "Synthetic Ore"]),
         ("price", "desc", ["Alpha Hat", "Zeta Belt", "Synthetic Ore"]),
         ("started", "asc", ["Synthetic Ore", "Zeta Belt", "Alpha Hat"]),
+        ("relisted", "asc", ["Zeta Belt", "Alpha Hat", "Synthetic Ore"]),
+        ("relisted", "desc", ["Alpha Hat", "Zeta Belt", "Synthetic Ore"]),
     ],
 )
 def test_active_sales_sort_by_each_displayed_field(
@@ -636,6 +643,22 @@ def test_active_sales_sort_by_each_displayed_field(
     )
     session.add_all([alpha, zeta])
     session.flush()
+    zeta_relist = PriceObservation(
+        item_id=zeta.id,
+        lot_quantity=1,
+        total_price=200,
+        observed_at=datetime(2026, 8, 23, tzinfo=UTC),
+        market_context="Dodge",
+    )
+    alpha_relist = PriceObservation(
+        item_id=alpha.id,
+        lot_quantity=1,
+        total_price=300,
+        observed_at=datetime(2026, 8, 24, tzinfo=UTC),
+        market_context="Dodge",
+    )
+    session.add_all([zeta_relist, alpha_relist])
+    session.flush()
     session.add_all(
         [
             SaleListing(
@@ -646,12 +669,14 @@ def test_active_sales_sort_by_each_displayed_field(
             ),
             SaleListing(
                 item_id=zeta.id,
+                price_observation_id=zeta_relist.id,
                 lot_quantity=1,
                 asking_price=200,
                 selling_started_at=datetime(2026, 8, 21, tzinfo=UTC),
             ),
             SaleListing(
                 item_id=alpha.id,
+                price_observation_id=alpha_relist.id,
                 lot_quantity=1,
                 asking_price=300,
                 selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
@@ -739,6 +764,41 @@ def test_active_price_reviews_flag_week_old_listings_and_suggest_markdowns(
     assert reviews[markdown_review_listing.uuid].age_days == 7
     assert reviews[markdown_review_listing.uuid].suggested_price == 190
     assert reviews[markdown_review_listing.uuid].suggestion_basis == "standard_markdown"
+
+
+def test_repricing_resets_active_price_review_clock(session, catalog_item) -> None:
+    now = datetime.now(UTC)
+    listing = SaleListing(
+        item_id=catalog_item.id,
+        lot_quantity=1,
+        asking_price=1_000,
+        selling_started_at=now - timedelta(days=8),
+    )
+    session.add(listing)
+    session.commit()
+    service = SalesService(session, "Dodge")
+
+    before_update = service.active_price_reviews(
+        service.active(),
+        as_of=now,
+        display_timezone=ZoneInfo("America/Los_Angeles"),
+    )
+
+    assert listing.uuid in before_update
+
+    updated = service.update_price(
+        listing.uuid,
+        SalePriceUpdate(asking_price=950),
+    )
+    assert updated.relisted_at is not None
+
+    after_update = service.active_price_reviews(
+        service.active(),
+        as_of=updated.relisted_at,
+        display_timezone=ZoneInfo("America/Los_Angeles"),
+    )
+
+    assert listing.uuid not in after_update
 
 
 @pytest.mark.parametrize(

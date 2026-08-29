@@ -16,7 +16,10 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.date_sold.is_(None))
-            .options(selectinload(SaleListing.item))
+            .options(
+                selectinload(SaleListing.item),
+                selectinload(SaleListing.price_observation),
+            )
             .order_by(SaleListing.selling_started_at.desc(), SaleListing.id.desc())
         )
         return list(self._session.scalars(statement))
@@ -25,7 +28,10 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.date_sold.is_not(None))
-            .options(selectinload(SaleListing.item))
+            .options(
+                selectinload(SaleListing.item),
+                selectinload(SaleListing.price_observation),
+            )
             .order_by(SaleListing.date_sold.desc(), SaleListing.id.desc())
         )
         return list(self._session.scalars(statement))
@@ -58,7 +64,10 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.uuid == listing_uuid)
-            .options(selectinload(SaleListing.item))
+            .options(
+                selectinload(SaleListing.item),
+                selectinload(SaleListing.price_observation),
+            )
         )
         return self._session.scalar(statement)
 
@@ -68,7 +77,10 @@ class SalesRepository:
         statement = (
             select(SaleListing)
             .where(SaleListing.uuid.in_(listing_uuids))
-            .options(selectinload(SaleListing.item))
+            .options(
+                selectinload(SaleListing.item),
+                selectinload(SaleListing.price_observation),
+            )
         )
         return list(self._session.scalars(statement))
 
