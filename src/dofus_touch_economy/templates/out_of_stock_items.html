@@ -66,7 +66,11 @@
                       class="recipe-cart-add secondary-button"
                       data-item-uuid="{{ item.item_uuid }}"
                       data-craft-quantity="{{ item.suggested_restock_quantity }}"
+                      data-cart-toggle="true"
+                      data-add-aria-label="Add {{ item.suggested_restock_quantity }} of {{ item.display_name }} to Recipe Calculator"
+                      data-remove-aria-label="Remove {{ item.display_name }} from Recipe Calculator"
                       aria-label="Add {{ item.suggested_restock_quantity }} of {{ item.display_name }} to Recipe Calculator"
+                      aria-pressed="false"
                     >Add</button>
                   {% else %}
                     <span>No recipe</span>

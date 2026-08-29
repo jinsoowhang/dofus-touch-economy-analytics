@@ -75,21 +75,40 @@ if (recipeCartCount && recipeOpenCalculator) {
     recipeCartCount.textContent = `${count} ${count === 1 ? "item" : "items"} in calculator`;
     for (const button of recipeCartButtons) {
       const isAdded = Object.hasOwn(cart, button.dataset.itemUuid);
-      button.disabled = isAdded;
+      const isToggle = button.dataset.cartToggle === "true";
+      button.disabled = isAdded && !isToggle;
       button.textContent = isAdded ? "Added ✓" : button.dataset.addLabel || "Add";
+      if (isToggle) {
+        button.setAttribute("aria-pressed", String(isAdded));
+        const accessibleLabel = isAdded
+          ? button.dataset.removeAriaLabel
+          : button.dataset.addAriaLabel;
+        if (accessibleLabel) {
+          button.setAttribute("aria-label", accessibleLabel);
+        }
+      }
     }
   };
 
   for (const button of recipeCartButtons) {
     button.addEventListener("click", () => {
+      const itemUuid = button.dataset.itemUuid;
+      if (button.dataset.cartToggle === "true" && Object.hasOwn(cart, itemUuid)) {
+        delete cart[itemUuid];
+        selectedItems.delete(itemUuid);
+        writeCart();
+        writeSelection();
+        renderCart();
+        return;
+      }
       const requestedQuantity = Number(button.dataset.craftQuantity || 1);
-      cart[button.dataset.itemUuid] =
+      cart[itemUuid] =
         Number.isInteger(requestedQuantity) &&
         requestedQuantity >= 1 &&
         requestedQuantity <= 1000
           ? requestedQuantity
           : 1;
-      selectedItems.add(button.dataset.itemUuid);
+      selectedItems.add(itemUuid);
       writeCart();
       writeSelection();
       renderCart();

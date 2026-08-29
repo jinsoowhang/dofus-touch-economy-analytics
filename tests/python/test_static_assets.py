@@ -114,6 +114,23 @@ def test_recipe_cart_uses_an_optional_validated_craft_quantity() -> None:
     assert "craftQuantity.value = String(quantity)" in script
 
 
+def test_recipe_cart_supports_opt_in_add_remove_toggles() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipe-cart.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'const isToggle = button.dataset.cartToggle === "true";' in script
+    assert "button.disabled = isAdded && !isToggle;" in script
+    assert 'button.setAttribute("aria-pressed", String(isAdded));' in script
+    assert "? button.dataset.removeAriaLabel" in script
+    assert ": button.dataset.addAriaLabel;" in script
+    assert 'button.dataset.cartToggle === "true" && Object.hasOwn(cart, itemUuid)' in script
+    assert "delete cart[itemUuid];" in script
+    assert "selectedItems.delete(itemUuid);" in script
+
+
 def test_item_detail_scripts_do_not_redeclare_recipe_cart_storage_constants() -> None:
     static_assets = resources.files("dofus_touch_economy").joinpath("static")
     sales_script = static_assets.joinpath("sales.js").read_text(encoding="utf-8")
