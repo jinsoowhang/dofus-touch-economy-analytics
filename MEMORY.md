@@ -129,3 +129,10 @@
   270,000 kamas. A fourth visible message, Minoskito Skin at 1,517 kamas, remained
   unchanged because the catalog item had no Sales listing; screenshot evidence does
   not authorize fabricating a missing listing.
+
+- On 2026-08-30, an explicit user entry atomically marked three exact active listings
+  sold for the 2026-08-29 Pacific date. Duplicate identical active listings were
+  resolved oldest-first with listing ID as the tie-breaker. The requested date had no
+  time, so all three use 23:59:59 Pacific, which is after every selected listing start.
+  Historical recipe cost was unavailable and remains null rather than being treated
+  as zero. An ignored integrity-checked online backup precedes the update.
