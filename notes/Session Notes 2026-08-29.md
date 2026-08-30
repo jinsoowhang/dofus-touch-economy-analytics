@@ -211,3 +211,38 @@ later learning slice can model item-level sales performance from `fct_sales`.
 - `./scripts/check.sh` was attempted and stopped at Ruff on eight unrelated errors in
   the concurrently added Slack-capture implementation and tests. Those files were
   preserved without modification.
+
+## Insights category reconciliation
+
+### Findings and implementation
+
+- Traced the Insights `Uncategorized` row to five exact, verified manual catalog
+  items with null display categories. The current official Dofus Touch catalog
+  identifies Ambusherboots and Boots Kwish as Boots, Captain Chafer's Spare Panties
+  and Chouquish Belt as Belt, and Daggero's Red Necklace as Amulet.
+- Confirmed Crobacape and Gorgoyle Cape are officially Cloaks. Updated catalog sync
+  to fill a missing category only from a unique exact official match and to refine
+  the legacy Cape label to Cloak while preserving `identity_category` and raw source
+  provenance.
+- Kept official Ceremonial Cape catalog identities intact because the game exposes
+  them separately, including names duplicated across Cloak and Ceremonial Cape.
+  Insights now rolls Cape and Ceremonial Cape into the broader Cloak reporting family.
+
+### Local reconciliation
+
+- Created and integrity-checked ignored online backup
+  `data/app/backups/dofus-touch-before-category-reconciliation-20260830T005138Z.sqlite3`.
+- Updated only the `category` field on the seven confirmed local items. All 351 sale
+  listings and their 32,235,847-kama asking-price total remained unchanged, SQLite
+  integrity remained `ok`, and zero sale listings now reference a null category.
+- The current code projects six Insights categories with no Uncategorized row;
+  Cloak combines 33 completed sales, 19 sold-item groups, 34 active listings, and
+  2,081,497 recorded revenue.
+
+### Verification
+
+- Focused catalog-sync, Insights, and web tests passed: 77 tests.
+- `./scripts/check.sh` passed: Ruff lint and formatting, all 324 Python tests,
+  package compilation, dbt debug/parse, nine seed loads, the 126-node dbt build,
+  SQLFluff, and public-file policy.
+- Scoped whitespace and direct SQLite integrity checks also passed.

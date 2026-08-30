@@ -117,3 +117,45 @@ def test_insights_report_keeps_empty_data_explicit(session) -> None:
     assert report.cost_coverage is None
     assert report.known_profit_margin is None
     assert report.category_insights == ()
+
+
+def test_insights_rolls_cape_categories_into_cloak_family(session) -> None:
+    items = [
+        Item(
+            display_name=f"Synthetic {category}",
+            normalized_name=f"synthetic {category.casefold()}",
+            category=category,
+            identity_category=category.casefold(),
+        )
+        for category in ("Cloak", "Cape", "Ceremonial Cape")
+    ]
+    session.add_all(items)
+    session.flush()
+    for index, item in enumerate(items, start=1):
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=item.id,
+                    lot_quantity=1,
+                    asking_price=index * 100,
+                    selling_started_at=datetime(2026, 8, 1, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, index + 1, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=item.id,
+                    lot_quantity=1,
+                    asking_price=index * 100,
+                    selling_started_at=datetime(2026, 8, 10, tzinfo=UTC),
+                ),
+            ]
+        )
+    session.commit()
+
+    report = InsightsService(session, "Dodge").report()
+
+    assert len(report.category_insights) == 1
+    cloak = report.category_insights[0]
+    assert cloak.category == "Cloak"
+    assert (cloak.sold_count, cloak.item_count, cloak.revenue) == (3, 3, 600)
+    assert cloak.average_days_to_sell == Decimal(2)
+    assert cloak.active_listing_count == 3

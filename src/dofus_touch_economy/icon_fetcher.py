@@ -477,10 +477,15 @@ def _sync_catalog_items(
                     item.display_name = candidate.display_name
                     display_name_updated_count += 1
                 item.weight = candidate.weight
-                if (
-                    _normalized_optional_label(item.category) == "resource"
-                    and candidate.identity_category != "resource"
-                ):
+                current_category = _normalized_optional_label(item.category)
+                should_refine_category = (
+                    not current_category
+                    or (
+                        current_category == "resource" and candidate.identity_category != "resource"
+                    )
+                    or (current_category == "cape" and candidate.identity_category == "cloak")
+                )
+                if should_refine_category:
                     item.category = candidate.category
                     category_refined_count += 1
             targets.append(

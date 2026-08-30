@@ -267,4 +267,7 @@ def _percentage_change(current: int, previous: int) -> Decimal | None:
 def _category_identity(category: str | None) -> tuple[str, str]:
     if category is None or not category.strip():
         return "", "Uncategorized"
-    return normalize_item_name(category), format_item_display_name(category)
+    normalized_category = normalize_item_name(category)
+    if normalized_category in {"cape", "ceremonial cape"}:
+        return "cloak", "Cloak"
+    return normalized_category, format_item_display_name(category)

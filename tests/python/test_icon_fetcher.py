@@ -244,7 +244,7 @@ def test_sync_preserves_existing_category_for_unique_exact_name(
     assert item.weight == 7
 
 
-def test_sync_refines_only_generic_resource_categories(
+def test_sync_refines_missing_generic_resource_and_legacy_cape_categories(
     session_factory,
     catalog_item,
     tmp_path,
@@ -257,14 +257,21 @@ def test_sync_refines_only_generic_resource_categories(
             identity_category="resource",
             created_source="imported",
         )
-        uncategorized_item = Item(
+        missing_category_item = Item(
             display_name="Uncategorized Item",
             normalized_name="uncategorized item",
             category=None,
             identity_category="",
             created_source="manual",
         )
-        session.add_all((generic_resource, uncategorized_item))
+        legacy_cape = Item(
+            display_name="Legacy Cape",
+            normalized_name="legacy cape",
+            category="Cape",
+            identity_category="cape",
+            created_source="imported",
+        )
+        session.add_all((generic_resource, missing_category_item, legacy_cape))
         session.commit()
 
     def fetch_json(url, payload):
@@ -294,10 +301,18 @@ def test_sync_refines_only_generic_resource_categories(
                 "3": {
                     "id": 3,
                     "iconId": 300,
-                    "nameId": uncategorized_item.display_name,
+                    "nameId": missing_category_item.display_name,
                     "typeId": 30,
                     "exchangeable": True,
                     "realWeight": 3,
+                },
+                "4": {
+                    "id": 4,
+                    "iconId": 400,
+                    "nameId": legacy_cape.display_name,
+                    "typeId": 40,
+                    "exchangeable": True,
+                    "realWeight": 4,
                 },
             }
         if payload == {"class": "ItemTypes", "lang": "en"}:
@@ -305,6 +320,7 @@ def test_sync_refines_only_generic_resource_categories(
                 "10": {"id": 10, "nameId": "Resource"},
                 "20": {"id": 20, "nameId": "Skin"},
                 "30": {"id": 30, "nameId": "Miscellaneous"},
+                "40": {"id": 40, "nameId": "Cloak"},
             }
         raise AssertionError(f"unexpected request: {url} {payload}")
 
@@ -315,13 +331,16 @@ def test_sync_refines_only_generic_resource_categories(
         bytes_fetcher=lambda _url: PNG_SIGNATURE,
     )
 
-    assert summary.category_refined_count == 1
+    assert summary.category_refined_count == 3
     with session_factory() as session:
         items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
     assert items["blue larva skin"].category == "Skin"
     assert items["blue larva skin"].identity_category == "resource"
     assert items[catalog_item.normalized_name].category == catalog_item.category
-    assert items["uncategorized item"].category is None
+    assert items["uncategorized item"].category == "Miscellaneous"
+    assert items["uncategorized item"].identity_category == ""
+    assert items["legacy cape"].category == "Cloak"
+    assert items["legacy cape"].identity_category == "cape"
 
 
 def test_sync_refines_legacy_resource_from_unambiguous_exact_fallback(
