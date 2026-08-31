@@ -35,3 +35,29 @@
 - SQLite integrity remained `ok`, and the live `/sales` endpoint returned HTTP 200.
 - No tracked application code, private raw export, analytical snapshot, or hosted
   BigQuery/dbt state changed.
+
+## BigQuery recipe-economics assertion fix
+
+### Diagnosis and correction
+
+- The hosted `assert_recipe_economics_consistent` failure returned exactly 130 rows.
+  Replaying BigQuery's nine-decimal `NUMERIC` division against the current local
+  operational values reproduced exactly 130 failures, confirming that recipe costs,
+  profits, and ROI values were correct.
+- The assertion multiplied the rounded ROI by recipe cost and required the original
+  profit to be reconstructed within `0.000001` kama. The rounding residual scales
+  with recipe cost, so valid hosted rows exceeded that fixed tolerance.
+- Replaced the inverse multiplication check with direct comparison to the existing
+  adapter-dispatched `divide_whole_amount(estimated_profit, recipe_cost)` formula.
+  This continues to enforce the governed `ROI = profit / recipe cost` definition on
+  both DuckDB and BigQuery without weakening it through a wider arbitrary tolerance.
+
+### Verification
+
+- Focused seed/build verification passed all nine seeds and all 126 dbt nodes; the
+  corrected singular assertion passed, and its SQLFluff lint passed.
+- `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
+- No BigQuery build was triggered from the local environment; rerun the failed hosted
+  job after publishing this code change.

@@ -48,8 +48,7 @@ where
             estimated_profit is null
             or estimated_return_on_investment is null
             or estimated_profit <> current_item_unit_price - recipe_cost
-            or abs(
-                estimated_return_on_investment * recipe_cost - estimated_profit
-            ) > 0.000001
+            or estimated_return_on_investment
+            <> {{ divide_whole_amount('estimated_profit', 'recipe_cost') }}
         )
     )

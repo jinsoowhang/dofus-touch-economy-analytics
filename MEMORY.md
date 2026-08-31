@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-08-29
+**Last updated:** 2026-08-30
 
 ## Dofus Touch Economy Analytics
 
@@ -17,6 +17,10 @@
   resolution and price coverage; incomplete costs, profit, and ROI remain null.
   Generic and singular tests enforce identifiers, relationships, amounts, grains,
   cost arithmetic, completeness rules, and profit and ROI definitions.
+- BigQuery stores governed ratio results as `NUMERIC` with nine fractional digits.
+  Cross-adapter dbt assertions must compare ratios with the same dispatched division
+  formula rather than multiplying a rounded ratio by a large denominator and applying
+  a fixed absolute tolerance.
 - Raw CSVs, SQLite and DuckDB databases, import reports, secrets, task-observer files, and worktrees stay local and ignored.
 - Canonical local sources: `item_sales.csv`, `item_recipes.csv`, and `item_cost.csv` under `data/raw`.
 - Only synthetic samples may be committed until redistribution rights are established.
