@@ -9,6 +9,7 @@
 
   <form method="get" action="/profit-opportunities" class="opportunity-filter-form">
     <input type="hidden" name="profession_filter" value="true">
+    <input type="hidden" name="availability_filter" value="true">
     <details class="filter-multiselect">
       <summary>
         Professions{% if selected_professions %} · {{ selected_professions | length }} selected{% else %} · All{% endif %}

@@ -86,3 +86,22 @@
 - `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Profit Opportunities default availability filter
+
+### Behavior
+
+- `Show only items not currently selling` is now checked on the initial Profit
+  Opportunities view and after Reset filters, so active listings are excluded by
+  default.
+- The filter form submits a separate availability marker. This distinguishes the
+  default view from an intentionally unchecked checkbox, allowing users to include
+  currently selling opportunities after applying filters.
+
+### Verification
+
+- The web regression verifies the checked default excludes an active opportunity
+  and an explicitly unchecked submission includes it while remaining unchecked.
+- `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

@@ -1280,6 +1280,11 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
 
     assert default_response.status_code == 200
     assert "Synthetic Widget" not in default_response.text
+    default_checkbox_attributes = default_response.text.split(
+        'name="not_currently_selling"', maxsplit=1
+    )[1].split(">", maxsplit=1)[0]
+    assert "checked" in default_checkbox_attributes
+    assert 'name="availability_filter" value="true"' in default_response.text
     for profession in ("Shoemaker", "Jeweller", "Tailor"):
         assert f'name="profession" value="{profession}" checked' in default_response.text
 
@@ -1339,6 +1344,34 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert 'name="not_currently_selling"' in filtered_response.text
     assert "checked" in filtered_response.text
     assert "Synthetic Widget" in filtered_response.text
+
+    with session_factory() as session:
+        widget = session.scalar(select(Item).where(Item.uuid == widget_uuid))
+        assert widget is not None
+        session.add(SaleListing(item=widget, lot_quantity=1, asking_price=4_500))
+        session.commit()
+
+    default_availability_response = client.get(
+        "/profit-opportunities",
+        params={"profession": "Crafting", "profession_filter": "true"},
+    )
+    include_selling_response = client.get(
+        "/profit-opportunities",
+        params={
+            "availability_filter": "true",
+            "profession": "Crafting",
+            "profession_filter": "true",
+        },
+    )
+    include_selling_checkbox_attributes = include_selling_response.text.split(
+        'name="not_currently_selling"', maxsplit=1
+    )[1].split(">", maxsplit=1)[0]
+
+    assert default_availability_response.status_code == 200
+    assert "Synthetic Widget" not in default_availability_response.text
+    assert include_selling_response.status_code == 200
+    assert "Synthetic Widget" in include_selling_response.text
+    assert "checked" not in include_selling_checkbox_attributes
 
 
 def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(

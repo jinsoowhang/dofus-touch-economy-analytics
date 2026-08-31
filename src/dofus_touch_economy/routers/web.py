@@ -1621,10 +1621,13 @@ def profit_opportunities_page(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
-    not_currently_selling: Annotated[bool, Query()] = False,
+    not_currently_selling: Annotated[bool | None, Query()] = None,
+    availability_filter: Annotated[bool, Query()] = False,
     profession: Annotated[list[str] | None, Query()] = None,
     profession_filter: Annotated[bool, Query()] = False,
 ) -> HTMLResponse:
+    if not_currently_selling is None:
+        not_currently_selling = not availability_filter
     selected_professions = _normalized_filter_values(profession)
     if profession is None and not profession_filter:
         selected_professions = DEFAULT_PROFIT_OPPORTUNITY_PROFESSIONS
