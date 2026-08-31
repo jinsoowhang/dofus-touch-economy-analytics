@@ -169,8 +169,11 @@ const restoreRecipeCalculatorShoppingListSort = () => {
     if (!button) {
       return;
     }
+    if (header.getAttribute("aria-sort") === sortState.direction) {
+      return;
+    }
     button.click();
-    if (sortState.direction === "descending") {
+    if (header.getAttribute("aria-sort") !== sortState.direction) {
       button.click();
     }
   } catch {

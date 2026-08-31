@@ -67,3 +67,22 @@
   returned 130 failures for the old predicate and zero for the published predicate.
   No hosted BigQuery build was triggered from the local environment; rerun the job
   against `ca1cbb3` or later.
+
+## Combined Shopping List view-preservation fix
+
+### Diagnosis and correction
+
+- Updating a Current Unit Price already saved the Combined Shopping List sort state
+  and scroll offset before recalculating the page, but restoration assumed every
+  column began unsorted. The server marks Craftable Item ascending by default, so
+  unconditional restore clicks could reverse that order instead of preserving it.
+- Sort restoration now compares the rendered header direction with the saved
+  direction. It leaves an already matching order untouched and clicks only until an
+  unsorted or oppositely sorted column reaches the requested direction.
+
+### Verification
+
+- The static-asset regression and Recipe Calculator integration test passed.
+- `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

@@ -62,7 +62,8 @@ def test_recipe_calculator_preserves_shopping_list_sort_during_price_reload() ->
     assert 'header.getAttribute("aria-sort")' in script
     assert "saveRecipeCalculatorShoppingListSort();" in script
     assert "restoreRecipeCalculatorShoppingListSort();" in script
-    assert 'sortState.direction === "descending"' in script
+    assert 'header.getAttribute("aria-sort") === sortState.direction' in script
+    assert 'header.getAttribute("aria-sort") !== sortState.direction' in script
 
 
 def test_recipe_calculator_sale_submit_is_single_use_and_cleans_successful_cart_items() -> None:
