@@ -89,6 +89,7 @@ class BestSellerItem:
     item_uuid: UUID
     display_name: str
     category: str | None
+    profession: str | None
     icon_url: str | None
     sold_count: int
     priced_sale_count: int
@@ -374,13 +375,7 @@ class SalesService:
             item_ids
         )
         recipe_costs = self._recipe_costs(list(latest_sold_by_item.values()))
-        craftable_item_ids = set(
-            self._session.scalars(
-                select(Recipe.crafted_item_id)
-                .where(Recipe.crafted_item_id.in_(item_ids))
-                .distinct()
-            )
-        )
+        latest_recipes = self._catalog.latest_recipes_for_item_ids(set(item_ids))
 
         items: list[BestSellerItem] = []
         for item_id, listing in latest_sold_by_item.items():
@@ -405,6 +400,11 @@ class SalesService:
                     item_uuid=listing.item.uuid,
                     display_name=listing.item.display_name,
                     category=listing.item.category,
+                    profession=(
+                        None
+                        if item_id not in latest_recipes
+                        else latest_recipes[item_id].profession
+                    ),
                     icon_url=_icon_url(listing.item),
                     sold_count=item_total.sold_count,
                     priced_sale_count=item_total.priced_sale_count,
@@ -426,7 +426,7 @@ class SalesService:
                     recipe_cost=recipe_cost,
                     estimated_profit=estimated_profit,
                     estimated_roi=estimated_roi,
-                    is_craftable=item_id in craftable_item_ids,
+                    is_craftable=item_id in latest_recipes,
                 )
             )
 

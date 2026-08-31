@@ -140,6 +140,11 @@ def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
     assert "Analyst Readout" in response.text
     assert "Current Action Queue" in response.text
     assert "Category Performance" in response.text
+    assert re.search(
+        r'<th data-sort-type="text">Category</th>\s*'
+        r'<th data-sort-type="text">Profession</th>',
+        response.text,
+    )
     assert "Known Historical Profit" in response.text
     assert "+20" in response.text
     assert "Synthetic Ore</a> leads observed demand" in response.text

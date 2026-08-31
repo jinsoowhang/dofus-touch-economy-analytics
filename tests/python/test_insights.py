@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from dofus_touch_economy.models import Item, SaleListing
+from dofus_touch_economy.models import ImportBatch, Item, Recipe, SaleListing, SourceRecord
 from dofus_touch_economy.services.insights import InsightsService
 
 
@@ -20,6 +20,30 @@ def test_insights_report_synthesizes_trends_categories_and_action_signals(sessio
     )
     session.add_all([alpha, beta])
     session.flush()
+    batch = ImportBatch(
+        dataset="synthetic_recipes",
+        filename="synthetic.json",
+        checksum="a" * 64,
+        accepted_count=2,
+        status="completed",
+    )
+    session.add(batch)
+    for row_number, item, profession in (
+        (1, alpha, "Tailor"),
+        (2, beta, "Jeweller"),
+    ):
+        session.add(
+            Recipe(
+                crafted_item=item,
+                profession=profession,
+                source_record=SourceRecord(
+                    import_batch=batch,
+                    row_number=row_number,
+                    raw_payload_json="{}",
+                    status="accepted",
+                ),
+            )
+        )
     session.add_all(
         [
             SaleListing(
@@ -98,9 +122,11 @@ def test_insights_report_synthesizes_trends_categories_and_action_signals(sessio
     assert [category.category for category in report.category_insights] == ["Hat", "Ring"]
     hat, ring = report.category_insights
     assert (hat.sold_count, hat.item_count, hat.revenue) == (2, 1, 300)
+    assert hat.professions == ("Tailor",)
     assert hat.average_days_to_sell == Decimal("1.5")
     assert hat.active_listing_count == 1
     assert (ring.sold_count, ring.item_count, ring.revenue) == (1, 1, 300)
+    assert ring.professions == ("Jeweller",)
     assert ring.average_days_to_sell == Decimal(3)
     assert ring.active_listing_count == 0
 
@@ -131,6 +157,32 @@ def test_insights_rolls_cape_categories_into_cloak_family(session) -> None:
     ]
     session.add_all(items)
     session.flush()
+    batch = ImportBatch(
+        dataset="synthetic_recipes",
+        filename="synthetic-cloaks.json",
+        checksum="b" * 64,
+        accepted_count=3,
+        status="completed",
+    )
+    session.add(batch)
+    for row_number, item, profession in zip(
+        range(1, 4),
+        items,
+        ("Tailor", "Tailor", "Costumagus"),
+        strict=True,
+    ):
+        session.add(
+            Recipe(
+                crafted_item=item,
+                profession=profession,
+                source_record=SourceRecord(
+                    import_batch=batch,
+                    row_number=row_number,
+                    raw_payload_json="{}",
+                    status="accepted",
+                ),
+            )
+        )
     for index, item in enumerate(items, start=1):
         session.add_all(
             [
@@ -156,6 +208,7 @@ def test_insights_rolls_cape_categories_into_cloak_family(session) -> None:
     assert len(report.category_insights) == 1
     cloak = report.category_insights[0]
     assert cloak.category == "Cloak"
+    assert cloak.professions == ("Costumagus", "Tailor")
     assert (cloak.sold_count, cloak.item_count, cloak.revenue) == (3, 3, 600)
     assert cloak.average_days_to_sell == Decimal(2)
     assert cloak.active_listing_count == 3

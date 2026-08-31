@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta, tzinfo
 from decimal import Decimal
 
@@ -23,6 +23,7 @@ class InsightPeriod:
 @dataclass(frozen=True)
 class CategoryInsight:
     category: str
+    professions: tuple[str, ...]
     sold_count: int
     item_count: int
     revenue: int
@@ -63,6 +64,7 @@ class InsightsReport:
 @dataclass
 class _CategoryAccumulator:
     display_name: str
+    professions: set[str] = field(default_factory=set)
     sold_count: int = 0
     item_count: int = 0
     revenue: int = 0
@@ -228,6 +230,8 @@ class InsightsService:
         for item in sold_items:
             key, display_name = _category_identity(item.category)
             category = categories.setdefault(key, _CategoryAccumulator(display_name))
+            if item.profession is not None:
+                category.professions.add(item.profession)
             category.sold_count += item.sold_count
             category.item_count += 1
             category.revenue += item.total_revenue
@@ -241,6 +245,7 @@ class InsightsService:
         return tuple(
             CategoryInsight(
                 category=category.display_name,
+                professions=tuple(sorted(category.professions, key=str.casefold)),
                 sold_count=category.sold_count,
                 item_count=category.item_count,
                 revenue=category.revenue,

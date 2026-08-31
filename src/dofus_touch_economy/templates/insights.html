@@ -156,6 +156,7 @@
           <thead>
             <tr>
               <th data-sort-type="text">Category</th>
+              <th data-sort-type="text">Profession</th>
               <th class="numeric" data-sort-type="number">Distinct Items</th>
               <th class="numeric" data-sort-type="number">Completed Sales</th>
               <th class="numeric" data-sort-type="number" aria-sort="descending">Recorded Revenue</th>
@@ -167,6 +168,7 @@
             {% for category in report.category_insights %}
               <tr>
                 <td>{{ category.category }}</td>
+                <td>{{ category.professions | join(", ") if category.professions else "—" }}</td>
                 <td class="numeric">{{ category.item_count }}</td>
                 <td class="numeric">{{ category.sold_count }}</td>
                 <td class="numeric">{{ "{:,}".format(category.revenue) }}</td>

@@ -105,3 +105,21 @@
 - `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Category Performance profession column
+
+### Behavior
+
+- Added a sortable Profession column immediately after Category in the Insights
+  Category Performance table.
+- The category grain is unchanged. Each row lists the distinct professions from the
+  latest recipes of its sold items in alphabetical order, uses a comma-separated
+  value when a category spans professions, and shows an em dash when none exist.
+
+### Verification
+
+- Insights service coverage verifies single-profession categories and a merged Cloak
+  category spanning Costumagus and Tailor; web coverage verifies column placement.
+- `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
