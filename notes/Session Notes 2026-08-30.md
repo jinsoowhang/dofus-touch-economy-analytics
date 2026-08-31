@@ -59,5 +59,11 @@
 - `./scripts/check.sh` passed: Ruff lint/formatting, 324 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
-- No BigQuery build was triggered from the local environment; rerun the failed hosted
-  job after publishing this code change.
+- The 03:51 hosted rerun returned the same 130 failures because GitHub `main` still
+  pointed to `71255ef` and therefore still contained the original assertion. Pushed
+  the atomic fix commit `ca1cbb3` to `origin/main` and confirmed the remote test now
+  contains the adapter-dispatched comparison.
+- A BigQuery-precision replay across all 137 eligible current operational rows
+  returned 130 failures for the old predicate and zero for the published predicate.
+  No hosted BigQuery build was triggered from the local environment; rerun the job
+  against `ca1cbb3` or later.
