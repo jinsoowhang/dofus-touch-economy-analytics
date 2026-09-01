@@ -36,8 +36,7 @@ RecipeSortField = Literal[
 RecipeSortDirection = Literal["asc", "desc"]
 RecipeEconomicsFilter = Literal["all", "profitable", "non_profitable", "unknown"]
 ProfitOpportunitySignal = Literal["Improving", "Newly priced", "Profitable now"]
-REQUIRED_PROFESSION_LEVELS = (1, 10, 20, 40, 60, 80, 100)
-_PROFESSION_LEVEL_BY_INGREDIENT_COUNT = (None, 1, *REQUIRED_PROFESSION_LEVELS)
+_PROFESSION_LEVEL_BY_INGREDIENT_COUNT = (None, 1, 1, 10, 20, 40, 60, 80, 100)
 
 
 def required_profession_level(ingredient_count: int) -> int | None:
@@ -284,8 +283,8 @@ class RecipeCatalogService:
                     key=lambda entry: entry[1].casefold(),
                 )
             ],
-            minimum_available_level=min(levels, default=REQUIRED_PROFESSION_LEVELS[0]),
-            maximum_available_level=max(levels, default=REQUIRED_PROFESSION_LEVELS[-1]),
+            minimum_available_level=min(levels, default=1),
+            maximum_available_level=max(levels, default=300),
             page=resolved_page,
             page_size=page_size,
             page_count=page_count,

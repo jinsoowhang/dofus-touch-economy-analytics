@@ -130,3 +130,22 @@
 ### Verification
 
 - Focused Sales, web, and static-asset verification passed (111 tests).
+
+## Restored Recipe level range
+
+### Behavior
+
+- Restored the Recipes dual-handle required-profession-level range and synchronized
+  numeric endpoints in place of the discrete selectors.
+- Preserved the existing inclusive `min_level` and `max_level` query behavior and the
+  endpoint-crossing guard while allowing category filters such as Belt to be combined
+  with freely chosen numeric levels.
+
+### Verification
+
+- Focused recipe, web, and static-asset verification passed (111 tests).
+- Real ignored-database smoke requests returned HTTP 200 for Belt-filtered Recipes
+  with the range slider and active-filtered Sales with the all-history chart visible.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 334 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

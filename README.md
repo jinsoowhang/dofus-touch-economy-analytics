@@ -137,9 +137,9 @@ audited price observation can be recorded.
 
 The Recipes page lists the latest recipe for each craftable item with its profession,
 standard required profession level, current item price, recipe cost, profit, and ROI.
-It supports item, category, profession, profitability, and minimum/maximum profession-
-level selectors limited to the standard unlock tiers, plus sorting on every displayed
-field. Craftable Items are returned in 100-row pages, and each row can
+It supports item, category, profession, profitability, and a single dual-handle
+profession-level range filter with synchronized numeric endpoints, plus sorting on
+every displayed field. Craftable Items are returned in 100-row pages, and each row can
 be added to the browser-local Recipe Calculator cart. Current Price is editable
 directly in each row; Enter or leaving the field appends a price observation and
 refreshes the calculated economics without creating a Sales listing. Required
