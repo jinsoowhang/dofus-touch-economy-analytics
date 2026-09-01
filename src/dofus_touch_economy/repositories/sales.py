@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
@@ -21,6 +22,23 @@ class SalesRepository:
                 selectinload(SaleListing.price_observation),
             )
             .order_by(SaleListing.selling_started_at.desc(), SaleListing.id.desc())
+        )
+        return list(self._session.scalars(statement))
+
+    def active_for_item_ids(self, item_ids: Collection[int]) -> list[SaleListing]:
+        if not item_ids:
+            return []
+        statement = (
+            select(SaleListing)
+            .where(
+                SaleListing.item_id.in_(item_ids),
+                SaleListing.date_sold.is_(None),
+            )
+            .options(
+                selectinload(SaleListing.item),
+                selectinload(SaleListing.price_observation),
+            )
+            .order_by(SaleListing.selling_started_at, SaleListing.id)
         )
         return list(self._session.scalars(statement))
 
@@ -126,6 +144,9 @@ class SalesRepository:
         self,
         recipe_costs_at_sale: dict[UUID, Decimal | None],
         date_sold: datetime,
+        *,
+        sale_source: str,
+        sale_capture_uuid: UUID | None,
     ) -> int:
         updated_count = 0
         for listing_uuid, recipe_cost_at_sale in recipe_costs_at_sale.items():
@@ -139,6 +160,8 @@ class SalesRepository:
                     .values(
                         date_sold=date_sold,
                         recipe_cost_at_sale=recipe_cost_at_sale,
+                        sale_source=sale_source,
+                        sale_capture_uuid=sale_capture_uuid,
                     )
                 ).rowcount
                 or 0
@@ -155,6 +178,8 @@ class SalesRepository:
             .values(
                 date_sold=None,
                 recipe_cost_at_sale=None,
+                sale_source=None,
+                sale_capture_uuid=None,
             )
         )
         return result.rowcount == 1

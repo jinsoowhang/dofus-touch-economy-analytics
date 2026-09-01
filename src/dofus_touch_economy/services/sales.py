@@ -524,8 +524,27 @@ class SalesService:
         return self.start_many([command])[0]
 
     def start_many(self, commands: list[SaleListingCreate]) -> list[SaleListingResponse]:
+        listings = self.create_listings_at(
+            commands,
+            selling_started_at=datetime.now(UTC),
+            source="manual",
+            capture_uuid=None,
+        )
+        self._session.commit()
+        return self._responses(listings)
+
+    def create_listings_at(
+        self,
+        commands: list[SaleListingCreate],
+        *,
+        selling_started_at: datetime,
+        source: str,
+        capture_uuid: UUID | None,
+    ) -> list[SaleListing]:
         if not commands:
             return []
+        if not source.strip():
+            raise ValueError("sale listing source must not be empty")
         item_uuids = list(dict.fromkeys(command.item_uuid for command in commands))
         item_ids = {
             item_uuid: item_id
@@ -540,26 +559,29 @@ class SalesService:
         if missing_item_uuids:
             raise SaleItemNotFound(str(missing_item_uuids[0]))
 
-        selling_started_at = datetime.now(UTC)
+        resolved_started_at = _as_utc(selling_started_at)
         listings: list[SaleListing] = []
         for command in commands:
             item_id = item_ids[command.item_uuid]
             observation = self._new_price_observation(
                 item_id,
                 command.asking_price,
-                selling_started_at,
+                resolved_started_at,
+                source=source,
             )
             listing = SaleListing(
                 item_id=item_id,
-                price_observation_id=observation.id,
+                price_observation=observation,
                 lot_quantity=1,
                 asking_price=command.asking_price,
-                selling_started_at=selling_started_at,
+                selling_started_at=resolved_started_at,
+                listing_source=source,
+                listing_capture_uuid=capture_uuid,
             )
             self._session.add(listing)
             listings.append(listing)
-        self._session.commit()
-        return self._responses(listings)
+        self._session.flush()
+        return listings
 
     def duplicate(self, listing_uuid: UUID) -> SaleListingResponse:
         original = self._sales.get_by_uuid(listing_uuid)
@@ -570,6 +592,7 @@ class SalesService:
             lot_quantity=1,
             asking_price=original.asking_price,
             selling_started_at=datetime.now(UTC),
+            listing_source="manual",
         )
         self._session.add(duplicate)
         self._session.commit()
@@ -616,6 +639,8 @@ class SalesService:
         item_id: int,
         total_price: int,
         observed_at: datetime,
+        *,
+        source: str = "manual",
     ) -> PriceObservation:
         observation = PriceObservation(
             item_id=item_id,
@@ -623,49 +648,69 @@ class SalesService:
             total_price=total_price,
             observed_at=observed_at,
             market_context=self._market_context,
+            source=source,
         )
         self._session.add(observation)
         self._session.flush()
         return observation
 
     def mark_sold(self, listing_uuid: UUID) -> SaleListingResponse:
-        listing = self._sales.get_by_uuid(listing_uuid)
-        if listing is None:
-            raise SaleListingNotFound(str(listing_uuid))
-        if listing.date_sold is not None:
-            raise SaleListingConflict(str(listing_uuid))
-        sold_at = datetime.now(UTC)
-        recipe_cost_at_sale = self._recipe_costs_at(
-            [listing],
-            {listing.uuid: sold_at},
-        ).get(listing.uuid)
-        if not self._sales.mark_sold(listing_uuid, sold_at, recipe_cost_at_sale):
+        try:
+            listings = self.mark_listings_sold_at(
+                [listing_uuid],
+                sold_at=datetime.now(UTC),
+                source="manual",
+                capture_uuid=None,
+            )
+        except (SaleListingNotFound, SaleListingConflict):
             self._session.rollback()
-            existing = self._sales.get_by_uuid(listing_uuid)
-            if existing is None:
-                raise SaleListingNotFound(str(listing_uuid))
-            raise SaleListingConflict(str(listing_uuid))
+            raise
         self._session.commit()
-        listing = self._sales.get_by_uuid(listing_uuid)
-        if listing is None:  # pragma: no cover - protected by successful update
-            raise SaleListingNotFound(str(listing_uuid))
-        return self._responses([listing])[0]
+        return self._responses(listings)[0]
 
     def mark_sold_many(self, listing_uuids: list[UUID]) -> list[SaleListingResponse]:
+        try:
+            listings = self.mark_listings_sold_at(
+                listing_uuids,
+                sold_at=datetime.now(UTC),
+                source="manual",
+                capture_uuid=None,
+            )
+        except (SaleListingNotFound, SaleListingConflict):
+            self._session.rollback()
+            raise
+        self._session.commit()
+        return self._responses(listings)
+
+    def mark_listings_sold_at(
+        self,
+        listing_uuids: list[UUID],
+        *,
+        sold_at: datetime,
+        source: str,
+        capture_uuid: UUID | None,
+    ) -> list[SaleListing]:
+        if not source.strip():
+            raise ValueError("sale source must not be empty")
         listings = self._selected_listings(listing_uuids)
         if any(listing.date_sold is not None for listing in listings):
             raise SaleListingConflict("only active listings can be marked as sold")
-        sold_at = datetime.now(UTC)
+        resolved_sold_at = _as_utc(sold_at)
+        if any(resolved_sold_at < _as_utc(listing.selling_started_at) for listing in listings):
+            raise SaleListingConflict("sale timestamp is before the listing start")
         recipe_costs_at_sale = self._recipe_costs_at(
             listings,
-            {listing.uuid: sold_at for listing in listings},
+            {listing.uuid: resolved_sold_at for listing in listings},
         )
-        if self._sales.mark_sold_many(recipe_costs_at_sale, sold_at) != len(listings):
-            self._session.rollback()
+        if self._sales.mark_sold_many(
+            recipe_costs_at_sale,
+            resolved_sold_at,
+            sale_source=source,
+            sale_capture_uuid=capture_uuid,
+        ) != len(listings):
             raise SaleListingConflict("selected listings changed before they were updated")
-        self._session.commit()
-        refreshed = self._selected_listings(listing_uuids)
-        return self._responses(refreshed)
+        self._session.flush()
+        return self._selected_listings(listing_uuids)
 
     def delete_active_many(self, listing_uuids: list[UUID]) -> list[SaleListingResponse]:
         listings = self._selected_listings(listing_uuids)

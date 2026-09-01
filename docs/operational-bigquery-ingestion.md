@@ -36,11 +36,16 @@ The loader reads these normalized operational tables in one read-only transactio
 | `recipes` | `raw_recipes` | Versioned recipe headers |
 | `recipe_ingredients` | `raw_recipe_ingredients` | Ordered recipe ingredients and quantities |
 | `price_observations` | `raw_price_observations` | Price history and invalidations |
-| `sale_listings` | `raw_sale_listings` | Active and sold application listings |
+| `sale_listings` | `raw_sale_listings` | Active and sold application listings, including nullable generic capture lineage |
 
 The ambiguous `data/raw/item_sales.csv` is not read. Sales come from normalized
 application rows, which have stable IDs, deterministic UTC timestamps, item IDs, and
 explicit active or sold state.
+
+Slack capture batches, provider identifiers, screenshots, raw model output, and
+review state are not extracted. A manually triggered snapshot can include only the
+generic nullable listing/sale source and capture UUID fields carried by normalized
+`sale_listings`; the screenshot worker never starts a BigQuery load.
 
 ## Safety and publication contract
 

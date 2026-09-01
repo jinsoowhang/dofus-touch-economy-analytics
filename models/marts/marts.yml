@@ -46,6 +46,14 @@ models:
                 field: item_id
       - name: recipe_cost_at_sale
         description: "Fixed recipe ingredient cost captured when the listing was sold."
+      - name: listing_source
+        description: "Provider-neutral current source for listing creation."
+      - name: listing_capture_uuid
+        description: "Generic capture lineage for automated listing creation."
+      - name: sale_source
+        description: "Provider-neutral current source for the sale action."
+      - name: sale_capture_uuid
+        description: "Generic capture lineage for the current sale action."
       - name: profit_at_sale
         description: "Realized asking price minus the fixed recipe cost at sale."
       - name: listing_status

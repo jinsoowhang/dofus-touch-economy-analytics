@@ -136,7 +136,49 @@
   270,000 kamas. A fourth visible message, Minoskito Skin at 1,517 kamas, remained
   unchanged because the catalog item had no Sales listing; screenshot evidence does
   not authorize fabricating a missing listing.
-
+- The approved Slack screenshot automation design uses a private, single-owner
+  `#dofus-touch` channel and a separate local Socket Mode worker. Each top-level
+  image message explicitly selects `sold` or `market`; the vision model extracts
+  ordered names and prices only, while deterministic services own catalog identity,
+  latest-recipe/profession scope, exact active-listing reconciliation, authorization,
+  backups, and one-transaction writes. Both actions begin confirmation-required and
+  may graduate independently only after private evaluation and 20 error-free live
+  confirmed batches.
+- `sold` selects the oldest exact active item-and-price listing for each in-scope
+  occurrence, never fabricates a missing listing, and snapshots recipe cost at the
+  Slack parent timestamp. `market` compares exact active item-and-price occurrence
+  counts and creates only missing listings and linked append-only observations; it
+  never reprices, removes extras, marks sold, or creates catalog/recipe data. Exact
+  non-craftable or unapproved-profession rows are visibly out of scope, while
+  unresolved/ambiguous names and invalid in-scope rows require review.
+- Slack screenshots, identifiers, captions, raw model responses, and local capture
+  audit tables remain ignored and out of BigQuery/dbt. Append-only local
+  capture-to-listing action history handles create, sell, reopen, and re-sell
+  lifecycles; only nullable provider-neutral current lineage on normalized sale
+  listings may enter the operational snapshot.
+- The confirmation-required Slack worker is implemented as a separate
+  `dofus-slack-worker` process using Slack Bolt Socket Mode and a local Codex CLI
+  structured-image bridge authenticated through the owner's saved ChatGPT login; no
+  OpenAI API key or Python SDK is required. Each model call is ephemeral, ignores user
+  config and rules, disables shell/multi-agent/view-image/web-search tools, uses a
+  read-only temporary workspace, and receives an allowlisted environment without
+  Slack or application secrets. Validated hash-addressed evidence, durable SQLite
+  leases/retries, owner-only buttons, exact reconciliation, pre-write backups, and
+  atomic Sales commits remain unchanged. The executable rejects either auto-commit
+  flag when true.
+- The private ignored `sold` gold case passed the live ChatGPT-authenticated Codex
+  evaluation 1/1 with zero false positives on 2026-08-29. The controlled Slack pilot
+  began on 2026-08-31 with one end-to-end confirmed `sold` batch that committed 18
+  listing changes; the 20-batch autonomy gate remains unmet. No labeled marketplace
+  screenshot exists, so live `market` image extraction is hard-disabled and routes
+  to `needs_review` without a model call or Sales write. Do not remove that gate or
+  enable autonomy until the approved action-specific evaluation and pilot criteria
+  are met.
+- The canonical ignored `data/app/dofus_touch.sqlite3` database was backed up and
+  migrated from Alembic `0008` to `0010` on 2026-08-29 after the new listing-lineage
+  columns caused `/sales` to fail against the old schema. Preexisting listing content,
+  counts, statuses, prices, and timestamps were unchanged; `/sales` returned HTTP 200
+  against the already-running web process after the migration.
 - On 2026-08-30, an explicit user entry atomically marked three exact active listings
   sold for the 2026-08-29 Pacific date. Duplicate identical active listings were
   resolved oldest-first with listing ID as the tie-breaker. The requested date had no

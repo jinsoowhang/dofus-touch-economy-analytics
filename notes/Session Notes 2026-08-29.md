@@ -188,6 +188,84 @@ later learning slice can model item-level sales performance from `fct_sales`.
   lint errors in unrelated, concurrently added Slack-capture implementation files.
   Those in-progress files were preserved without modification.
 
+## Slack screenshot sales automation research and planning
+
+### Context
+
+Researched and planned a private `#dofus-touch` Slack workflow for two explicit
+screenshot actions. `sold` will reconcile visible sale notifications with exact
+active Sales listings. `market` will ensure the user's own visible, in-scope
+craftable marketplace listings also exist in the Web UI. The user accepted the full
+recommended-answer set from the `grill-me-yolo` review. This session intentionally
+performed no implementation or external Slack/OpenAI setup.
+
+### Research completed
+
+- Reviewed the current Sales models, repositories, service transaction boundaries,
+  migrations, operational snapshot contract, BigQuery schema evolution, dbt sale
+  models and seeds, CLI/settings boundaries, ignored local-state policy, and prior
+  screenshot reconciliation record.
+- Confirmed from Slack's primary documentation that Socket Mode suits a local worker
+  without public ingress, while disconnects, retries, prompt acknowledgment, private
+  file authorization, and startup history recovery require durable intake.
+- Confirmed from OpenAI's primary documentation that the Responses API supports
+  base64 image inputs and strict structured outputs. The recommended pilot uses
+  GPT-5.6 Terra, original image detail, `store: false`, and no Files API or model
+  tools. Verified OpenAI Python 3.6.0 and Slack Bolt 1.30.0 from their official PyPI
+  project pages for the future dependency task.
+
+### Decisions
+
+- Require the exact first caption line `sold` or `market`, or an owner-only Slack
+  action button. Screenshot/model content never selects the business action.
+- Treat all supported images on one top-level parent message as one atomic batch and
+  use the Slack parent timestamp as the effective sale or listing-observation time.
+- Keep the model limited to ordered raw name/whole-kama price extraction and screen
+  classification. Exact normalized identity, latest recipe, approved professions,
+  active-listing matches, occurrence counts, and writes are deterministic code.
+- Use exact active item-and-price matching. `sold` assigns the oldest identical
+  listing first and never fabricates data. `market` adds only missing exact counts;
+  it never removes extra Web UI rows or automatically resolves a different-price
+  conflict.
+- Treat exact non-craftable or unapproved-profession items as visibly out of scope.
+  Unresolved or ambiguous names and invalid in-scope rows send the full batch to
+  review. Every accepted mutation remains all-or-nothing.
+- Begin both actions in owner-confirmation mode. Keep independent automatic-mode
+  flags and require a private exact-match corpus, 20 error-free confirmed live
+  batches for that action, and an agreeing independent verification extraction
+  before considering autonomy.
+- Persist durable local batch, file, retry, decision, receipt, and append-only
+  capture-to-listing action history. Use provider-neutral current sale-listing
+  lineage for analytics; never publish capture tables, Slack identifiers,
+  screenshots, captions, or raw model output.
+- Retain terminal screenshot evidence for 90 days under ignored `data/app/`, create
+  and integrity-check an online SQLite backup immediately before mutation, and retry
+  a failed Slack receipt separately from an already committed database action.
+
+### Planning artifacts
+
+- Added `notes/Slack Screenshot Sales Automation Design.md` with the approved scope,
+  action algorithms, architecture, data model, security boundaries, state machine,
+  failure handling, and rollout gates.
+- Added `notes/Slack Screenshot Sales Automation Implementation Plan.md` with a
+  test-first, atomic-commit task sequence from private examples through dry run,
+  confirmation pilot, and separately gated optional autonomy.
+- Gate 0 requires at least one private labeled example of each supported client
+  layout before prompts or row semantics are finalized. Those artifacts must stay
+  outside Git.
+
+### Verification
+
+- Verified the two planning files against the current package, migration, snapshot,
+  dbt, test, and documentation layout.
+- Ran documentation whitespace and public-file-policy checks; results are recorded in
+  the final handoff for this session.
+- This planning work changed documentation and project records only. It did not
+  change dependencies, application files, database schema, operational rows, a Slack
+  app, an OpenAI project, or external configuration. Unrelated uncommitted Sales
+  application and test changes appeared concurrently in the shared worktree; they
+  were preserved without review or modification.
+
 ## Compact item recipe controls and quantity continuity
 
 ### Implementation
@@ -211,6 +289,113 @@ later learning slice can model item-level sales performance from `fct_sales`.
 - `./scripts/check.sh` was attempted and stopped at Ruff on eight unrelated errors in
   the concurrently added Slack-capture implementation and tests. Those files were
   preserved without modification.
+
+## Slack screenshot Sales automation implementation
+
+### Work completed
+
+- Added isolated worker configuration and locked OpenAI 3.6.0, Slack Bolt 1.30.0,
+  and Pillow 12.3.0 dependencies. The normal FastAPI configuration remains usable
+  without Slack or OpenAI secrets.
+- Added Alembic revisions `0009` and `0010` for private capture batch/file/action
+  audit state and nullable provider-neutral listing/sale lineage. The operational
+  snapshot, BigQuery schema evolution, dbt staging, `fct_sales`, schema docs, and
+  synthetic seed carry only generic lineage.
+- Added validated streamed evidence storage for PNG/JPEG/WebP, size limits, SHA-256
+  paths, 90-day terminal retention, path-containment checks, and integrity-checked
+  online SQLite backups. Each valid file is durably linked before later attachments
+  are processed, preventing untracked evidence after a partial invalid batch.
+- Added strict screenshot schemas and an OpenAI Responses adapter using base64 image
+  data, original detail, Pydantic structured output, `store: false`, and no tools.
+  A private ignored aggregate-only gold evaluator and one labeled `sold` case are
+  present.
+- Added deterministic `sold` and `market` planners. Both enforce action/screen
+  agreement, exact catalog identity, latest recipes, approved professions, whole
+  prices, atomic rejection, and stale-preview revalidation. `sold` marks oldest
+  exact active matches at the Slack timestamp; `market` adds only missing exact
+  active counts and linked append-only observations.
+- Added the single-owner/private-channel Slack Socket Mode worker with durable
+  pre-ack intake, message and hash idempotency, leases, capped provider retries,
+  history catch-up, action selection, previews, confirmation/rejection, separate
+  receipt retry, evidence purge, and a schema/configuration `--check` mode.
+- Kept the shipped executable confirmation-only: it rejects either auto-commit flag
+  when true. Live `market` extraction is also hard-disabled until a private labeled
+  marketplace screenshot validates the screen layout; such messages enter
+  `needs_review` without an OpenAI call or Sales mutation.
+- Added a secret-free Slack app manifest and an owner runbook covering private app
+  setup, least-privilege scopes, secrets, migrations, evaluation, startup, history
+  timestamps, exact action semantics, recovery, retention, correction, shutdown,
+  and the local/analytical data boundary.
+
+### Operational gates still open
+
+- No Slack workspace/app/channel was created or changed, no tokens were available,
+  and no live Socket Mode dry run or controlled confirmation pilot was performed.
+- No OpenAI API key was available, so the private `sold` gold case was not evaluated
+  against the live configured model.
+- No marketplace screenshot was supplied. The market reconciliation service is
+  synthetic-test complete, but its vision prompt and live path remain gated.
+- The canonical application database was not migrated or mutated, and no BigQuery
+  snapshot or dbt Cloud build was triggered.
+
+### Verification
+
+- Focused capture/configuration/CLI/documentation tests passed: 61 tests.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 316 Python tests, package
+  compilation, dbt profile validation and parsing, nine seed loads, the 126-node dbt
+  build, SQLFluff, and public-file policy.
+- `uv lock --check`, `git diff --check`, and a direct ignore check for the private
+  gold manifest passed. Final status contained no screenshot, database, backup,
+  token, Slack payload, raw model output, or evaluation label.
+
+### Live database schema recovery
+
+- Confirmed the running `dofus-web` process used the project default
+  `data/app/dofus_touch.sqlite3`, which was healthy but still at Alembic `0008` while
+  the application model selected the new `0010` listing-lineage columns.
+- Created and integrity-checked the ignored recovery backup
+  `data/app/backups/dofus-touch-before-slack-schema-0010-20260830T000648366846Z.sqlite3`.
+- Applied the documented Alembic upgrade from `0008` through `0009` and `0010`.
+  SQLite integrity remained `ok`; all 336 preexisting sale-listing rows had identical
+  hashes across every preexisting column before and after migration. Active/sold
+  counts remained 169/167 and recorded sold revenue remained 13,396,997 kamas.
+- Verified the four lineage columns exist, existing listing sources were backfilled
+  to `manual`, the database reports version `0010`, and the already-running `/sales`
+  endpoint returns HTTP 200 without a restart.
+
+### Codex CLI subscription bridge
+
+- Replaced the direct OpenAI Responses/Python SDK transport with a local
+  `CodexCliVisionAdapter`. The bridge reuses the saved ChatGPT login reported by
+  `codex login status`, so neither the worker nor evaluator requires
+  `OPENAI_API_KEY`.
+- Removed the OpenAI Python dependency and its transitive-only lock entries. Added
+  worker settings for the Codex binary, optional model override, and 180-second
+  timeout; blank model configuration uses the current subscription default.
+- Hardened each `codex exec` call with ephemeral mode, ignored user config and rules,
+  disabled shell/multi-agent/view-image/web-search tools, a read-only sandbox, an
+  isolated temporary working directory, no inherited shell environment, and a
+  process-environment allowlist that excludes Slack and application secrets.
+- Passed screenshot paths through the CLI's image option, supplied a strict
+  Pydantic-derived JSON Schema, and read only the final structured message file.
+  Adjusted the emitted schema so every property is required, matching Codex's
+  structured-output contract while retaining the app-side default for warnings.
+  Provider stderr and stdout are neither logged nor persisted; only a safe reported
+  model identifier is extracted for the existing audit field.
+- Updated the README, architecture, approved design, implementation plan, public-safe
+  environment example, and owner runbook for ChatGPT subscription authentication and
+  the unchanged screenshot-disclosure boundary.
+- Verified Codex CLI 0.151.0 is logged in using ChatGPT. A tool-disabled blank-image
+  probe returned a valid `other` extraction. The private ignored `sold` gold case
+  passed 1/1 with zero false positives through the subscription bridge; no private
+  screenshot content or labels were printed or tracked. Live marketplace evaluation
+  remains blocked by the missing labeled screenshot, and no Slack workspace action or
+  Sales mutation was performed.
+- The real read-only worker readiness command passed against canonical schema `0010`
+  and the saved ChatGPT login. Focused bridge/configuration/evaluation/CLI/worker
+  verification passed 31 tests. The final `./scripts/check.sh` passed Ruff lint and
+  formatting, all 323 Python tests, package compilation, dbt debug/parse, nine seed
+  loads, the 126-node dbt build, SQLFluff, and public-file policy.
 
 ## Insights category reconciliation
 

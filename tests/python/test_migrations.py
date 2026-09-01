@@ -68,6 +68,9 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         "price_observations",
         "recipe_ingredients",
         "recipes",
+        "sale_capture_batches",
+        "sale_capture_files",
+        "sale_capture_listing_actions",
         "sale_listings",
         "source_item_names",
         "source_records",
@@ -82,6 +85,10 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
     assert "touch_catalog_exclusion_reason" in item_columns
     assert "asking_price" in sale_columns
     assert "recipe_cost_at_sale" in sale_columns
+    assert "listing_source" in sale_columns
+    assert "listing_capture_uuid" in sale_columns
+    assert "sale_source" in sale_columns
+    assert "sale_capture_uuid" in sale_columns
     with engine.connect() as connection:
         source = connection.scalar(
             text("SELECT created_source FROM items WHERE normalized_name = 'imported item'")
@@ -115,6 +122,13 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         assert connection.scalar(text("SELECT count(*) FROM sale_listings")) == 1
         assert connection.scalar(text("SELECT asking_price FROM sale_listings")) == 100
         assert connection.scalar(text("SELECT recipe_cost_at_sale FROM sale_listings")) is None
+        lineage = connection.execute(
+            text(
+                "SELECT listing_source, listing_capture_uuid, sale_source, sale_capture_uuid "
+                "FROM sale_listings"
+            )
+        ).one()
+        assert lineage == ("manual", None, None, None)
     engine.dispose()
 
     subprocess.run(

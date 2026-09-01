@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import uvicorn
 
-from dofus_touch_economy.cli import import_main, web_main
+from dofus_touch_economy.cli import import_main, slack_worker_main, web_main
 from dofus_touch_economy.database import Base, create_engine_for_url
 
 
@@ -87,3 +87,88 @@ def test_web_main_rejects_public_binding(capsys) -> None:
 
     assert error.value.code == 2
     assert "public binding requires a separate security design" in capsys.readouterr().err
+
+
+def test_slack_worker_check_validates_config_and_schema_without_connecting(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    database_path = tmp_path / "application.sqlite3"
+    engine = create_engine_for_url(f"sqlite+pysqlite:///{database_path}")
+    Base.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+        )
+        connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('0010')")
+    engine.dispose()
+    monkeypatch.setenv("DOFUS_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOFUS_APP_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("DOFUS_SLACK_BOT_TOKEN", "bot-secret")
+    monkeypatch.setenv("DOFUS_SLACK_APP_TOKEN", "app-secret")
+    monkeypatch.setenv("DOFUS_SLACK_WORKSPACE_ID", "T123")
+    monkeypatch.setenv("DOFUS_SLACK_CHANNEL_ID", "C123")
+    monkeypatch.setenv("DOFUS_SLACK_OWNER_USER_ID", "U123")
+    monkeypatch.setattr(
+        "dofus_touch_economy.capture_vision.CodexCliVisionAdapter.check_ready",
+        lambda _self: None,
+    )
+
+    assert slack_worker_main(["--check"]) == 0
+
+    output = capsys.readouterr().out
+    assert "Slack capture worker configuration is ready" in output
+    assert "schema=0010" in output
+    assert "bridge=codex-cli" in output
+    assert "bot-secret" not in output
+    assert "app-secret" not in output
+
+
+def test_slack_worker_check_rejects_outdated_schema(monkeypatch, tmp_path: Path, capsys) -> None:
+    database_path = tmp_path / "application.sqlite3"
+    engine = create_engine_for_url(f"sqlite+pysqlite:///{database_path}")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+        )
+        connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('0008')")
+    engine.dispose()
+    monkeypatch.setenv("DOFUS_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOFUS_APP_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("DOFUS_SLACK_BOT_TOKEN", "bot-secret")
+    monkeypatch.setenv("DOFUS_SLACK_APP_TOKEN", "app-secret")
+    monkeypatch.setenv("DOFUS_SLACK_WORKSPACE_ID", "T123")
+    monkeypatch.setenv("DOFUS_SLACK_CHANNEL_ID", "C123")
+    monkeypatch.setenv("DOFUS_SLACK_OWNER_USER_ID", "U123")
+
+    assert slack_worker_main(["--check"]) == 2
+
+    assert "requires database schema 0010" in capsys.readouterr().err
+
+
+def test_slack_worker_check_rejects_experimental_auto_commit(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    database_path = tmp_path / "application.sqlite3"
+    engine = create_engine_for_url(f"sqlite+pysqlite:///{database_path}")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+        )
+        connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('0010')")
+    engine.dispose()
+    monkeypatch.setenv("DOFUS_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOFUS_APP_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("DOFUS_SLACK_BOT_TOKEN", "bot-secret")
+    monkeypatch.setenv("DOFUS_SLACK_APP_TOKEN", "app-secret")
+    monkeypatch.setenv("DOFUS_SLACK_WORKSPACE_ID", "T123")
+    monkeypatch.setenv("DOFUS_SLACK_CHANNEL_ID", "C123")
+    monkeypatch.setenv("DOFUS_SLACK_OWNER_USER_ID", "U123")
+    monkeypatch.setenv("DOFUS_SLACK_SOLD_AUTO_COMMIT", "true")
+
+    assert slack_worker_main(["--check"]) == 2
+
+    assert "confirmation-only" in capsys.readouterr().err

@@ -27,4 +27,5 @@ sources:
       - name: raw_sale_listings
         description: >-
           Active and completed application Sales listings, including nullable fixed
-          recipe cost captured when sold.
+          recipe cost captured when sold and provider-neutral capture lineage. Private
+          screenshot and Slack audit data is excluded.

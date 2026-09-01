@@ -1,0 +1,25 @@
+_metadata:
+  major_version: 1
+display_information:
+  name: Dofus Touch Sales Capture
+  description: Private screenshot intake for local Sales reconciliation
+  background_color: "#2f3136"
+features:
+  bot_user:
+    display_name: Dofus Touch Sales Capture
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - files:read
+      - groups:history
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.groups
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

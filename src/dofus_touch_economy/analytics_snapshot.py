@@ -158,6 +158,10 @@ OPERATIONAL_TABLES = (
             _column("selling_started_at", "TIMESTAMP"),
             _column("date_sold", "TIMESTAMP", required=False),
             _column("recipe_cost_at_sale", "NUMERIC", required=False),
+            _column("listing_source", "STRING", required=False),
+            _column("listing_capture_uuid", "STRING", required=False),
+            _column("sale_source", "STRING", required=False),
+            _column("sale_capture_uuid", "STRING", required=False),
         ),
     ),
 )

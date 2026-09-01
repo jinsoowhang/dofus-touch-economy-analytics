@@ -163,6 +163,14 @@ models:
         description: >-
           Recipe ingredient cost captured when the listing was marked sold; null for
           active listings, incomplete recipes, or legacy rows without a snapshot.
+      - name: listing_source
+        description: Provider-neutral current source for listing creation.
+      - name: listing_capture_uuid
+        description: Generic local capture UUID for automated listing creation, when present.
+      - name: sale_source
+        description: Provider-neutral current source for the completed-sale action.
+      - name: sale_capture_uuid
+        description: Generic local capture UUID for the current completed-sale action, when present.
       - name: listing_status
         data_tests:
           - accepted_values:

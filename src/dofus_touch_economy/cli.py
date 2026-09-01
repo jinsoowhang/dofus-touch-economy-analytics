@@ -4,6 +4,7 @@ import argparse
 import ipaddress
 import json
 import os
+import sqlite3
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -13,6 +14,56 @@ import uvicorn
 from dofus_touch_economy.config import Settings
 from dofus_touch_economy.database import create_engine_for_url, create_session_factory
 from dofus_touch_economy.importers.service import ImportService
+
+CAPTURE_SCHEMA_VERSION = "0010"
+
+
+def capture_eval_main(argv: Sequence[str] | None = None) -> int:
+    from dofus_touch_economy.capture_evaluation import evaluate_capture_manifest
+    from dofus_touch_economy.capture_vision import (
+        DEFAULT_CODEX_TIMEOUT_SECONDS,
+        CodexCliUnavailableError,
+        CodexCliVisionAdapter,
+    )
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate screenshot extraction against an ignored private gold set"
+    )
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--codex-binary",
+        default=os.environ.get("DOFUS_SLACK_CODEX_BINARY", "codex"),
+    )
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("DOFUS_SLACK_CODEX_MODEL", "").strip() or None,
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=int(
+            os.environ.get(
+                "DOFUS_SLACK_CODEX_TIMEOUT_SECONDS",
+                str(DEFAULT_CODEX_TIMEOUT_SECONDS),
+            )
+        ),
+    )
+    arguments = parser.parse_args(argv)
+    adapter = CodexCliVisionAdapter(
+        binary=arguments.codex_binary,
+        model=arguments.model,
+        timeout_seconds=arguments.timeout_seconds,
+    )
+    try:
+        adapter.check_ready()
+    except CodexCliUnavailableError as error:
+        print(f"Capture evaluator configuration error: {error}", file=sys.stderr)
+        return 2
+    summary = evaluate_capture_manifest(
+        arguments.manifest,
+        adapter,
+    )
+    return int(summary.passed_count != summary.total_count or summary.false_positive_count != 0)
 
 
 def load_bigquery_main(
@@ -140,6 +191,121 @@ def web_main(argv: Sequence[str] | None = None) -> int:
         reload=arguments.reload,
     )
     return 0
+
+
+def slack_worker_main(argv: Sequence[str] | None = None) -> int:
+    import threading
+
+    from slack_bolt.adapter.socket_mode import SocketModeHandler
+    from slack_sdk import WebClient
+
+    from dofus_touch_economy.capture_config import CaptureWorkerSettings
+    from dofus_touch_economy.capture_vision import (
+        CodexCliUnavailableError,
+        CodexCliVisionAdapter,
+    )
+    from dofus_touch_economy.slack_sales_worker import (
+        SlackSalesCaptureWorker,
+        build_bolt_app,
+        run_processor_loop,
+    )
+
+    parser = argparse.ArgumentParser(
+        description="Run the private Slack screenshot Sales capture worker"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate worker configuration and database schema without connecting",
+    )
+    parser.add_argument(
+        "--skip-history-catch-up",
+        action="store_true",
+        help="start live Socket Mode intake without reading missed channel history",
+    )
+    arguments = parser.parse_args(argv)
+
+    try:
+        settings = CaptureWorkerSettings.from_env()
+        schema_version = _capture_schema_version(settings.database_path)
+    except (FileNotFoundError, sqlite3.Error, ValueError) as error:
+        print(f"Slack capture worker configuration error: {error}", file=sys.stderr)
+        return 2
+    if settings.sold_auto_commit or settings.market_auto_commit:
+        print(
+            "Slack capture worker is confirmation-only; set both auto-commit flags to false.",
+            file=sys.stderr,
+        )
+        return 2
+    if schema_version != CAPTURE_SCHEMA_VERSION:
+        print(
+            f"Slack capture worker requires database schema {CAPTURE_SCHEMA_VERSION}; "
+            f"found {schema_version}. Run the documented Alembic upgrade first.",
+            file=sys.stderr,
+        )
+        return 2
+    vision_adapter = CodexCliVisionAdapter(
+        binary=settings.codex_binary,
+        model=settings.codex_model,
+        timeout_seconds=settings.codex_timeout_seconds,
+    )
+    try:
+        vision_adapter.check_ready()
+    except CodexCliUnavailableError as error:
+        print(f"Slack capture worker configuration error: {error}", file=sys.stderr)
+        return 2
+    if arguments.check:
+        print(
+            "Slack capture worker configuration is ready "
+            f"schema={schema_version} bridge=codex-cli model={vision_adapter.model_label} "
+            "sold_auto_commit=false market_auto_commit=false"
+        )
+        return 0
+
+    engine = create_engine_for_url(
+        Settings.from_env().database_url.set(database=str(settings.database_path))
+    )
+    session_factory = create_session_factory(engine)
+    slack_client = WebClient(token=settings.slack_bot_token)
+    worker = SlackSalesCaptureWorker(
+        settings,
+        session_factory,
+        slack_client,
+        vision_adapter,
+    )
+    purged_count = worker.purge_evidence()
+    print(f"Slack capture evidence retention purged={purged_count}")
+    if not arguments.skip_history_catch_up:
+        recovered_count = worker.catch_up()
+        print(f"Slack capture history catch-up queued={recovered_count}")
+
+    app = build_bolt_app(settings, worker)
+    stop_event = threading.Event()
+    processor = threading.Thread(
+        target=run_processor_loop,
+        kwargs={"worker": worker, "should_stop": stop_event.is_set},
+        name="dofus-slack-capture-processor",
+        daemon=True,
+    )
+    processor.start()
+    try:
+        SocketModeHandler(app, settings.slack_app_token).start()
+    finally:
+        stop_event.set()
+        processor.join(timeout=10)
+        engine.dispose()
+    return 0
+
+
+def _capture_schema_version(database_path: Path) -> str:
+    resolved_path = database_path.resolve()
+    if not resolved_path.is_file():
+        raise FileNotFoundError(f"application database does not exist: {resolved_path}")
+    with sqlite3.connect(f"file:{resolved_path}?mode=ro", uri=True) as connection:
+        row = connection.execute("SELECT version_num FROM alembic_version").fetchone()
+    if row is None or not row[0]:
+        raise ValueError("application database has no Alembic schema version")
+    return str(row[0])
 
 
 def fetch_icons_main(argv: Sequence[str] | None = None) -> int:

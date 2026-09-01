@@ -10,14 +10,18 @@ dependencies = [
   "fastapi==0.141.1",
   "google-cloud-bigquery==3.43.0",
   "jinja2==3.1.6",
+  "pillow==12.3.0",
   "python-multipart==0.0.32",
+  "slack-bolt==1.30.0",
   "sqlalchemy==2.0.51",
   "uvicorn==0.51.0",
 ]
 
 [project.scripts]
+dofus-evaluate-captures = "dofus_touch_economy.cli:capture_eval_main"
 dofus-import = "dofus_touch_economy.cli:import_main"
 dofus-load-bigquery = "dofus_touch_economy.cli:load_bigquery_main"
+dofus-slack-worker = "dofus_touch_economy.cli:slack_worker_main"
 dofus-fetch-icons = "dofus_touch_economy.cli:fetch_icons_main"
 dofus-sync-catalog = "dofus_touch_economy.cli:sync_catalog_main"
 dofus-sync-recipes = "dofus_touch_economy.cli:sync_recipes_main"

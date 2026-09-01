@@ -63,6 +63,13 @@ uv run dofus-web
 
 The website binds to `127.0.0.1:8000` by default. Public or non-loopback binding is rejected because it requires a separate authentication, authorization, CSRF, HTTPS, secrets, and production-database design.
 
+After completing the private Slack setup below, start the screenshot worker in a
+second terminal while the website is running:
+
+```bash
+uv run --env-file .env.slack dofus-slack-worker
+```
+
 Item icons are an ignored local cache and are not stored inside the SQLite database.
 If the database was copied or restored without `data/app/item_icons/`, rebuild the
 cache before refreshing the website:
@@ -73,6 +80,29 @@ uv run dofus-fetch-icons
 
 The command may report catalog entries whose public upstream image is unavailable;
 successfully downloaded icons remain usable.
+
+## Private Slack screenshot worker
+
+An optional local Socket Mode worker can ingest owner-posted screenshots from a
+single private `#dofus-touch` Slack channel. It records intake durably, extracts
+visible rows through a local, ChatGPT-authenticated Codex CLI bridge, reconciles them
+against SQLite with exact rules, and requires an owner preview confirmation before
+any Sales mutation. It never automates the game client and does not run inside the
+FastAPI process. No OpenAI API key is required.
+
+Store the required private settings from the runbook in the ignored
+`.env.slack` file, then validate and start the worker:
+
+```bash
+uv run --env-file .env.slack dofus-slack-worker --check
+uv run --env-file .env.slack dofus-slack-worker
+```
+
+The `sold` path is available for a controlled confirmation pilot. Live `market`
+image extraction remains review-only until a private labeled marketplace screenshot
+validates that layout. Both auto-commit flags must remain false. See
+[the Slack screenshot Sales runbook](docs/slack-screenshot-sales-setup.md) for the
+app manifest, secrets, migration, evaluation, retention, and recovery steps.
 
 The live catalog sync stores each matched item's official carrying weight in pods
 from the Dofus Touch `realWeight` field. It also replaces an imported catch-all
@@ -204,13 +234,20 @@ for authentication, sidebar navigation, verification, and retry behavior.
 
 ## Data boundary
 
-Private raw exports, operational databases, import reports, DuckDB files, and generated artifacts remain local and Git-ignored. Only invented synthetic fixtures are committed, and CI never requires private data. The normalized operational rows may exist privately in BigQuery after the contracted loader publishes an immutable snapshot.
+Private raw exports, operational databases, import reports, Slack screenshots and
+capture audit data, DuckDB files, and generated artifacts remain local and
+Git-ignored. Only invented synthetic fixtures are committed, and CI never requires
+private data. The normalized operational rows may exist privately in BigQuery after
+the contracted loader publishes an immutable snapshot.
 
 - `item_cost.csv` and `item_recipes.csv` are in application-import scope.
 - `item_sales.csv` remains deferred until dates and row grain are deterministic;
   BigQuery Sales data comes only from normalized application listings.
 - Imported `item_cost.price` values are preserved as reconciliation provenance; they are not treated as timestamped current market observations.
 - Current prices come only from valid manual lot observations recorded through the application for its configured market context.
+- Confirmed screenshot changes expose only generic nullable source and capture UUID
+  lineage through normalized sale listings; Slack payloads and model output are not
+  published.
 
 See [docs/data-contract.md](docs/data-contract.md) for exact source and operational contracts.
 

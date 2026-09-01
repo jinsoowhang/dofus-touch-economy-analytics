@@ -15,6 +15,9 @@ ignored item_cost.csv + item_recipes.csv
                                 ^           |
                                 |           v
       manual item command -> FastAPI services -> Jinja + HTMX / JSON API
+                                ^
+                                |
+ private Slack images -> local Socket Mode worker -> Codex CLI extraction
                                 |
                                 v
                     immutable snapshot extract
@@ -51,9 +54,24 @@ SQLite owns transactional application state:
   Dofus Touch carrying weight and exact-match resource subtype when available, and
   explicit source-name resolution decisions;
 - normalized recipes and ordered ingredients;
-- append-only manual lot-price observations and audit-preserving invalidation.
+- append-only manual lot-price observations and audit-preserving invalidation;
+- private screenshot intake, evidence metadata, retry/review state, confirmations,
+  and listing-action audit history.
 
 FastAPI reads and writes SQLite through repositories and services. Routers translate HTML or JSON only, and DuckDB receives no request-time writes. Alembic exclusively manages the operational schema. The default ignored database is `data/app/dofus_touch.sqlite3`.
+
+The optional Slack Bolt Socket Mode worker is a separate local process with its own
+secret-bearing configuration. It persists allowlisted top-level message intake before
+acknowledgement, downloads private image bytes into ignored evidence storage, and asks
+a local, ChatGPT-authenticated `codex exec` subprocess for strict structured
+extraction. Each invocation is ephemeral, ignores user configuration and execution
+rules, disables shell, multi-agent, local-image-tool, and web-search access, runs in a
+temporary directory with a read-only sandbox, and receives only an allowlisted process
+environment. The model has no database context and cannot select the action.
+Deterministic services plan and revalidate exact Sales changes; owner confirmation,
+an integrity-checked backup, and one SQLite transaction precede each mutation.
+Receipt delivery is a separate retryable side effect. Live marketplace extraction
+remains disabled until its private layout gate is met.
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
@@ -148,6 +166,8 @@ Transformation SQL should remain portable where practical. DuckDB-specific behav
 - `data/raw/` contains immutable, ignored local CSV exports.
 - `data/reports/` contains ignored validation and conflict reports.
 - `data/app/` contains ignored mutable SQLite operational state.
+- `data/app/slack_sales_evidence/` and `data/app/backups/` contain ignored private
+  screenshot evidence and recovery databases.
 - `data/warehouse/` contains ignored DuckDB analytical state.
 - Tracked tests use invented synthetic fixtures only.
 
@@ -158,7 +178,7 @@ Imported cost values and spreadsheet-derived totals, profit, and ROI remain reco
 - `item_sales.csv` ingestion until its dates and grain are deterministic;
 - SQLite-to-DuckDB extraction for local execution against private operational data;
 - public hosting, authentication, authorization, and multi-user behavior;
-- scraping, game-client automation, alerts, and external BI dashboards.
+- scraping, game-client automation, Slack autonomy, alerts, and external BI dashboards.
 
 ## Hosted analytical pilot
 

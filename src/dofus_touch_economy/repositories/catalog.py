@@ -68,6 +68,36 @@ class CatalogRepository:
         )
         return list(self._session.scalars(statement))
 
+    def find_active_by_normalized_names(
+        self,
+        normalized_names: set[str],
+    ) -> dict[str, list[Item]]:
+        if not normalized_names:
+            return {}
+        items_by_name: dict[str, list[Item]] = {}
+        for item in self._session.scalars(
+            select(Item)
+            .where(
+                Item.normalized_name.in_(normalized_names),
+                active_catalog_item_clause(Item),
+            )
+            .order_by(Item.normalized_name, func.coalesce(Item.category, ""), Item.id)
+        ):
+            items_by_name.setdefault(item.normalized_name, []).append(item)
+        return items_by_name
+
+    def latest_recipes_for_item_ids(self, item_ids: set[int]) -> dict[int, Recipe]:
+        if not item_ids:
+            return {}
+        latest: dict[int, Recipe] = {}
+        for recipe in self._session.scalars(
+            select(Recipe)
+            .where(Recipe.crafted_item_id.in_(item_ids))
+            .order_by(Recipe.crafted_item_id, Recipe.id.desc())
+        ):
+            latest.setdefault(recipe.crafted_item_id, recipe)
+        return latest
+
     def find_excluded_by_normalized_name(self, normalized_name: str) -> Item | None:
         return self._session.scalar(
             select(Item)

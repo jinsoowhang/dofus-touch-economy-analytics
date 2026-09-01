@@ -141,6 +141,7 @@ contract preserves:
 - recorded, observed, listing-started, sold, and invalidation timestamps;
 - market context, invalidation state, and Sales status;
 - nullable fixed recipe cost at sale for completed listings;
+- nullable generic listing/sale source and capture UUID lineage;
 - nullable live-catalog item weight in pods;
 - nullable Dofus Touch membership status, check timestamp, and exclusion reason;
 - a stable content-derived snapshot ID and UTC extraction timestamp.
@@ -153,3 +154,9 @@ writes.
 
 The loader does not resolve the deferred `item_sales.csv` contract. Hosted Sales data
 comes from the normalized `sale_listings` application table only.
+
+Screenshot capture tables are not part of the hosted contract. Slack workspace,
+channel, user, message, and file identifiers; captions; evidence paths and hashes;
+model response IDs; extraction payloads; review details; and receipt state remain
+local. A confirmed listing may carry only the generic nullable
+`listing_source`/`listing_capture_uuid` and `sale_source`/`sale_capture_uuid` fields.

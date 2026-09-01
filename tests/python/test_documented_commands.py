@@ -8,9 +8,11 @@ def test_documented_entry_points_exist() -> None:
     ]
 
     assert scripts == {
+        "dofus-evaluate-captures": "dofus_touch_economy.cli:capture_eval_main",
         "dofus-fetch-icons": "dofus_touch_economy.cli:fetch_icons_main",
         "dofus-import": "dofus_touch_economy.cli:import_main",
         "dofus-load-bigquery": "dofus_touch_economy.cli:load_bigquery_main",
+        "dofus-slack-worker": "dofus_touch_economy.cli:slack_worker_main",
         "dofus-sync-catalog": "dofus_touch_economy.cli:sync_catalog_main",
         "dofus-sync-recipes": "dofus_touch_economy.cli:sync_recipes_main",
         "dofus-web": "dofus_touch_economy.cli:web_main",
@@ -26,7 +28,24 @@ def test_readme_uses_installed_application_commands() -> None:
     ) in readme
     assert "uv run dofus-import" in readme
     assert "uv run dofus-load-bigquery --dry-run" in readme
+    assert "uv run --env-file .env.slack dofus-slack-worker --check" in readme
     assert "uv run dofus-web" in readme
+
+
+def test_slack_runbook_keeps_confirmation_and_market_gates_explicit() -> None:
+    runbook = Path("docs/slack-screenshot-sales-setup.md").read_text(encoding="utf-8")
+    manifest = Path("docs/slack-app-manifest.yml").read_text(encoding="utf-8")
+
+    assert "uv run --env-file .env.slack dofus-slack-worker --check" in runbook
+    assert "Never commit `.env.slack`" in runbook
+    assert "uv run dofus-evaluate-captures" in runbook
+    assert "DOFUS_SLACK_SOLD_AUTO_COMMIT=false" in runbook
+    assert "DOFUS_SLACK_MARKET_AUTO_COMMIT=false" in runbook
+    assert "marketplace image" in runbook
+    assert "message.groups" in manifest
+    assert "groups:history" in manifest
+    assert "files:read" in manifest
+    assert "chat:write" in manifest
 
 
 def test_ci_does_not_import_private_data() -> None:

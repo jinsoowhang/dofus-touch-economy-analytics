@@ -281,6 +281,177 @@ class SaleListing(Base):
         index=True,
     )
     recipe_cost_at_sale: Mapped[Decimal | None] = mapped_column(Numeric(38, 9))
+    listing_source: Mapped[str | None] = mapped_column(String(40), default="manual")
+    listing_capture_uuid: Mapped[UUID | None] = mapped_column(Uuid)
+    sale_source: Mapped[str | None] = mapped_column(String(40))
+    sale_capture_uuid: Mapped[UUID | None] = mapped_column(Uuid)
 
     item: Mapped[Item] = relationship(back_populates="sale_listings")
     price_observation: Mapped[PriceObservation | None] = relationship(back_populates="sale_listing")
+    capture_actions: Mapped[list[SaleCaptureListingAction]] = relationship(
+        back_populates="sale_listing",
+        order_by="SaleCaptureListingAction.effective_at, SaleCaptureListingAction.id",
+    )
+
+
+class SaleCaptureBatch(Base):
+    __tablename__ = "sale_capture_batches"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "workspace_id",
+            "channel_id",
+            "parent_message_ts",
+            name="uq_sale_capture_batches_message",
+        ),
+        CheckConstraint("provider IN ('slack')", name="ck_sale_capture_batches_provider"),
+        CheckConstraint(
+            "requested_action IS NULL OR requested_action IN ('sold', 'market')",
+            name="ck_sale_capture_batches_action",
+        ),
+        CheckConstraint(
+            "status IN ('received', 'awaiting_action', 'queued', 'extracting', "
+            "'awaiting_confirmation', 'needs_review', 'committing', 'committed', "
+            "'rejected', 'retry_wait', 'failed')",
+            name="ck_sale_capture_batches_status",
+        ),
+        CheckConstraint(
+            "receipt_status IN ('none', 'pending', 'sent', 'retry_wait', 'failed')",
+            name="ck_sale_capture_batches_receipt_status",
+        ),
+        CheckConstraint("attempt_count >= 0", name="ck_sale_capture_batches_attempt_count"),
+        CheckConstraint(
+            "(decided_by_user_id IS NULL AND decided_at IS NULL) OR "
+            "(decided_by_user_id IS NOT NULL AND decided_at IS NOT NULL)",
+            name="ck_sale_capture_batches_decision_pair",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    uuid: Mapped[UUID] = mapped_column(Uuid, default=uuid4, unique=True, nullable=False)
+    provider: Mapped[str] = mapped_column(String(20), default="slack", nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    channel_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    parent_message_ts: Mapped[str] = mapped_column(String(40), nullable=False)
+    event_id: Mapped[str | None] = mapped_column(String(100))
+    requester_user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    caption: Mapped[str | None] = mapped_column(Text)
+    requested_action: Mapped[str | None] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(40), default="received", nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    model: Mapped[str | None] = mapped_column(String(100))
+    prompt_version: Mapped[str | None] = mapped_column(String(100))
+    schema_version: Mapped[str | None] = mapped_column(String(100))
+    primary_response_id: Mapped[str | None] = mapped_column(String(100))
+    verification_prompt_version: Mapped[str | None] = mapped_column(String(100))
+    verification_response_id: Mapped[str | None] = mapped_column(String(100))
+    extraction_json: Mapped[str | None] = mapped_column(Text)
+    verification_json: Mapped[str | None] = mapped_column(Text)
+    validation_json: Mapped[str | None] = mapped_column(Text)
+    decided_by_user_id: Mapped[str | None] = mapped_column(String(100))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    preview_message_ts: Mapped[str | None] = mapped_column(String(40))
+    receipt_status: Mapped[str] = mapped_column(String(20), default="none", nullable=False)
+    receipt_message_ts: Mapped[str | None] = mapped_column(String(40))
+
+    files: Mapped[list[SaleCaptureFile]] = relationship(
+        back_populates="capture_batch",
+        cascade="all, delete-orphan",
+        order_by="SaleCaptureFile.attachment_order",
+    )
+    listing_actions: Mapped[list[SaleCaptureListingAction]] = relationship(
+        back_populates="capture_batch",
+        cascade="all, delete-orphan",
+        order_by="SaleCaptureListingAction.id",
+    )
+
+
+class SaleCaptureFile(Base):
+    __tablename__ = "sale_capture_files"
+    __table_args__ = (
+        UniqueConstraint(
+            "capture_batch_id",
+            "attachment_order",
+            name="uq_sale_capture_files_batch_order",
+        ),
+        UniqueConstraint(
+            "capture_batch_id",
+            "provider_file_id",
+            name="uq_sale_capture_files_batch_provider_file",
+        ),
+        CheckConstraint(
+            "attachment_order > 0",
+            name="ck_sale_capture_files_positive_order",
+        ),
+        CheckConstraint("byte_size > 0", name="ck_sale_capture_files_positive_size"),
+        CheckConstraint(
+            "sha256 IS NULL OR length(sha256) = 64",
+            name="ck_sale_capture_files_sha256",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'downloaded', 'invalid', 'purged')",
+            name="ck_sale_capture_files_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    capture_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("sale_capture_batches.id", ondelete="CASCADE"), nullable=False
+    )
+    attachment_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    provider_file_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    local_relative_path: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    capture_batch: Mapped[SaleCaptureBatch] = relationship(back_populates="files")
+
+
+class SaleCaptureListingAction(Base):
+    __tablename__ = "sale_capture_listing_actions"
+    __table_args__ = (
+        UniqueConstraint(
+            "capture_batch_id",
+            "sale_listing_id",
+            "action",
+            name="uq_sale_capture_listing_actions_batch_listing_action",
+        ),
+        CheckConstraint(
+            "action IN ('created', 'marked_sold')",
+            name="ck_sale_capture_listing_actions_action",
+        ),
+        CheckConstraint(
+            "asking_price > 0",
+            name="ck_sale_capture_listing_actions_positive_price",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    capture_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("sale_capture_batches.id", ondelete="CASCADE"), nullable=False
+    )
+    sale_listing_id: Mapped[int] = mapped_column(
+        ForeignKey("sale_listings.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    asking_price: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+    capture_batch: Mapped[SaleCaptureBatch] = relationship(back_populates="listing_actions")
+    sale_listing: Mapped[SaleListing] = relationship(back_populates="capture_actions")
