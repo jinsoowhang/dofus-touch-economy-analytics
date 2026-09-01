@@ -171,3 +171,33 @@
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
 - `git diff --check` passed before staging.
+
+## Item Search editing and Price Priorities
+
+### Behavior
+
+- Made each Item Search Current Price cell directly editable. Enter or leaving a
+  changed field appends an audited quantity-one price observation, preserves the
+  search, filters, sort, and scroll position, and does not create a Sales listing.
+- Added **Price Priorities** under the Item navigation. It lists items with missing
+  prices and identifies the latest recipes whose complete profit calculation would be
+  unlocked or advanced by pricing each item.
+- Ranked missing items first by immediately unlocked recipe count, then completed
+  Sales across those newly unlocked craftable items, affected recipe count, total
+  completed Sales across affected recipes, and item name. Within each item, recipes
+  needing no other prices appear before recipes with additional blockers.
+- Treated both crafted-output and ingredient prices as full-profit blockers. Recipes
+  with unresolved ingredient identities are excluded because adding a price cannot
+  resolve their identity.
+- Added inline ranked-page price entry, summary counts, client-side table sorting,
+  validation feedback, empty-state handling, navigation state, and public README
+  documentation.
+
+### Verification
+
+- Focused recipe, web, and static-asset verification passed (117 tests).
+- `./scripts/check.sh` passed: Ruff lint and formatting, 341 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
+- `git diff --check` passed, and no secrets, private raw data, operational databases,
+  warehouses, or observer files entered the change set.

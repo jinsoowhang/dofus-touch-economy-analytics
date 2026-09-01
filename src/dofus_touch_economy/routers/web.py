@@ -71,6 +71,7 @@ templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "tem
 PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
 ITEM_PAGE_SIZE = 100
 RECIPE_PAGE_SIZE = 100
+PRICE_PRIORITY_LIMIT = 100
 DEFAULT_PROFIT_OPPORTUNITY_PROFESSIONS = ("Shoemaker", "Jeweller", "Tailor")
 
 
@@ -391,6 +392,9 @@ def _search_context(
     notification: str | None = None,
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
+    price_errors: list[str] | None = None,
+    price_item_uuid: UUID | None = None,
+    price_form_value: str = "",
 ) -> dict[str, object]:
     category_filters = _normalized_filter_values(categories, normalize=True)
     category_choices = catalog.category_choices()
@@ -411,6 +415,15 @@ def _search_context(
     resolved_page = min(page, page_count)
     page_start = (resolved_page - 1) * ITEM_PAGE_SIZE
     items = matching_items[page_start : page_start + ITEM_PAGE_SIZE]
+
+    view_parameters: dict[str, str | tuple[str, ...]] = {
+        "q": query,
+        "category": category_filters,
+        "sort": sort_field,
+        "direction": sort_direction,
+    }
+    if resolved_page > 1:
+        view_parameters["page"] = str(resolved_page)
 
     def page_url(target_page: int) -> str:
         parameters = {
@@ -457,6 +470,32 @@ def _search_context(
         "notification": notification,
         "errors": errors or [],
         "form_values": form_values or {},
+        "price_errors": price_errors or [],
+        "price_item_uuid": price_item_uuid,
+        "price_form_value": price_form_value,
+        "item_view_query": urlencode(view_parameters, doseq=True),
+    }
+
+
+def _price_priorities_context(
+    session: Session,
+    market_context: str,
+    *,
+    notification: str | None = None,
+    price_errors: list[str] | None = None,
+    price_item_uuid: UUID | None = None,
+    price_form_value: str = "",
+) -> dict[str, object]:
+    return {
+        "active_tab": "price_priorities",
+        "market_context": market_context,
+        "report": RecipeCatalogService(session, market_context).price_priorities(
+            limit=PRICE_PRIORITY_LIMIT
+        ),
+        "notification": notification,
+        "price_errors": price_errors or [],
+        "price_item_uuid": price_item_uuid,
+        "price_form_value": price_form_value,
     }
 
 
@@ -2049,6 +2088,172 @@ def search_items(
     if _is_htmx(request):
         return templates.TemplateResponse(request, "fragments/item_results.html", context=context)
     return templates.TemplateResponse(request, "items.html", context=context)
+
+
+@router.post(
+    "/items/{item_uuid}/search-price",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+async def update_item_search_current_price(
+    request: Request,
+    item_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    q: str = Query(default=""),
+    category: Annotated[list[str] | None, Query()] = None,
+    sort: Annotated[ItemSortField, Query()] = "name",
+    direction: Annotated[SortDirection, Query()] = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("current_price",))
+    catalog = CatalogService(session, settings.market_context)
+    try:
+        command = ItemCurrentPriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "items.html",
+            context=_search_context(
+                catalog,
+                q,
+                settings.market_context,
+                sort_field=sort,
+                sort_direction=direction,
+                categories=_normalized_filter_values(category, normalize=True),
+                page=page,
+                price_errors=_validation_messages(error),
+                price_item_uuid=item_uuid,
+                price_form_value=values["current_price"],
+            ),
+            status_code=422,
+        )
+
+    try:
+        PriceService(session, settings.market_context).record(
+            item_uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=command.current_price,
+                observed_at=datetime.now(UTC),
+                note="Item Search current price update",
+            ),
+        )
+    except ItemNotFound:
+        return templates.TemplateResponse(
+            request,
+            "items.html",
+            context=_search_context(
+                catalog,
+                q,
+                settings.market_context,
+                sort_field=sort,
+                sort_direction=direction,
+                categories=_normalized_filter_values(category, normalize=True),
+                page=page,
+                errors=["Item not found."],
+            ),
+            status_code=404,
+        )
+
+    parameters: dict[str, str | tuple[str, ...]] = {
+        "q": q,
+        "category": _normalized_filter_values(category, normalize=True),
+        "sort": sort,
+        "direction": direction,
+        "updated": str(item_uuid),
+    }
+    if page > 1:
+        parameters["page"] = str(page)
+    return RedirectResponse(
+        url=f"/items?{urlencode(parameters, doseq=True)}#item-results",
+        status_code=303,
+    )
+
+
+@router.get("/price-priorities", response_class=HTMLResponse)
+def price_priorities_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    updated: Annotated[UUID | None, Query()] = None,
+) -> HTMLResponse:
+    notification = None
+    if updated is not None:
+        try:
+            item = CatalogService(session, settings.market_context).detail(updated)
+        except ItemNotFound:
+            pass
+        else:
+            notification = f"{item.display_name} price has been updated."
+    return templates.TemplateResponse(
+        request,
+        "price_priorities.html",
+        context=_price_priorities_context(
+            session,
+            settings.market_context,
+            notification=notification,
+        ),
+    )
+
+
+@router.post(
+    "/price-priorities/{item_uuid}/price",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+async def update_price_priority_item(
+    request: Request,
+    item_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("current_price",))
+    try:
+        command = ItemCurrentPriceUpdate.model_validate(values)
+    except ValidationError as error:
+        return templates.TemplateResponse(
+            request,
+            "price_priorities.html",
+            context=_price_priorities_context(
+                session,
+                settings.market_context,
+                price_errors=_validation_messages(error),
+                price_item_uuid=item_uuid,
+                price_form_value=values["current_price"],
+            ),
+            status_code=422,
+        )
+
+    try:
+        PriceService(session, settings.market_context).record(
+            item_uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=command.current_price,
+                observed_at=datetime.now(UTC),
+                note="Price Priorities current price update",
+            ),
+        )
+    except ItemNotFound:
+        return templates.TemplateResponse(
+            request,
+            "price_priorities.html",
+            context=_price_priorities_context(
+                session,
+                settings.market_context,
+                price_errors=["Item not found."],
+                price_item_uuid=item_uuid,
+                price_form_value=values["current_price"],
+            ),
+            status_code=404,
+        )
+    return RedirectResponse(
+        url=f"/price-priorities?updated={item_uuid}",
+        status_code=303,
+    )
 
 
 @router.post("/items", response_class=HTMLResponse, response_model=None)

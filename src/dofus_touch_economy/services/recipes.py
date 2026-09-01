@@ -135,6 +135,36 @@ class ProfitOpportunityReport:
 
 
 @dataclass(frozen=True)
+class PricePriorityRecipe:
+    item_uuid: UUID
+    display_name: str
+    profession: str
+    profession_level: int | None
+    completed_sale_count: int
+    remaining_missing_price_count: int
+
+
+@dataclass(frozen=True)
+class PricePriorityItem:
+    item_uuid: UUID
+    display_name: str
+    category: str | None
+    icon_url: str | None
+    unlockable_recipe_count: int
+    affected_recipe_count: int
+    unlocked_recipe_sale_count: int
+    priority_recipes: tuple[PricePriorityRecipe, ...]
+
+
+@dataclass(frozen=True)
+class PricePriorityReport:
+    items: tuple[PricePriorityItem, ...]
+    total_count: int
+    recipes_unlockable_now: int
+    recipes_waiting_on_multiple_prices: int
+
+
+@dataclass(frozen=True)
 class RecipeCalculatorChoice:
     item_uuid: UUID
     display_name: str
@@ -462,6 +492,125 @@ class RecipeCatalogService:
                 default=None,
             ),
             professions=available_professions,
+        )
+
+    def price_priorities(self, *, limit: int = 100) -> PricePriorityReport:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        recipes = _latest_recipe_catalog(self._session)
+        priced_item_ids = set(
+            self._prices.current_for_items(
+                list(
+                    {
+                        item_id
+                        for recipe in recipes
+                        for item_id in (
+                            recipe.crafted_item_id,
+                            *(ingredient[0] for ingredient in recipe.ingredients),
+                        )
+                        if item_id is not None
+                    }
+                )
+            )
+        )
+        completed_sale_counts = dict(
+            self._session.execute(
+                select(SaleListing.item_id, func.count(SaleListing.id))
+                .where(
+                    SaleListing.item_id.in_({recipe.crafted_item_id for recipe in recipes}),
+                    SaleListing.date_sold.is_not(None),
+                )
+                .group_by(SaleListing.item_id)
+            )
+            .tuples()
+            .all()
+        )
+
+        blockers_by_recipe: list[tuple[_CatalogRecipe, frozenset[int]]] = []
+        for recipe in recipes:
+            ingredient_item_ids = [item_id for item_id, _name, _quantity in recipe.ingredients]
+            if any(item_id is None for item_id in ingredient_item_ids):
+                continue
+            blockers = {
+                item_id
+                for item_id in (recipe.crafted_item_id, *ingredient_item_ids)
+                if item_id is not None and item_id not in priced_item_ids
+            }
+            if blockers:
+                blockers_by_recipe.append((recipe, frozenset(blockers)))
+
+        affected_by_item_id: dict[int, list[tuple[_CatalogRecipe, frozenset[int]]]] = {}
+        for recipe, blockers in blockers_by_recipe:
+            for item_id in blockers:
+                affected_by_item_id.setdefault(item_id, []).append((recipe, blockers))
+
+        items_by_id = {
+            item.id: item
+            for item in self._session.scalars(
+                select(Item).where(
+                    Item.id.in_(affected_by_item_id),
+                    active_catalog_item_clause(Item),
+                )
+            )
+        }
+        priorities: list[PricePriorityItem] = []
+        for item_id, affected in affected_by_item_id.items():
+            item = items_by_id.get(item_id)
+            if item is None:
+                continue
+            unlocked = [recipe for recipe, blockers in affected if len(blockers) == 1]
+            priority_recipes = [
+                PricePriorityRecipe(
+                    item_uuid=recipe.item_uuid,
+                    display_name=recipe.display_name,
+                    profession=recipe.profession,
+                    profession_level=required_profession_level(len(recipe.ingredients)),
+                    completed_sale_count=completed_sale_counts.get(
+                        recipe.crafted_item_id,
+                        0,
+                    ),
+                    remaining_missing_price_count=len(blockers) - 1,
+                )
+                for recipe, blockers in affected
+            ]
+            priority_recipes.sort(
+                key=lambda recipe: (
+                    recipe.remaining_missing_price_count,
+                    -recipe.completed_sale_count,
+                    recipe.display_name.casefold(),
+                )
+            )
+            priorities.append(
+                PricePriorityItem(
+                    item_uuid=item.uuid,
+                    display_name=item.display_name,
+                    category=item.category,
+                    icon_url=_icon_url(item),
+                    unlockable_recipe_count=len(unlocked),
+                    affected_recipe_count=len(affected),
+                    unlocked_recipe_sale_count=sum(
+                        completed_sale_counts.get(recipe.crafted_item_id, 0) for recipe in unlocked
+                    ),
+                    priority_recipes=tuple(priority_recipes),
+                )
+            )
+
+        priorities.sort(
+            key=lambda item: (
+                -item.unlockable_recipe_count,
+                -item.unlocked_recipe_sale_count,
+                -item.affected_recipe_count,
+                -sum(recipe.completed_sale_count for recipe in item.priority_recipes),
+                item.display_name.casefold(),
+            )
+        )
+        return PricePriorityReport(
+            items=tuple(priorities[:limit]),
+            total_count=len(priorities),
+            recipes_unlockable_now=sum(item.unlockable_recipe_count for item in priorities),
+            recipes_waiting_on_multiple_prices=sum(
+                len(blockers) > 1 for _recipe, blockers in blockers_by_recipe
+            ),
         )
 
     def _rows(self) -> list[RecipeCatalogRow]:

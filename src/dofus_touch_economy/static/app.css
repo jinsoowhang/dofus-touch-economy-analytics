@@ -941,6 +941,35 @@ th.numeric .client-sort-header {
   border-radius: 0.25rem;
 }
 
+.field-error {
+  color: var(--danger);
+  display: block;
+  margin-block-start: 0.25rem;
+}
+
+.price-priorities-table {
+  min-width: 82rem;
+}
+
+.priority-recipe-list {
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  min-width: 18rem;
+  padding: 0;
+}
+
+.priority-recipe-list li {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.priority-recipe-list small,
+.section-help {
+  color: var(--muted);
+}
+
 .secondary-button {
   background: var(--surface);
   color: var(--accent);

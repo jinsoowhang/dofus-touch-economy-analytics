@@ -26,7 +26,8 @@ def test_root_redirects_to_items(client) -> None:
 
 def test_main_pages_include_one_line_descriptions(client) -> None:
     expected_descriptions = {
-        "/items": "Search the catalog, compare current prices and weights",
+        "/items": "Search the catalog, edit current prices, compare weights",
+        "/price-priorities": "Add the missing prices that unlock the most complete recipe",
         "/recipes": "Filter craftable items, compare recipe economics",
         "/recipe-calculator": "Select the items and quantities you plan to craft",
         "/sales": "Track active listings, record completed sales",
@@ -72,6 +73,7 @@ def test_item_search_has_active_item_navigation(client) -> None:
     assert 'class="site-submenu-link is-active"' in response.text
     assert 'aria-current="page"' in response.text
     assert ">Item Search</a>" in response.text
+    assert ">Price Priorities</a>" in response.text
     assert 'href="/sales"' in response.text
     assert 'href="/insights"' in response.text
     assert 'href="/recipes"' in response.text
@@ -2155,11 +2157,14 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert response.status_code == 200
     assert 'class="item-table"' in response.text
     assert "120 kamas" not in response.text
-    assert ">\n                120\n" in response.text
+    assert f'action="/items/{priced_item.item_uuid}/search-price?' in response.text
+    assert 'name="current_price"' in response.text
+    assert 'value="120"' in response.text
+    assert 'data-initial-value="120"' in response.text
     assert "2026-08-20" in response.text
     assert "2026-08-20 00:00 UTC" not in response.text
-    assert "Update Price" in response.text
-    assert response.text.count(f'href="{item_url}"') == 6
+    assert "View Details" in response.text
+    assert response.text.count(f'href="{item_url}"') == 5
 
     detail = client.get(item_url)
     assert detail.status_code == 200
@@ -2170,6 +2175,151 @@ def test_catalog_row_shows_current_price_and_opens_item_detail(client, priced_it
     assert "<summary><h2>Current Price</h2></summary>" in detail.text
     assert "Price Observations" not in detail.text
     assert "<summary><h2>Crafting Metrics</h2></summary>" in detail.text
+
+
+def test_item_search_current_price_edit_preserves_view_and_appends_history(
+    client,
+    session_factory,
+    priced_item,
+) -> None:
+    response = client.post(
+        f"/items/{priced_item.item_uuid}/search-price",
+        params={
+            "q": "synthetic",
+            "category": "ore",
+            "sort": "price",
+            "direction": "desc",
+        },
+        data={"current_price": "245,000"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/items?q=synthetic&category=ore&sort=price&direction=desc&"
+        f"updated={priced_item.item_uuid}#item-results"
+    )
+    updated_page = client.get(response.headers["location"])
+    assert "Synthetic Ore price has been updated." in updated_page.text
+    assert 'value="245,000"' in updated_page.text
+
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(priced_item.item_uuid)
+        listings = list(session.scalars(select(SaleListing)))
+    assert detail.current_price is not None
+    assert detail.current_price.total_price == 245_000
+    assert len(detail.price_history) == 3
+    assert listings == []
+
+
+def test_item_search_current_price_edit_rejects_invalid_value_inline(
+    client,
+    priced_item,
+) -> None:
+    response = client.post(
+        f"/items/{priced_item.item_uuid}/search-price",
+        params={"q": "synthetic", "sort": "price", "direction": "desc"},
+        data={"current_price": "-1"},
+    )
+
+    assert response.status_code == 422
+    assert "Input should be greater than 0" in response.text
+    assert 'value="-1"' in response.text
+    assert 'class="field-error" role="alert"' in response.text
+    assert 'name="q"\n      value="synthetic"' in response.text
+
+
+def test_price_priorities_lists_and_prices_the_best_recipe_unlock(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        recipe = session.scalar(select(Recipe))
+        assert recipe is not None
+        item_uuid = recipe.crafted_item.uuid
+        session.add_all(
+            [
+                SaleListing(
+                    item_id=recipe.crafted_item_id,
+                    lot_quantity=1,
+                    asking_price=4_000,
+                    selling_started_at=datetime(2026, 8, 20, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 21, tzinfo=UTC),
+                ),
+                SaleListing(
+                    item_id=recipe.crafted_item_id,
+                    lot_quantity=1,
+                    asking_price=4_500,
+                    selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
+                    date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    page = client.get("/price-priorities")
+
+    assert page.status_code == 200
+    assert "<h1>Price Priorities</h1>" in page.text
+    assert re.search(
+        r'href="/price-priorities"\s+class="site-submenu-link is-active"',
+        page.text,
+    )
+    assert 'class="page-shell page-shell--wide"' in page.text
+    assert "Synthetic Widget" in page.text
+    assert "Recipes unlockable now" in page.text
+    assert "Unlocked Recipe Sales" in page.text
+    assert "unlocks now" in page.text
+    assert f'action="/price-priorities/{item_uuid}/price"' in page.text
+    assert 'aria-label="Current price for Synthetic Widget"' in page.text
+
+    response = client.post(
+        f"/price-priorities/{item_uuid}/price",
+        data={"current_price": "4,000"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/price-priorities?updated={item_uuid}"
+    updated_page = client.get(response.headers["location"])
+    assert "Synthetic Widget price has been updated." in updated_page.text
+    assert "All recipe prices are covered" in updated_page.text
+    with session_factory() as session:
+        detail = CatalogService(session, "Dodge").detail(item_uuid)
+        listing_count = len(list(session.scalars(select(SaleListing))))
+    assert detail.current_price is not None
+    assert detail.current_price.total_price == 4_000
+    assert listing_count == 2
+
+
+def test_price_priority_edit_rejects_invalid_value_inline(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        recipe = session.scalar(select(Recipe))
+        assert recipe is not None
+        item_uuid = recipe.crafted_item.uuid
+
+    response = client.post(
+        f"/price-priorities/{item_uuid}/price",
+        data={"current_price": "-1"},
+    )
+
+    assert response.status_code == 422
+    assert "Input should be greater than 0" in response.text
+    assert 'value="-1"' in response.text
+    assert 'class="field-error" role="alert"' in response.text
 
 
 def test_item_detail_shows_active_and_sold_listing_counts(

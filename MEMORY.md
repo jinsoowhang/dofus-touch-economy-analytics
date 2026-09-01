@@ -191,3 +191,10 @@
   time, so all three use 23:59:59 Pacific, which is after every selected listing start.
   Historical recipe cost was unavailable and remains null rather than being treated
   as zero. An ignored integrity-checked online backup precedes the update.
+- Item Search Current Price cells and the Item-menu Price Priorities page both append
+  audited quantity-one price observations on Enter or blur and never create Sales
+  listings. Price Priorities considers the crafted output and every resolved
+  ingredient price to be blockers for complete profit. It ranks missing items by
+  recipes immediately unlocked, then completed Sales across those outputs, affected
+  recipe count, total affected-output Sales, and item name. Recipes with unresolved
+  ingredient identities are excluded because price entry alone cannot complete them.

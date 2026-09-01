@@ -174,6 +174,7 @@ def test_every_web_table_has_client_or_server_sorting() -> None:
         "item_detail.html": 0,
         "fragments/price_panel.html": 0,
         "out_of_stock_items.html": 0,
+        "price_priorities.html": 0,
         "profit_opportunities.html": 0,
         "recipe_calculator.html": 0,
         "recipes.html": 1,
@@ -309,6 +310,7 @@ def test_navigation_dropdowns_are_alphabetized_and_close_exclusively() -> None:
     item_menu, sales_menu = template.split('aria-label="Sales navigation"', maxsplit=1)
     assert (
         item_menu.index(">Item Search</a>")
+        < item_menu.index(">Price Priorities</a>")
         < item_menu.index(">Recipe Calculator</a>")
         < item_menu.index(">Recipes</a>")
     )
@@ -318,3 +320,19 @@ def test_navigation_dropdowns_are_alphabetized_and_close_exclusively() -> None:
         < sales_menu.index(">Out of Stock Items</a>")
         < sales_menu.index(">Profit Opportunities</a>")
     )
+
+
+def test_catalog_price_editor_saves_on_enter_or_blur_and_restores_scroll() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/items.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'root.querySelectorAll(".catalog-current-price-form")' in script
+    assert 'event.key !== "Enter"' in script
+    assert 'input.addEventListener("blur"' in script
+    assert "form.requestSubmit();" in script
+    assert "window.scrollY" in script
+    assert "window.scrollTo" in script
+    assert 'document.body.addEventListener("htmx:afterSwap"' in script

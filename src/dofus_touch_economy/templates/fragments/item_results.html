@@ -63,12 +63,36 @@
               {{ "{:,}".format(item.weight) if item.weight is not none else "—" }}
             </a>
           </td>
+          {% set is_edited_price = price_item_uuid == item.uuid %}
+          {% set current_price_value = price_form_value if is_edited_price else ("{:,}".format(item.current_price.total_price) if item.current_price else "") %}
+          <td class="numeric">
+            <form
+              method="post"
+              action="/items/{{ item.uuid }}/search-price?{{ item_view_query }}"
+              class="price-edit-form catalog-current-price-form"
+            >
+              <label class="visually-hidden" for="item-current-price-{{ item.uuid }}">
+                Current price for {{ item.display_name }}
+              </label>
+              <input
+                id="item-current-price-{{ item.uuid }}"
+                name="current_price"
+                value="{{ current_price_value }}"
+                data-initial-value="{{ current_price_value }}"
+                inputmode="numeric"
+                placeholder="—"
+                aria-label="Current price for {{ item.display_name }}"
+                title="Edit the price, then press Enter or leave the field to save"
+                required
+              >
+            </form>
+            {% if is_edited_price and price_errors %}
+              <small class="field-error" role="alert">
+                {% for error in price_errors %}{{ error }}{% if not loop.last %} {% endif %}{% endfor %}
+              </small>
+            {% endif %}
+          </td>
           {% if item.current_price %}
-            <td class="numeric">
-              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
-                {{ "{:,}".format(item.current_price.total_price) }}
-              </a>
-            </td>
             <td>
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">
                 <time datetime="{{ item.current_price.observed_at.isoformat() }}">
@@ -77,15 +101,12 @@
               </a>
             </td>
           {% else %}
-            <td class="numeric">
-              <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">—</a>
-            </td>
             <td>
               <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">—</a>
             </td>
           {% endif %}
           <td class="item-action">
-            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">Update Price</a>
+            <a class="item-cell-link" href="{{ item_url }}" tabindex="-1">View Details</a>
           </td>
         </tr>
     {% endfor %}

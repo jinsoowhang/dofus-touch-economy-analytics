@@ -16,7 +16,7 @@
         <nav class="site-tabs" aria-label="Primary navigation">
           <details class="site-menu">
             <summary
-              class="site-tab{% if active_tab in ['items', 'recipes', 'recipe_calculator'] %} is-active{% endif %}"
+              class="site-tab{% if active_tab in ['items', 'price_priorities', 'recipes', 'recipe_calculator'] %} is-active{% endif %}"
             >
               <span>Item</span>
               <span class="site-menu-caret" aria-hidden="true">&#9662;</span>
@@ -27,6 +27,11 @@
                 class="site-submenu-link{% if active_tab == 'items' %} is-active{% endif %}"
                 {% if active_tab == "items" %}aria-current="page"{% endif %}
               >Item Search</a>
+              <a
+                href="/price-priorities"
+                class="site-submenu-link{% if active_tab == 'price_priorities' %} is-active{% endif %}"
+                {% if active_tab == "price_priorities" %}aria-current="page"{% endif %}
+              >Price Priorities</a>
               <a
                 href="/recipe-calculator"
                 class="site-submenu-link{% if active_tab == 'recipe_calculator' %} is-active{% endif %}"
@@ -82,7 +87,7 @@
         </nav>
       </div>
     </header>
-    <main class="page-shell{% if active_tab in ['recipes', 'recipe_calculator', 'profit_opportunities', 'best_sellers', 'out_of_stock', 'insights'] %} page-shell--wide{% endif %}">
+    <main class="page-shell{% if active_tab in ['price_priorities', 'recipes', 'recipe_calculator', 'profit_opportunities', 'best_sellers', 'out_of_stock', 'insights'] %} page-shell--wide{% endif %}">
       {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

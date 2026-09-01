@@ -127,13 +127,23 @@ name/category identity, or enriches a sole uncategorized manual item without cha
 its UUID or price history.
 
 The top navigation contains **Item**, **Sales**, **Insights**, and **BigQuery Sync**. Hovering over
-or selecting **Item** opens its **Item Search**, **Recipes**, and **Recipe Calculator**
+or selecting **Item** opens its **Item Search**, **Price Priorities**, **Recipe Calculator**, and **Recipes**
 submenu. **Sales** opens **Sales Activity**, **Best Sellers**, **Out of Stock Items**,
 and **Profit Opportunities**.
 The item page lists the full catalog in 100-row alphabetical pages beneath the search
 field, including category, weight, latest unit price, and observation time.
-Typing filters the table by item name. Clicking any row opens item detail, where a new
-audited price observation can be recorded.
+Typing filters the table by item name. **Current Price** is editable directly in each
+row; Enter or leaving the field appends an audited quantity-one price observation
+without creating a Sales listing. Clicking **View Details** opens the item's full
+price, Sales, and recipe history.
+
+The **Price Priorities** page ranks catalog items that lack a current price. Items that
+would immediately complete the most recipe profit calculations appear first, with
+completed Sales across those craftable outputs and total affected recipe reach used
+as tie-breakers. Each suggestion shows the recipes it would unlock now and the recipes
+that would still need other prices. Recipes with unresolved ingredient identities are
+excluded because a price entry alone cannot complete them. Prices can be entered
+directly in the ranked table with the same Enter-or-leave-to-save behavior.
 
 The Recipes page lists the latest recipe for each craftable item with its profession,
 standard required profession level, current item price, recipe cost, profit, and ROI.

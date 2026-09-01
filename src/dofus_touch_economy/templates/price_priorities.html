@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Price Priorities · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Price Priorities</h1>
+  <p class="page-description">
+    Add the missing prices that unlock the most complete recipe profit calculations. Items
+    that immediately complete the most recipes come first; completed sales and total recipe
+    reach break ties.
+  </p>
+  <p>Market: {{ market_context }}</p>
+  {% if notification %}
+    <p class="notification" role="status">{{ notification }}</p>
+  {% endif %}
+
+  <section class="sales-metrics" aria-label="Price priority summary">
+    <div>
+      <span>Missing-price items</span>
+      <strong>{{ "{:,}".format(report.total_count) }}</strong>
+    </div>
+    <div>
+      <span>Recipes unlockable now</span>
+      <strong>{{ "{:,}".format(report.recipes_unlockable_now) }}</strong>
+    </div>
+    <div>
+      <span>Recipes waiting on multiple prices</span>
+      <strong>{{ "{:,}".format(report.recipes_waiting_on_multiple_prices) }}</strong>
+    </div>
+  </section>
+
+  {% if report.items %}
+    <details class="collapsible-section" open>
+      <summary>
+        <span class="section-summary">
+          <h2>Suggested Items</h2>
+          <span>
+            {{ report.items | length }} of {{ report.total_count }} shown
+          </span>
+        </span>
+      </summary>
+      <p class="section-help">
+        “Unlocks now” means this is the recipe's only missing price. “Affected recipes” also
+        includes recipes that still need other prices.
+      </p>
+      <div class="item-table-wrap">
+        <table class="item-table price-priorities-table" data-sortable-table>
+          <thead>
+            <tr>
+              <th class="numeric" data-sort-type="number" aria-sort="ascending">Priority</th>
+              <th>Item</th>
+              <th>Category</th>
+              <th class="numeric" data-sort-type="number">Unlocks Now</th>
+              <th class="numeric" data-sort-type="number">Affected Recipes</th>
+              <th class="numeric" data-sort-type="number">Unlocked Recipe Sales</th>
+              <th>Priority Recipes</th>
+              <th data-sort-disabled>Current Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in report.items %}
+              {% set is_edited_price = price_item_uuid == item.item_uuid %}
+              {% set current_price_value = price_form_value if is_edited_price else "" %}
+              <tr>
+                <td class="numeric" data-sort-value="{{ loop.index }}">{{ loop.index }}</td>
+                <td>
+                  <a href="/items/{{ item.item_uuid }}" class="item-label">
+                    {% if item.icon_url %}
+                      <img class="item-icon" src="{{ item.icon_url }}" alt="" loading="lazy">
+                    {% endif %}
+                    <span>{{ item.display_name }}</span>
+                  </a>
+                </td>
+                <td>{{ (item.category or "Uncategorized") | title }}</td>
+                <td class="numeric" data-sort-value="{{ item.unlockable_recipe_count }}">
+                  {{ "{:,}".format(item.unlockable_recipe_count) }}
+                </td>
+                <td class="numeric" data-sort-value="{{ item.affected_recipe_count }}">
+                  {{ "{:,}".format(item.affected_recipe_count) }}
+                </td>
+                <td class="numeric" data-sort-value="{{ item.unlocked_recipe_sale_count }}">
+                  {{ "{:,}".format(item.unlocked_recipe_sale_count) }}
+                </td>
+                <td>
+                  <ul class="priority-recipe-list">
+                    {% for recipe in item.priority_recipes[:5] %}
+                      <li>
+                        <a href="/items/{{ recipe.item_uuid }}#recipe">{{ recipe.display_name }}</a>
+                        <small>
+                          {{ recipe.profession }} · Level {{ recipe.profession_level }}
+                          {% if recipe.completed_sale_count %} · {{ recipe.completed_sale_count }} completed sale{% if recipe.completed_sale_count != 1 %}s{% endif %}{% endif %}
+                          · {% if recipe.remaining_missing_price_count == 0 %}<strong>unlocks now</strong>{% else %}needs {{ recipe.remaining_missing_price_count }} other price{% if recipe.remaining_missing_price_count != 1 %}s{% endif %}{% endif %}
+                        </small>
+                      </li>
+                    {% endfor %}
+                    {% if item.priority_recipes | length > 5 %}
+                      <li><small>+{{ item.priority_recipes | length - 5 }} more affected recipes</small></li>
+                    {% endif %}
+                  </ul>
+                </td>
+                <td>
+                  <form
+                    method="post"
+                    action="/price-priorities/{{ item.item_uuid }}/price"
+                    class="price-edit-form catalog-current-price-form"
+                  >
+                    <label class="visually-hidden" for="priority-current-price-{{ item.item_uuid }}">
+                      Current price for {{ item.display_name }}
+                    </label>
+                    <input
+                      id="priority-current-price-{{ item.item_uuid }}"
+                      name="current_price"
+                      value="{{ current_price_value }}"
+                      data-initial-value="{{ current_price_value }}"
+                      inputmode="numeric"
+                      placeholder="Enter price"
+                      aria-label="Current price for {{ item.display_name }}"
+                      title="Enter the price, then press Enter or leave the field to save"
+                      required
+                    >
+                  </form>
+                  {% if is_edited_price and price_errors %}
+                    <small class="field-error" role="alert">
+                      {% for error in price_errors %}{{ error }}{% if not loop.last %} {% endif %}{% endfor %}
+                    </small>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% else %}
+    <section class="empty-state">
+      <h2>All recipe prices are covered</h2>
+      <p>Every resolvable recipe has the prices needed for a complete profit calculation.</p>
+    </section>
+  {% endif %}
+{% endblock %}
+{% block scripts %}
+  <script src="/static/items.js" defer></script>
+{% endblock %}

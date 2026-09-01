@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -402,6 +402,154 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
     assert not_selling_report.total_count == 1
     assert [item.display_name for item in shield_report.items] == ["Delta Shield"]
     assert shield_report.total_count == 1
+
+
+def test_price_priorities_rank_immediate_recipe_profit_unlocks_and_demand(
+    session_factory,
+) -> None:
+    with session_factory() as session:
+        shared_missing = Item(
+            display_name="Shared Missing Resource",
+            normalized_name="shared missing resource",
+            category="Resource",
+            identity_category="resource-shared",
+        )
+        second_missing = Item(
+            display_name="Second Missing Resource",
+            normalized_name="second missing resource",
+            category="Resource",
+            identity_category="resource-second",
+        )
+        priced_resource = Item(
+            display_name="Priced Resource",
+            normalized_name="priced resource",
+            category="Resource",
+            identity_category="resource-priced",
+        )
+        alpha = Item(
+            display_name="Alpha Hat",
+            normalized_name="alpha hat",
+            category="Hat",
+            identity_category="hat-alpha",
+        )
+        beta = Item(
+            display_name="Beta Belt",
+            normalized_name="beta belt",
+            category="Belt",
+            identity_category="belt-beta",
+        )
+        gamma = Item(
+            display_name="Gamma Boots",
+            normalized_name="gamma boots",
+            category="Boots",
+            identity_category="boots-gamma",
+        )
+        output_missing = Item(
+            display_name="Missing Output Ring",
+            normalized_name="missing output ring",
+            category="Ring",
+            identity_category="ring-missing",
+        )
+        session.add_all(
+            (
+                shared_missing,
+                second_missing,
+                priced_resource,
+                alpha,
+                beta,
+                gamma,
+                output_missing,
+            )
+        )
+        session.flush()
+        batch = ImportBatch(
+            dataset="price-priorities",
+            filename="synthetic.json",
+            checksum="e" * 64,
+            accepted_count=4,
+            status="completed",
+        )
+        session.add(batch)
+        for row_number, crafted_item, ingredients in (
+            (1, alpha, (shared_missing, priced_resource)),
+            (2, beta, (shared_missing,)),
+            (3, gamma, (shared_missing, second_missing)),
+            (4, output_missing, (priced_resource,)),
+        ):
+            recipe = Recipe(
+                crafted_item=crafted_item,
+                profession="Synthetic Crafter",
+                source_record=SourceRecord(
+                    import_batch=batch,
+                    row_number=row_number,
+                    raw_payload_json="{}",
+                    status="accepted",
+                ),
+            )
+            for position, ingredient in enumerate(ingredients, start=1):
+                recipe.ingredients.append(
+                    RecipeIngredient(
+                        position=position,
+                        item=ingredient,
+                        raw_name=ingredient.display_name,
+                        normalized_name=ingredient.normalized_name,
+                        quantity=1,
+                    )
+                )
+            session.add(recipe)
+        sold_at = datetime(2026, 8, 30, tzinfo=UTC)
+        for item, count in ((alpha, 1), (beta, 2), (output_missing, 5)):
+            session.add_all(
+                SaleListing(
+                    item=item,
+                    lot_quantity=1,
+                    asking_price=100,
+                    selling_started_at=sold_at - timedelta(days=1),
+                    date_sold=sold_at,
+                )
+                for _index in range(count)
+            )
+        session.commit()
+
+        prices = PriceService(session, "Dodge")
+        for item in (priced_resource, alpha, beta, gamma):
+            prices.record(
+                item.uuid,
+                PriceObservationCreate(
+                    lot_quantity=1,
+                    total_price=100,
+                    observed_at=sold_at,
+                ),
+            )
+
+        report = RecipeCatalogService(session, "Dodge").price_priorities()
+
+    assert [item.display_name for item in report.items] == [
+        "Shared Missing Resource",
+        "Missing Output Ring",
+        "Second Missing Resource",
+    ]
+    shared, missing_output, second = report.items
+    assert shared.unlockable_recipe_count == 2
+    assert shared.affected_recipe_count == 3
+    assert shared.unlocked_recipe_sale_count == 3
+    assert [recipe.display_name for recipe in shared.priority_recipes] == [
+        "Beta Belt",
+        "Alpha Hat",
+        "Gamma Boots",
+    ]
+    assert [recipe.remaining_missing_price_count for recipe in shared.priority_recipes] == [
+        0,
+        0,
+        1,
+    ]
+    assert missing_output.unlockable_recipe_count == 1
+    assert missing_output.unlocked_recipe_sale_count == 5
+    assert second.unlockable_recipe_count == 0
+    assert second.affected_recipe_count == 1
+    assert report.total_count == 3
+    assert report.recipes_unlockable_now == 3
+    assert report.recipes_waiting_on_multiple_prices == 1
 
 
 def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slots(
