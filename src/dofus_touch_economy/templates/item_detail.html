@@ -50,7 +50,7 @@
               inputmode="numeric"
               min="1"
               max="1000"
-              value="1"
+              value="{{ detail.metrics.recipe_cost | default_recipe_calculator_quantity }}"
               data-item-uuid="{{ detail.uuid }}"
               aria-describedby="recipe-quantity-help"
               required
@@ -73,6 +73,7 @@
               type="button"
               class="recipe-cart-add secondary-button"
               data-item-uuid="{{ detail.uuid }}"
+              data-craft-quantity="{{ detail.metrics.recipe_cost | default_recipe_calculator_quantity }}"
               data-add-label="Add to Recipe Calculator"
               aria-label="Add {{ detail.display_name }} to Recipe Calculator"
             >Add to Recipe Calculator</button>

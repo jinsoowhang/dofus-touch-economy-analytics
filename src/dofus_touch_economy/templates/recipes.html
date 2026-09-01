@@ -229,6 +229,7 @@
                     type="button"
                     class="recipe-cart-add secondary-button"
                     data-item-uuid="{{ recipe.item_uuid }}"
+                    data-craft-quantity="{{ recipe.recipe_cost | default_recipe_calculator_quantity }}"
                     aria-label="Add {{ recipe.display_name }} to Recipe Calculator"
                   >Add</button>
                 </td>

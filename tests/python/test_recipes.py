@@ -19,6 +19,7 @@ from dofus_touch_economy.services.recipes import (
     RecipeCalculatorService,
     RecipeCatalogFilters,
     RecipeCatalogService,
+    default_recipe_calculator_quantity,
     required_profession_level,
 )
 
@@ -32,6 +33,27 @@ def test_required_profession_level_uses_recipe_slot_unlocks(
     expected_level,
 ) -> None:
     assert required_profession_level(ingredient_count) == expected_level
+
+
+@pytest.mark.parametrize(
+    ("recipe_cost", "expected_quantity"),
+    [
+        (None, 1),
+        (Decimal("-1"), 1),
+        (Decimal("0"), 4),
+        (Decimal("49999"), 4),
+        (Decimal("50000"), 3),
+        (Decimal("99999"), 3),
+        (Decimal("100000"), 2),
+        (Decimal("500000"), 2),
+        (Decimal("500001"), 1),
+    ],
+)
+def test_default_recipe_calculator_quantity_uses_cost_bands(
+    recipe_cost: Decimal | None,
+    expected_quantity: int,
+) -> None:
+    assert default_recipe_calculator_quantity(recipe_cost) == expected_quantity
 
 
 def seed_recipe_catalog(session_factory) -> dict[str, Item]:
@@ -410,6 +432,11 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
         "Alpha Sword": 80,
         "Beta Ring": 400,
         "Gamma Hat": 0,
+    }
+    assert {choice.display_name: choice.default_craft_quantity for choice in choices} == {
+        "Alpha Sword": 4,
+        "Beta Ring": 4,
+        "Gamma Hat": 4,
     }
     assert [item.display_name for item in result.selected_items] == [
         "Beta Ring",

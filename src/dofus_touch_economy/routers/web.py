@@ -51,6 +51,7 @@ from dofus_touch_economy.services.recipes import (
     RecipeEconomicsFilter,
     RecipeSortDirection,
     RecipeSortField,
+    default_recipe_calculator_quantity,
 )
 from dofus_touch_economy.services.sales import (
     ACTIVE_PRICE_MARKDOWN_PERCENT,
@@ -78,6 +79,7 @@ def _pacific_time(value: datetime) -> datetime:
 
 
 templates.env.filters["pacific_time"] = _pacific_time
+templates.env.filters["default_recipe_calculator_quantity"] = default_recipe_calculator_quantity
 
 
 @dataclass(frozen=True)
@@ -979,6 +981,7 @@ def _recipe_calculator_context(
                 "profession": choice.profession,
                 "profession_level": choice.profession_level,
                 "recipe_cost": (None if choice.recipe_cost is None else str(choice.recipe_cost)),
+                "default_craft_quantity": choice.default_craft_quantity,
             }
             for choice in available_choices
         ],

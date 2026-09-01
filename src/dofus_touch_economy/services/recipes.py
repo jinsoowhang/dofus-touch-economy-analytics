@@ -45,6 +45,16 @@ def required_profession_level(ingredient_count: int) -> int | None:
     return _PROFESSION_LEVEL_BY_INGREDIENT_COUNT[ingredient_count]
 
 
+def default_recipe_calculator_quantity(recipe_cost: Decimal | None) -> int:
+    if recipe_cost is None or recipe_cost < 0 or recipe_cost > 500_000:
+        return 1
+    if recipe_cost < 50_000:
+        return 4
+    if recipe_cost < 100_000:
+        return 3
+    return 2
+
+
 @dataclass(frozen=True)
 class RecipeCatalogFilters:
     item_query: str = ""
@@ -133,6 +143,7 @@ class RecipeCalculatorChoice:
     profession: str
     profession_level: int | None
     recipe_cost: Decimal | None
+    default_craft_quantity: int
     sale_price: int | None
 
 
@@ -546,8 +557,23 @@ class RecipeCalculatorService:
             if item_id is not None
         }
         current_prices = self._prices.current_for_items(list(item_ids))
-        return sorted(
-            (
+        choices: list[RecipeCalculatorChoice] = []
+        for recipe in recipes:
+            recipe_cost = calculate_recipe_metrics(
+                None,
+                [
+                    IngredientPrice(
+                        quantity=quantity,
+                        unit_price=(
+                            None
+                            if item_id is None or item_id not in current_prices
+                            else current_prices[item_id].unit_price
+                        ),
+                    )
+                    for item_id, _normalized_name, quantity in recipe.ingredients
+                ],
+            ).recipe_cost
+            choices.append(
                 RecipeCalculatorChoice(
                     item_uuid=recipe.item_uuid,
                     display_name=recipe.display_name,
@@ -559,20 +585,8 @@ class RecipeCalculatorService:
                     ),
                     profession=recipe.profession,
                     profession_level=required_profession_level(len(recipe.ingredients)),
-                    recipe_cost=calculate_recipe_metrics(
-                        None,
-                        [
-                            IngredientPrice(
-                                quantity=quantity,
-                                unit_price=(
-                                    None
-                                    if item_id is None or item_id not in current_prices
-                                    else current_prices[item_id].unit_price
-                                ),
-                            )
-                            for item_id, _normalized_name, quantity in recipe.ingredients
-                        ],
-                    ).recipe_cost,
+                    recipe_cost=recipe_cost,
+                    default_craft_quantity=default_recipe_calculator_quantity(recipe_cost),
                     sale_price=(
                         None
                         if (
@@ -583,10 +597,8 @@ class RecipeCalculatorService:
                         else int(current_price.unit_price)
                     ),
                 )
-                for recipe in recipes
-            ),
-            key=lambda choice: choice.display_name.casefold(),
-        )
+            )
+        return sorted(choices, key=lambda choice: choice.display_name.casefold())
 
     def suggest_similar(
         self,

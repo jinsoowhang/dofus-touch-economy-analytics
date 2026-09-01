@@ -397,7 +397,12 @@ if (
     return cell;
   };
 
-  const addChoice = (choice, craftQuantity = 1, isSelected = true, shouldPersist = true) => {
+  const addChoice = (
+    choice,
+    craftQuantity = choice.default_craft_quantity,
+    isSelected = true,
+    shouldPersist = true,
+  ) => {
     if (calculatorSelectedItems.querySelector(`[data-item-uuid="${choice.item_uuid}"]`)) {
       return;
     }

@@ -1027,6 +1027,7 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert 'name="current_price"' in response.text
     assert 'class="price-edit-form recipe-current-price-form"' in response.text
     assert 'class="recipe-cart-add secondary-button"' in response.text
+    assert 'data-craft-quantity="4"' in response.text
     assert 'id="recipe-open-calculator"' in response.text
     assert 'aria-label="Sort recipes by Required Level, ascending"' in response.text
     assert 'aria-label="Sort recipes by Currently Selling, descending"' in response.text
@@ -1235,6 +1236,7 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert "1,000" in response.text
     assert "28.6%" in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
+    assert 'data-craft-quantity="4"' in response.text
     assert '<table class="item-table best-sellers-table" data-sortable-table>' in response.text
     table_body = response.text.split("<tbody>", maxsplit=1)[1]
     assert re.search(
@@ -1330,6 +1332,7 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert 'name="profession" value="Crafting" checked' in response.text
     assert "Completed Sales do not limit this list." in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
+    assert 'data-craft-quantity="4"' in response.text
     assert '<details class="row-details">' in response.text
     assert '<table class="item-table profit-opportunities-table" data-sortable-table>' in (
         response.text
@@ -1532,12 +1535,10 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
     assert '"recipe_cost": "20"' in page.text
+    assert '"default_craft_quantity": 4' in page.text
     assert script.status_code == 200
     assert 'calculatorSearch.addEventListener("input"' in script.text
-    assert (
-        "const addChoice = (choice, craftQuantity = 1, isSelected = true, "
-        "shouldPersist = true)" in script.text
-    )
+    assert "craftQuantity = choice.default_craft_quantity" in script.text
     assert "calculatorSelectedItems.append(row)" in script.text
     assert "choice.recipe_cost === null" in script.text
     assert 'const itemLabel = document.createElement("a")' in script.text
@@ -2405,6 +2406,7 @@ def test_recipe_links_ingredient_name_and_shows_unit_and_total_prices(
     assert "window.sessionStorage.setItem(quantityStorageKey" in recipe_script.text
     assert "window.sessionStorage.removeItem(quantityStorageKey)" in recipe_script.text
     assert f'data-item-uuid="{items["synthetic widget"].uuid}"' in response.text
+    assert 'data-craft-quantity="4"' in response.text
     assert 'data-add-label="Add to Recipe Calculator"' in response.text
     assert ">Add to Recipe Calculator</button>" in response.text
     assert 'aria-label="Add Synthetic Widget to Recipe Calculator"' in response.text

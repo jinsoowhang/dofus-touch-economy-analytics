@@ -41,3 +41,24 @@
   and public-file policy.
 - `git diff --check` passed, and ignored private Slack configuration, evidence,
   operational databases, and backups remained outside the publication set.
+
+## Recipe Calculator cost-banded default quantities
+
+### Behavior
+
+- New Recipe Calculator entries use a quantity of four below 50,000 kamas, three
+  from 50,000 through below 100,000, two from 100,000 through 500,000, and one above
+  500,000 or when current recipe cost is incomplete.
+- The rule applies to calculator search and suggestions plus shared Add actions on
+  Recipes, Best Sellers, Profit Opportunities, and item detail.
+- Existing saved cart quantities remain unchanged. Out of Stock's explicit Suggested
+  Restock quantity continues to take precedence over the cost-banded default.
+
+### Verification
+
+- Boundary coverage includes 0, 50,000, 100,000, and 500,000 kamas plus missing,
+  negative, just-below, and just-above cases.
+- Focused recipe, web, and static-asset verification passed (111 tests).
+- `./scripts/check.sh` passed: Ruff lint and formatting, 334 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
