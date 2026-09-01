@@ -85,7 +85,7 @@ observations rather than direct edits. Recipes selects the latest recipe per cra
 item, resolves current prices in bulk, derives standard profession-slot requirements
 and crafting economics through a scalar projection instead of hydrating every recipe
 ORM relationship. It provides 100-row pages, URL-backed filters—including one
-dual-handle profession-level range synchronized with numeric endpoints—and sortable
+profession-level range expressed as minimum/maximum standard-tier selectors—and sortable
 columns without mutating recipe data. Its Current Price cells append quantity-one
 observations on Enter or blur, preserve the active recipe view, and recalculate row
 economics without creating Sales listings. Item-detail ingredient prices expose

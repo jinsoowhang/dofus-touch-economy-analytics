@@ -71,60 +71,25 @@
         >
         Show only items not currently selling
       </label>
-      <fieldset class="level-range-filter">
-        <legend>Required profession level</legend>
-        <div class="level-range-values">
-          <label for="recipe-min-level-number">
-            Minimum
-            <input
-              id="recipe-min-level-number"
-              class="level-range-number"
-              name="min_level"
-              type="number"
-              inputmode="numeric"
-              min="{{ minimum_available_level }}"
-              max="{{ maximum_available_level }}"
-              value="{{ selected_minimum_level }}"
-              aria-label="Minimum required profession level number"
-            >
-          </label>
-          <label for="recipe-max-level-number">
-            Maximum
-            <input
-              id="recipe-max-level-number"
-              class="level-range-number"
-              name="max_level"
-              type="number"
-              inputmode="numeric"
-              min="{{ minimum_available_level }}"
-              max="{{ maximum_available_level }}"
-              value="{{ selected_maximum_level }}"
-              aria-label="Maximum required profession level number"
-            >
-          </label>
-        </div>
-        <div class="dual-range-slider">
-          <div class="dual-range-track" aria-hidden="true"></div>
-          <input
-            id="recipe-min-level"
-            type="range"
-            min="{{ minimum_available_level }}"
-            max="{{ maximum_available_level }}"
-            value="{{ selected_minimum_level }}"
-            aria-label="Minimum required profession level"
-          >
-          <input
-            id="recipe-max-level"
-            type="range"
-            min="{{ minimum_available_level }}"
-            max="{{ maximum_available_level }}"
-            value="{{ selected_maximum_level }}"
-            aria-label="Maximum required profession level"
-          >
-        </div>
-      </fieldset>
+      <label for="recipe-min-level">
+        Minimum required level
+        <select id="recipe-min-level" name="min_level">
+          {% for level in required_profession_levels %}
+            <option value="{{ level }}"{% if level == selected_minimum_level %} selected{% endif %}>{{ level }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label for="recipe-max-level">
+        Maximum required level
+        <select id="recipe-max-level" name="max_level">
+          {% for level in required_profession_levels %}
+            <option value="{{ level }}"{% if level == selected_maximum_level %} selected{% endif %}>{{ level }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <p class="filter-help">
-        Required level follows the ingredient-slot unlocks for standard recipes.
+        Required level follows the discrete ingredient-slot unlocks for standard
+        recipes: 1, 10, 20, 40, 60, 80, and 100.
         Profit uses the current crafted-item price minus current ingredient costs.
         Applying a level range omits recipes without ingredients.
       </p>

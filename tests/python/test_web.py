@@ -1005,19 +1005,19 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     assert 'name="profession" value="Crafting" checked' in response.text
     assert '<option value="unknown" selected>Profit unknown</option>' in response.text
     assert 'name="not_currently_selling"' in response.text
-    assert 'id="recipe-min-level"' in response.text
-    assert 'name="min_level"' in response.text
-    assert 'id="recipe-min-level-number"' in response.text
-    assert 'aria-label="Minimum required profession level number"' in response.text
-    assert 'id="recipe-max-level"' in response.text
-    assert 'name="max_level"' in response.text
-    assert 'id="recipe-max-level-number"' in response.text
-    assert 'aria-label="Maximum required profession level number"' in response.text
-    assert response.text.count('class="dual-range-track"') == 1
-    assert 'class="dual-range-slider"' in response.text
-    assert 'aria-label="Minimum required profession level"' in response.text
-    assert 'aria-label="Maximum required profession level"' in response.text
-    assert 'value="1"' in response.text
+    minimum_level_select = response.text.split(
+        '<select id="recipe-min-level" name="min_level">', maxsplit=1
+    )[1].split("</select>", maxsplit=1)[0]
+    maximum_level_select = response.text.split(
+        '<select id="recipe-max-level" name="max_level">', maxsplit=1
+    )[1].split("</select>", maxsplit=1)[0]
+    expected_level_options = ["1", "10", "20", "40", "60", "80", "100"]
+    assert re.findall(r'<option value="(\d+)"', minimum_level_select) == expected_level_options
+    assert re.findall(r'<option value="(\d+)"', maximum_level_select) == expected_level_options
+    assert '<option value="1" selected>1</option>' in minimum_level_select
+    assert '<option value="1" selected>1</option>' in maximum_level_select
+    assert 'type="range"' not in response.text
+    assert 'type="number"' not in response.text
     assert "Synthetic Widget" in response.text
     assert f'href="/items/{item_uuid}#recipe"' in response.text
     assert (
@@ -1040,10 +1040,7 @@ def test_recipes_page_filters_sorts_and_links_to_item_detail(
     ) in response.text
     assert '<script src="/static/recipes.js" defer></script>' in response.text
     assert script.status_code == 200
-    assert 'minimumLevel.addEventListener("input"' in script.text
-    assert 'minimumLevelNumber.addEventListener("input"' in script.text
-    assert 'levelRangeSlider.style.setProperty("--range-minimum-position"' in script.text
-    assert 'levelRangeSlider.style.setProperty("--range-maximum-position"' in script.text
+    assert "recipeScrollStorageKey" in script.text
     assert 'document.querySelectorAll(".recipe-current-price-form")' in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert "window.sessionStorage.setItem(recipeScrollStorageKey" in script.text

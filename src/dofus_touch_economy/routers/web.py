@@ -43,6 +43,7 @@ from dofus_touch_economy.services.pricing import (
     PriceService,
 )
 from dofus_touch_economy.services.recipes import (
+    REQUIRED_PROFESSION_LEVELS,
     RecipeCalculatorChoice,
     RecipeCalculatorSelectionError,
     RecipeCalculatorService,
@@ -931,8 +932,7 @@ def _recipe_page_context(
         "next_page_url": (page_url(result.page + 1) if result.page < result.page_count else None),
         "profession_choices": result.professions,
         "category_choices": result.categories,
-        "minimum_available_level": result.minimum_available_level,
-        "maximum_available_level": result.maximum_available_level,
+        "required_profession_levels": REQUIRED_PROFESSION_LEVELS,
         "selected_minimum_level": minimum_level,
         "selected_maximum_level": maximum_level,
         "filter_state": filter_state,

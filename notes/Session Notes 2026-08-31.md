@@ -78,3 +78,19 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 335 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Recipe required-level tier selectors
+
+### Behavior
+
+- Replaced the free numeric and dual-range Recipes controls with minimum and maximum
+  selectors limited to the governed profession levels 1, 10, 20, 40, 60, 80, and
+  100.
+- Preserved the inclusive filter behavior and existing `min_level` and `max_level`
+  query parameters while removing browser synchronization code and slider-only CSS.
+- Added the discrete tiers directly beside the controls so impossible ranges such as
+  50 through 59 are no longer presented as valid choices.
+
+### Verification
+
+- Focused recipe, web, and static-asset verification passed (111 tests).
