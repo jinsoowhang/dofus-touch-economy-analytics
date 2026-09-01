@@ -419,6 +419,7 @@
       <p>No completed sales yet.</p>
     {% endif %}
   </details>
+  {% endif %}
 
   <details class="collapsible-section" open>
     <summary>
@@ -430,31 +431,20 @@
     {% if sales_chart %}
       <div class="sales-metrics" aria-label="Sales summary">
         <div><span>All Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
-        <div><span>Cost-Covered Sales</span><strong>{{ sales_chart.cost_covered_price_label }}</strong></div>
-        <div><span>Covered Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
-        <div><span>Known Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
-        <div><span>Items Sold</span><strong>{{ sales_chart.sold_count }}</strong></div>
-        <div><span>Average Priced Sale</span><strong>{{ sales_chart.average_price_label }}</strong></div>
-        <div><span>Cost Coverage</span><strong>{{ sales_chart.cost_coverage_label }}</strong></div>
+        <div><span>All Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
+        <div><span>All Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
       </div>
       <div class="chart-legend" aria-label="Chart series">
         {% for series in sales_chart.series %}
-          <label>
-            <input
-              type="checkbox"
-              class="chart-series-toggle"
-              data-chart-series="{{ series.key }}"
-              checked
-            >
+          <span>
             <i class="chart-legend-swatch chart-legend-swatch--{{ series.key }}" aria-hidden="true"></i>
             {{ series.label }}
-          </label>
+          </span>
         {% endfor %}
       </div>
       <p class="chart-note">
-        Known Profit = Cost-Covered Sales − Covered Cost. All Sales includes every
-        priced sale, while the covered figures include only listings with both a sale
-        price and complete recipe ingredient cost when sold.
+        All three lines use completed Sales only. All Cost and All Profit include
+        completed Sales with a known Cost at Sale; missing costs remain excluded.
       </p>
       <div class="sales-chart-wrap">
         <svg
@@ -463,9 +453,9 @@
           role="img"
           aria-labelledby="sales-chart-title sales-chart-description"
         >
-          <title id="sales-chart-title">Daily all sales, covered cost, and known profit by date sold</title>
+          <title id="sales-chart-title">Daily all sales, all cost, and all profit by date sold</title>
           <desc id="sales-chart-description">
-            A multi-line chart of all sale prices, covered recipe costs, and known profits for sold items on each Pacific calendar date.
+            A three-line chart of completed-sale prices, known costs at sale, and known profits on each Pacific calendar date.
           </desc>
           {% for tick in sales_chart.y_ticks %}
             <line
@@ -522,11 +512,8 @@
             <tr>
               <th data-sort-type="date">Date Sold</th>
               <th class="numeric" data-sort-type="number">All Sales</th>
-              <th class="numeric" data-sort-type="number">Cost-Covered Sales</th>
-              <th class="numeric" data-sort-type="number">Covered Cost</th>
-              <th class="numeric" data-sort-type="number">Known Profit</th>
-              <th class="numeric" data-sort-type="number">Items Sold</th>
-              <th class="numeric" data-sort-type="number">Cost-Covered Items</th>
+              <th class="numeric" data-sort-type="number">All Cost</th>
+              <th class="numeric" data-sort-type="number">All Profit</th>
             </tr>
           </thead>
           <tbody>
@@ -534,11 +521,8 @@
               <tr>
                 <td>{{ day.sold_on.isoformat() }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_price) }}</td>
-                <td class="numeric">{{ "{:,}".format(day.cost_covered_price) if day.cost_covered_price is not none else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_cost) if day.total_cost is not none else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_profit) if day.total_profit is not none else "—" }}</td>
-                <td class="numeric">{{ day.sold_count }}</td>
-                <td class="numeric">{{ day.costed_count }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -548,6 +532,5 @@
       <p>Mark an item as sold to start the daily sales chart.</p>
     {% endif %}
   </details>
-  {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}

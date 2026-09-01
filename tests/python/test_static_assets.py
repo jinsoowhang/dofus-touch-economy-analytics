@@ -186,19 +186,6 @@ def test_bulk_sale_buttons_share_text_button_geometry() -> None:
     assert "padding: 0.55rem 0.7rem;" in bulk_button_rule
 
 
-def test_sales_chart_series_can_be_toggled_independently() -> None:
-    script = (
-        resources.files("dofus_touch_economy")
-        .joinpath("static/sales.js")
-        .read_text(encoding="utf-8")
-    )
-
-    assert 'document.querySelectorAll(".chart-series-toggle")' in script
-    assert 'toggle.addEventListener("change", updateChartSeriesVisibility)' in script
-    assert 'element.classList.toggle("is-hidden", !toggle.checked)' in script
-    assert "checkedToggles.length === 1 && toggle.checked" in script
-
-
 def test_multiselect_options_are_compact_non_reflowing_popovers() -> None:
     stylesheet = (
         resources.files("dofus_touch_economy")

@@ -56,28 +56,6 @@ const categorySelect = document.querySelector("#sale-category");
 const itemSelect = document.querySelector("#sale-item");
 const salePriceInput = document.querySelector("#sale-asking-price");
 const salePriceSuggestion = document.querySelector("#sale-price-suggestion");
-const chartSeriesToggles = Array.from(
-  document.querySelectorAll(".chart-series-toggle"),
-);
-
-if (chartSeriesToggles.length > 0) {
-  const updateChartSeriesVisibility = () => {
-    const checkedToggles = chartSeriesToggles.filter((toggle) => toggle.checked);
-    for (const toggle of chartSeriesToggles) {
-      const seriesKey = toggle.dataset.chartSeries;
-      for (const element of document.querySelectorAll(
-        `.chart-series--${seriesKey}, .chart-point--${seriesKey}`,
-      )) {
-        element.classList.toggle("is-hidden", !toggle.checked);
-      }
-      toggle.disabled = checkedToggles.length === 1 && toggle.checked;
-    }
-  };
-  for (const toggle of chartSeriesToggles) {
-    toggle.addEventListener("change", updateChartSeriesVisibility);
-  }
-  updateChartSeriesVisibility();
-}
 
 if (categorySelect && itemSelect) {
   const placeholder = itemSelect.options[0];

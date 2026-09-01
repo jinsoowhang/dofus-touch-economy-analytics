@@ -864,11 +864,17 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
     assert 'datetime="2026-08-21T19:00:00-07:00"' in response.text
     assert "All Sales on 2026-08-21: 100 across 1 item" in response.text
     assert "All Sales on 2026-08-23: 200 across 1 item" in response.text
-    assert "Daily all sales, covered cost, and known profit by date sold" in response.text
+    assert "Daily all sales, all cost, and all profit by date sold" in response.text
     assert "Date Sold (Pacific Time)" in response.text
-    assert "<strong>300</strong>" in response.text
-    assert "<strong>2</strong>" in response.text
-    assert "<strong>0 of 2</strong>" in response.text
+    assert "<span>All Sales</span><strong>300</strong>" in response.text
+    assert "<span>All Cost</span><strong>—</strong>" in response.text
+    assert "<span>All Profit</span><strong>—</strong>" in response.text
+
+    filtered = client.get("/sales", params={"status": "active"})
+
+    assert filtered.status_code == 200
+    assert "All Sales on 2026-08-21: 100 across 1 item" in filtered.text
+    assert "All Sales on 2026-08-23: 200 across 1 item" in filtered.text
 
 
 def test_sales_show_recipe_cost_profit_and_three_chart_series(
@@ -940,18 +946,19 @@ def test_sales_show_recipe_cost_profit_and_three_chart_series(
     for series in ("sales", "cost", "profit"):
         assert f'class="chart-series chart-series--{series}"' in response.text
         assert f'class="chart-point chart-point--{series}"' in response.text
-        assert f'data-chart-series="{series}"' in response.text
+    assert 'class="chart-series-toggle"' not in response.text
     assert "All Sales on 2026-08-23: 4,500 across 1 item" in response.text
-    assert "Covered Cost on 2026-08-23: 3,500 across 1 item" in response.text
-    assert "Known Profit on 2026-08-23: 1,000 across 1 item" in response.text
-    assert "Known Profit on 2026-08-24: -500 across 1 item" in response.text
+    assert "All Cost on 2026-08-23: 3,500 across 1 item" in response.text
+    assert "All Profit on 2026-08-23: 1,000 across 1 item" in response.text
+    assert "All Profit on 2026-08-24: -500 across 1 item" in response.text
     assert "<span>All Sales</span><strong>7,500</strong>" in response.text
-    assert "<span>Cost-Covered Sales</span><strong>7,500</strong>" in response.text
-    assert "<span>Covered Cost</span><strong>7,000</strong>" in response.text
-    assert "<span>Known Profit</span><strong>500</strong>" in response.text
-    assert "<span>Cost Coverage</span><strong>2 of 2</strong>" in response.text
-    assert "Known Profit = Cost-Covered Sales − Covered Cost." in response.text
-    assert "All Sales includes every" in response.text
+    assert "<span>All Cost</span><strong>7,000</strong>" in response.text
+    assert "<span>All Profit</span><strong>500</strong>" in response.text
+    chart_section = response.text.split("<h2>Sales Over Time</h2>", maxsplit=1)[1]
+    assert "Cost-Covered Sales" not in chart_section
+    assert "Covered Cost" not in chart_section
+    assert "Known Profit" not in chart_section
+    assert "completed Sales with a known Cost at Sale" in chart_section
 
     filtered = client.get(
         "/sales",

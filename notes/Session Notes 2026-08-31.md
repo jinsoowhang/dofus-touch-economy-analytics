@@ -114,3 +114,19 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 334 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Simplified Sales Over Time
+
+### Behavior
+
+- Reduced Sales Over Time to three always-visible totals, chart lines, and daily-table
+  columns: All Sales, All Cost, and All Profit.
+- Decoupled the chart from the Sales table filters so it always represents every
+  completed Sale, including when the visible table is filtered to active listings.
+- Removed coverage-only KPIs and series switches. All Cost and All Profit continue to
+  exclude completed Sales with unknown Cost at Sale rather than treating missing cost
+  as zero.
+
+### Verification
+
+- Focused Sales, web, and static-asset verification passed (111 tests).
