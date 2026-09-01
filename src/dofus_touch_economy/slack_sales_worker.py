@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import urllib.request
+from collections import Counter
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -14,6 +15,7 @@ from urllib.error import URLError
 from uuid import UUID
 
 from slack_sdk.errors import SlackApiError
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from dofus_touch_economy.capture_config import CaptureWorkerSettings
@@ -37,6 +39,7 @@ from dofus_touch_economy.capture_vision import (
     VisionResponseError,
     extractions_agree,
 )
+from dofus_touch_economy.models import SaleCaptureBatch, SaleListing
 from dofus_touch_economy.repositories.sale_captures import SaleCaptureRepository
 from dofus_touch_economy.services.sale_captures import SaleCaptureService
 
@@ -173,7 +176,8 @@ class SlackSalesCaptureWorker:
             parent_message_ts = batch.parent_message_ts
             preview_message_ts = batch.preview_message_ts
             is_preview = batch.status == "awaiting_confirmation"
-            text, blocks = _receipt(batch)
+            active_item_ids = _active_item_ids_after_capture(session, batch)
+            text, blocks = _receipt(batch, active_item_ids=active_item_ids)
 
         try:
             if preview_message_ts is not None and not is_preview:
@@ -534,7 +538,11 @@ class SlackSalesCaptureWorker:
             return int(session.scalar(select(func.count(SaleCaptureBatch.id))) or 0)
 
 
-def _receipt(batch) -> tuple[str, list[dict[str, Any]]]:
+def _receipt(
+    batch: SaleCaptureBatch,
+    *,
+    active_item_ids: frozenset[int] = frozenset(),
+) -> tuple[str, list[dict[str, Any]]]:
     capture_uuid = str(batch.uuid)
     if batch.status == "awaiting_action":
         text = "Choose sold or market for this screenshot batch."
@@ -573,6 +581,8 @@ def _receipt(batch) -> tuple[str, list[dict[str, Any]]]:
                 ],
             },
         ]
+    if batch.status == "committed" and batch.requested_action == CaptureAction.SOLD:
+        return _sold_commit_receipt(batch, active_item_ids=active_item_ids)
     if batch.status == "committed":
         action_count = len(batch.listing_actions)
         text = f"Capture committed successfully: {action_count} listing change(s)."
@@ -585,6 +595,129 @@ def _receipt(batch) -> tuple[str, list[dict[str, Any]]]:
     else:
         text = f"Capture status: {html.escape(batch.status)}."
     return text, [_section(text)]
+
+
+def _active_item_ids_after_capture(
+    session: Session,
+    batch: SaleCaptureBatch,
+) -> frozenset[int]:
+    if batch.status != "committed" or batch.requested_action != CaptureAction.SOLD:
+        return frozenset()
+    affected_item_ids = {
+        action.sale_listing.item_id
+        for action in batch.listing_actions
+        if action.action == "marked_sold"
+    }
+    if not affected_item_ids:
+        return frozenset()
+    return frozenset(
+        session.scalars(
+            select(SaleListing.item_id).where(
+                SaleListing.item_id.in_(affected_item_ids),
+                SaleListing.date_sold.is_(None),
+            )
+        )
+    )
+
+
+def _sold_commit_receipt(
+    batch: SaleCaptureBatch,
+    *,
+    active_item_ids: frozenset[int],
+) -> tuple[str, list[dict[str, Any]]]:
+    actions = tuple(action for action in batch.listing_actions if action.action == "marked_sold")
+    sold_count = len(actions)
+    revenue = sum(action.asking_price for action in actions)
+    costed_actions = tuple(
+        action for action in actions if action.sale_listing.recipe_cost_at_sale is not None
+    )
+    total_cost = sum(
+        (Decimal(action.sale_listing.recipe_cost_at_sale) for action in costed_actions),
+        Decimal(0),
+    )
+    total_profit = sum(
+        (
+            Decimal(action.asking_price) - Decimal(action.sale_listing.recipe_cost_at_sale)
+            for action in costed_actions
+            if action.sale_listing.recipe_cost_at_sale is not None
+        ),
+        Decimal(0),
+    )
+
+    out_of_stock_items = {
+        action.sale_listing.item_id: action.sale_listing.item.display_name
+        for action in actions
+        if action.sale_listing.item_id not in active_item_ids
+    }
+    out_of_scope_names: list[str] = []
+    if batch.validation_json:
+        plan = CapturePlan.model_validate_json(batch.validation_json)
+        out_of_scope_names = [
+            row.display_name or row.raw_item_name
+            for row in plan.rows
+            if row.disposition == "out_of_scope"
+        ]
+
+    sold_label = "listing" if sold_count == 1 else "listings"
+    lines = [
+        f"*Sold capture committed* — {sold_count} {sold_label} sold",
+        f"• Total recorded sales revenue: {_format_kamas(revenue)} kama",
+        "• Total known cost: " + (f"{_format_kamas(total_cost)} kama" if costed_actions else "—"),
+        "• Total known profit: "
+        + (f"{_format_kamas(total_profit)} kama" if costed_actions else "—"),
+    ]
+    if sold_count:
+        coverage_label = "listing" if sold_count == 1 else "listings"
+        lines.append(
+            f"• Cost coverage: {len(costed_actions)} of {sold_count} sold {coverage_label}"
+        )
+    else:
+        lines.append("• Cost coverage: not applicable (no listings sold)")
+
+    out_of_stock_count = len(out_of_stock_items)
+    out_of_stock_label = "item" if out_of_stock_count == 1 else "items"
+    out_of_stock_line = f"• Newly out of stock: {out_of_stock_count} {out_of_stock_label}"
+    if out_of_stock_items:
+        out_of_stock_line += f" — {_summarize_names(out_of_stock_items.values())}"
+    lines.append(out_of_stock_line)
+
+    out_of_scope_count = len(out_of_scope_names)
+    out_of_scope_label = "row" if out_of_scope_count == 1 else "rows"
+    out_of_scope_line = (
+        f"• Out of scope: {out_of_scope_count} screenshot {out_of_scope_label} excluded"
+    )
+    if out_of_scope_names:
+        out_of_scope_line += f" — {_summarize_names(out_of_scope_names)}"
+    lines.append(out_of_scope_line)
+
+    text = "\n".join(lines)
+    return text, [_section(text)]
+
+
+def _format_kamas(value: int | Decimal) -> str:
+    resolved = Decimal(value)
+    if resolved == resolved.to_integral():
+        return f"{int(resolved):,}"
+    return f"{resolved.normalize():,f}"
+
+
+def _summarize_names(names: Iterable[str], *, limit: int = 8) -> str:
+    counts = Counter(name.strip() for name in names)
+    entries: list[str] = []
+    for name, count in sorted(counts.items(), key=lambda value: value[0].casefold())[:limit]:
+        visible_name = name if len(name) <= 80 else f"{name[:79]}…"
+        entry = _escape_slack_text(visible_name)
+        if count > 1:
+            entry += f" ×{count}"
+        entries.append(entry)
+    omitted_count = len(counts) - len(entries)
+    if omitted_count:
+        entries.append(f"… {omitted_count} more")
+    return ", ".join(entries)
+
+
+def _escape_slack_text(value: str) -> str:
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _section(text: str) -> dict[str, Any]:

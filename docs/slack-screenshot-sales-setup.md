@@ -154,6 +154,10 @@ no Sales changes. Review the Slack preview against the screenshot and Web UI bef
 selecting **Confirm**. **Reject** is terminal and changes no Sales data.
 After either decision, the worker removes the interactive buttons from the preview
 and updates that same message with the terminal result.
+For a committed `sold` batch, the terminal receipt reports listings sold, total
+recorded sales revenue, known cost and profit with cost coverage, items that became
+out of stock, and screenshot rows excluded as out of scope. Missing cost snapshots
+remain excluded from cost and profit instead of being treated as zero.
 
 ## Recovery, correction, and shutdown
 

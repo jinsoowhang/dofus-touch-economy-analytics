@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 from uuid import UUID
@@ -10,8 +11,12 @@ from sqlalchemy import func, select
 
 from dofus_touch_economy.capture_config import CaptureWorkerSettings
 from dofus_touch_economy.capture_schemas import (
+    CaptureAction,
     CaptureExtraction,
     CaptureOccurrence,
+    CapturePlan,
+    CapturePlanChange,
+    CapturePlanRow,
     ScreenKind,
 )
 from dofus_touch_economy.capture_vision import VisionExtractionResult
@@ -20,6 +25,7 @@ from dofus_touch_economy.models import (
     Item,
     Recipe,
     SaleCaptureBatch,
+    SaleCaptureListingAction,
     SaleListing,
     SourceRecord,
 )
@@ -302,9 +308,166 @@ def test_sold_capture_previews_then_commits_only_after_owner_confirmation(
         assert listing.date_sold is not None
         assert listing.sale_source == "slack_sold_capture"
     assert len(slack.messages) == 1
-    assert "committed successfully" in str(slack.updates[-1])
+    assert "Sold capture committed" in str(slack.updates[-1])
     assert all(block["type"] != "actions" for block in slack.updates[-1]["blocks"])
     assert list((tmp_path / "data/app/backups").glob("*.sqlite3"))
+
+
+def test_committed_sold_receipt_reports_financial_coverage_stockouts_and_scope(
+    session_factory,
+    tmp_path: Path,
+) -> None:
+    with session_factory() as session:
+        stockout_item = Item(
+            display_name="Daggero's Red Necklace",
+            normalized_name="daggero's red necklace",
+            category="Amulet",
+            identity_category="amulet",
+        )
+        remaining_item = Item(
+            display_name="Synthetic Boots",
+            normalized_name="synthetic boots",
+            category="Boots",
+            identity_category="boots",
+        )
+        sold_with_cost = SaleListing(
+            item=stockout_item,
+            lot_quantity=1,
+            asking_price=47_000,
+            selling_started_at=OBSERVED_AT - timedelta(days=2),
+            date_sold=OBSERVED_AT,
+            recipe_cost_at_sale=Decimal("12000"),
+        )
+        sold_without_cost = SaleListing(
+            item=remaining_item,
+            lot_quantity=1,
+            asking_price=53_000,
+            selling_started_at=OBSERVED_AT - timedelta(days=2),
+            date_sold=OBSERVED_AT,
+        )
+        active_listing = SaleListing(
+            item=remaining_item,
+            lot_quantity=1,
+            asking_price=55_000,
+            selling_started_at=OBSERVED_AT - timedelta(days=1),
+        )
+        session.add_all((sold_with_cost, sold_without_cost, active_listing))
+        session.flush()
+        plan = CapturePlan(
+            requested_action=CaptureAction.SOLD,
+            screen_kind=ScreenKind.SOLD_NOTIFICATION,
+            observed_at=OBSERVED_AT,
+            rows=(
+                CapturePlanRow(
+                    image_number=1,
+                    row_number=1,
+                    raw_item_name=stockout_item.display_name,
+                    normalized_name=stockout_item.normalized_name,
+                    displayed_price_kamas=47_000,
+                    display_name=stockout_item.display_name,
+                    profession="Jeweller",
+                    disposition="actionable",
+                    detail="mark oldest exact active listing sold",
+                ),
+                CapturePlanRow(
+                    image_number=1,
+                    row_number=2,
+                    raw_item_name=remaining_item.display_name,
+                    normalized_name=remaining_item.normalized_name,
+                    displayed_price_kamas=53_000,
+                    display_name=remaining_item.display_name,
+                    profession="Shoemaker",
+                    disposition="actionable",
+                    detail="mark oldest exact active listing sold",
+                ),
+                CapturePlanRow(
+                    image_number=1,
+                    row_number=3,
+                    raw_item_name="Water Larva",
+                    normalized_name="water larva",
+                    displayed_price_kamas=1,
+                    disposition="out_of_scope",
+                    detail="out of scope: no latest recipe",
+                ),
+                CapturePlanRow(
+                    image_number=1,
+                    row_number=4,
+                    raw_item_name="Water Larva",
+                    normalized_name="water larva",
+                    displayed_price_kamas=1,
+                    disposition="out_of_scope",
+                    detail="out of scope: no latest recipe",
+                ),
+            ),
+            changes=(
+                CapturePlanChange(
+                    action="marked_sold",
+                    item_uuid=stockout_item.uuid,
+                    display_name=stockout_item.display_name,
+                    asking_price=47_000,
+                    listing_uuid=sold_with_cost.uuid,
+                ),
+                CapturePlanChange(
+                    action="marked_sold",
+                    item_uuid=remaining_item.uuid,
+                    display_name=remaining_item.display_name,
+                    asking_price=53_000,
+                    listing_uuid=sold_without_cost.uuid,
+                ),
+            ),
+            issues=(),
+        )
+        batch = SaleCaptureBatch(
+            workspace_id="T123",
+            channel_id="C123",
+            parent_message_ts=MESSAGE_TS,
+            requester_user_id="U123",
+            requested_action="sold",
+            status="committed",
+            observed_at=OBSERVED_AT,
+            completed_at=OBSERVED_AT + timedelta(minutes=1),
+            validation_json=plan.model_dump_json(),
+            receipt_status="pending",
+        )
+        batch.listing_actions.extend(
+            (
+                SaleCaptureListingAction(
+                    sale_listing=sold_with_cost,
+                    action="marked_sold",
+                    effective_at=OBSERVED_AT,
+                    asking_price=47_000,
+                ),
+                SaleCaptureListingAction(
+                    sale_listing=sold_without_cost,
+                    action="marked_sold",
+                    effective_at=OBSERVED_AT,
+                    asking_price=53_000,
+                ),
+            )
+        )
+        session.add(batch)
+        session.commit()
+
+    slack = _FakeSlackClient()
+    worker = SlackSalesCaptureWorker(
+        _settings(tmp_path, session_factory),
+        session_factory,
+        slack,
+        _FakeVision(_sold_extraction()),
+    )
+
+    assert worker.send_one_receipt()
+
+    receipt = str(slack.messages[-1]["text"])
+    assert "*Sold capture committed* — 2 listings sold" in receipt
+    assert "Total recorded sales revenue: 100,000 kama" in receipt
+    assert "Total known cost: 12,000 kama" in receipt
+    assert "Total known profit: 35,000 kama" in receipt
+    assert "Cost coverage: 1 of 2 sold listings" in receipt
+    assert "Newly out of stock: 1 item — Daggero's Red Necklace" in receipt
+    assert "Daggero&#x27;s" not in receipt
+    assert "Out of scope: 2 screenshot rows excluded — Water Larva ×2" in receipt
+    assert all(block["type"] != "actions" for block in slack.messages[-1]["blocks"])
 
 
 def test_reject_replaces_preview_without_interactive_buttons(

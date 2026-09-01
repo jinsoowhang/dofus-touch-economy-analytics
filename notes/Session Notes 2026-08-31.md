@@ -149,3 +149,25 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 334 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Rich Slack sold receipts
+
+### Behavior
+
+- Replaced a committed `sold` capture's generic listing-change receipt with listings
+  sold, total recorded sales revenue, total known cost, total known profit, and
+  explicit cost coverage.
+- Added the affected items that have no active listing after the capture and an
+  aggregated count of screenshot rows excluded as out of scope.
+- Kept missing cost snapshots out of both known cost and known profit instead of
+  treating them as zero. Market and other capture receipts remain unchanged.
+- Reused the existing capture audit relationships and saved validation plan, so no
+  schema migration or additional Slack permission is required.
+
+### Verification
+
+- Focused Slack worker and capture-repository verification passed (15 tests).
+- `./scripts/check.sh` passed: Ruff lint and formatting, 335 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
+- `git diff --check` passed before staging.

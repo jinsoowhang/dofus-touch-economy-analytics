@@ -11,7 +11,12 @@ from sqlalchemy.orm import Session, selectinload
 
 from dofus_touch_economy.capture_evidence import EvidenceRetentionCandidate
 from dofus_touch_economy.capture_schemas import CaptureIntake
-from dofus_touch_economy.models import SaleCaptureBatch, SaleCaptureFile
+from dofus_touch_economy.models import (
+    SaleCaptureBatch,
+    SaleCaptureFile,
+    SaleCaptureListingAction,
+    SaleListing,
+)
 
 HashOverlap = Literal["none", "partial", "exact"]
 TERMINAL_CAPTURE_STATUSES = frozenset(("committed", "rejected", "failed"))
@@ -73,7 +78,9 @@ class SaleCaptureRepository:
             .where(SaleCaptureBatch.uuid == batch_uuid)
             .options(
                 selectinload(SaleCaptureBatch.files),
-                selectinload(SaleCaptureBatch.listing_actions),
+                selectinload(SaleCaptureBatch.listing_actions)
+                .selectinload(SaleCaptureListingAction.sale_listing)
+                .selectinload(SaleListing.item),
             )
         )
 
@@ -115,7 +122,9 @@ class SaleCaptureRepository:
             .limit(1)
             .options(
                 selectinload(SaleCaptureBatch.files),
-                selectinload(SaleCaptureBatch.listing_actions),
+                selectinload(SaleCaptureBatch.listing_actions)
+                .selectinload(SaleCaptureListingAction.sale_listing)
+                .selectinload(SaleListing.item),
             )
         )
 

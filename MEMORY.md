@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-08-30
+**Last updated:** 2026-08-31
 
 ## Dofus Touch Economy Analytics
 
@@ -174,6 +174,12 @@
   to `needs_review` without a model call or Sales write. Do not remove that gate or
   enable autonomy until the approved action-specific evaluation and pilot criteria
   are met.
+- A committed Slack `sold` receipt replaces the generic listing-change count with
+  listings sold, total recorded sales revenue, total known cost and profit, explicit
+  cost coverage, affected items with no remaining active listing, and aggregated
+  out-of-scope screenshot rows. Unknown recipe-cost snapshots remain excluded from
+  both cost and profit, and market plus nonterminal receipts retain their existing
+  behavior. This requires no schema or Slack-permission change.
 - The canonical ignored `data/app/dofus_touch.sqlite3` database was backed up and
   migrated from Alembic `0008` to `0010` on 2026-08-29 after the new listing-lineage
   columns caused `/sales` to fail against the old schema. Preexisting listing content,
