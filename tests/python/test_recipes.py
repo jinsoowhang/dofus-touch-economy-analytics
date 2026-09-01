@@ -488,6 +488,41 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
     assert result.total_weight == 272
 
 
+def test_recipe_calculator_orders_selected_crafts_by_profession_category_and_name(
+    session_factory,
+) -> None:
+    items = seed_recipe_catalog(session_factory)
+
+    with session_factory() as session:
+        recipes = session.scalars(
+            select(Recipe)
+            .join(Recipe.crafted_item)
+            .where(Item.uuid.in_(tuple(item.uuid for item in items.values())))
+        )
+        for recipe in recipes:
+            recipe.profession = "Crafting"
+        gamma = session.scalar(select(Item).where(Item.uuid == items["gamma"].uuid))
+        assert gamma is not None
+        gamma.category = "Ring"
+        session.commit()
+
+        result = RecipeCalculatorService(session, "Dodge").calculate(
+            {
+                items["alpha"].uuid: 1,
+                items["beta"].uuid: 1,
+                items["gamma"].uuid: 1,
+            }
+        )
+
+    assert [
+        (item.profession, item.category, item.display_name) for item in result.selected_items
+    ] == [
+        ("Crafting", "Ring", "Beta Ring"),
+        ("Crafting", "Ring", "Gamma Hat"),
+        ("Crafting", "Sword", "Alpha Sword"),
+    ]
+
+
 def test_recipe_calculator_keeps_ingredients_in_source_order_within_each_craft(
     session_factory,
 ) -> None:

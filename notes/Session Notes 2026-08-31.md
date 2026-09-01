@@ -62,3 +62,19 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 334 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Selected craft breakdown default order
+
+### Behavior
+
+- Selected craft rows default to Profession ascending, then Category ascending, then
+  Craftable Item ascending.
+- Uncategorized crafts use their displayed `Uncategorized` label for the category
+  tie-breaker, and Profession remains the table's declared primary active sort.
+
+### Verification
+
+- Focused recipe and web verification passed (94 tests).
+- `./scripts/check.sh` passed: Ruff lint and formatting, 335 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

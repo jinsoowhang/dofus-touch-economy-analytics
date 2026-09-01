@@ -901,6 +901,7 @@ class RecipeCalculatorService:
                     selected_items,
                     key=lambda item: (
                         item.profession.casefold(),
+                        (item.category or "Uncategorized").casefold(),
                         item.display_name.casefold(),
                     ),
                 )
