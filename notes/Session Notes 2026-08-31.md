@@ -94,3 +94,23 @@
 ### Verification
 
 - Focused recipe, web, and static-asset verification passed (111 tests).
+
+## Best Sellers total profit
+
+### Behavior
+
+- Replaced Best Sellers' per-item Estimated Profit with Total Profit summed across
+  completed Sales whose Cost at Sale is stored or historically reconstructable.
+- Changed Top Profit to rank the same aggregate instead of current estimated unit
+  margin, while retaining Estimated ROI as a separate current-economics measure.
+- Clarified the page context so recorded historical measures and current estimates are
+  distinguishable.
+
+### Verification
+
+- Focused Sales, Best Sellers web, and Insights verification passed (98 tests).
+- The real ignored SQLite Best Sellers projection completed successfully in about 1.6
+  seconds, including legacy historical-cost reconstruction.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 334 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

@@ -190,9 +190,9 @@ item are actively listed and how many have been sold through the application; th
 count cards link to the corresponding filtered Sales table.
 **Best Sellers** groups every item with completed Sales history and ranks by units
 sold, with recorded revenue, average sale price, average time to sell, last sale,
-active listings, and current crafting profit and ROI estimates. Its summary separates
-the highest-volume item from the highest-revenue item, and craftable rows can be added
-to the Recipe Calculator.
+active listings, total known completed-sale profit, and current crafting ROI estimates.
+Its summary separates the highest-volume item from the highest-revenue and highest-
+profit items, and craftable rows can be added to the Recipe Calculator.
 **Out of Stock Items** lists each item with completed Sales history but no active
 listing, together with its latest sale, current price, recipe cost, estimated profit,
 and an Add-to-Calculator action when a recipe is available.

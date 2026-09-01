@@ -359,6 +359,7 @@ def test_best_sellers_group_completed_sales_and_rank_decision_metrics(
                 asking_price=100,
                 selling_started_at=datetime(2026, 8, 10, tzinfo=UTC),
                 date_sold=datetime(2026, 8, 11, tzinfo=UTC),
+                recipe_cost_at_sale=Decimal(25),
             ),
             SaleListing(
                 item_id=catalog_item.id,
@@ -366,6 +367,7 @@ def test_best_sellers_group_completed_sales_and_rank_decision_metrics(
                 asking_price=300,
                 selling_started_at=datetime(2026, 8, 12, tzinfo=UTC),
                 date_sold=datetime(2026, 8, 15, tzinfo=UTC),
+                recipe_cost_at_sale=Decimal(50),
             ),
             SaleListing(
                 item_id=catalog_item.id,
@@ -386,6 +388,7 @@ def test_best_sellers_group_completed_sales_and_rank_decision_metrics(
                 asking_price=1_000,
                 selling_started_at=datetime(2026, 8, 17, tzinfo=UTC),
                 date_sold=datetime(2026, 8, 21, tzinfo=UTC),
+                recipe_cost_at_sale=Decimal(900),
             ),
         ]
     )
@@ -410,16 +413,18 @@ def test_best_sellers_group_completed_sales_and_rank_decision_metrics(
     assert ore.average_days_to_sell == Decimal(2)
     assert ore.active_listing_count == 1
     assert ore.current_price == Decimal(500)
+    assert ore.total_profit == Decimal(325)
     assert ore.last_sold_at == datetime(2026, 8, 18, tzinfo=UTC)
     assert hat.sold_count == 1
     assert hat.total_revenue == 1_000
+    assert hat.total_profit == Decimal(100)
     assert report.total_sold_count == 4
     assert report.priced_sale_count == 3
     assert report.total_revenue == 1_400
     assert report.average_days_to_sell == Decimal("2.5")
     assert report.best_seller is ore
     assert report.top_revenue_item is hat
-    assert report.top_profit_item is None
+    assert report.top_profit_item is ore
 
 
 def test_priced_sale_updates_current_price_and_preserves_history(session, catalog_item) -> None:

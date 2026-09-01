@@ -1164,6 +1164,7 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
                     asking_price=4_000,
                     selling_started_at=datetime(2026, 8, 19, tzinfo=UTC),
                     date_sold=datetime(2026, 8, 20, tzinfo=UTC),
+                    recipe_cost_at_sale=Decimal(3_500),
                 ),
                 SaleListing(
                     item_id=widget.id,
@@ -1171,6 +1172,7 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
                     asking_price=5_000,
                     selling_started_at=datetime(2026, 8, 20, tzinfo=UTC),
                     date_sold=datetime(2026, 8, 23, tzinfo=UTC),
+                    recipe_cost_at_sale=Decimal(3_500),
                 ),
                 SaleListing(
                     item_id=widget.id,
@@ -1211,7 +1213,7 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert "21,000" in response.text
     assert "Price Coverage</span>" not in response.text
     assert "Top Profit</span>" in response.text
-    assert "Synthetic Widget · 1,000" in response.text
+    assert "Synthetic Widget · 2,000" in response.text
     assert "3.0 days" in response.text
     assert "Synthetic Widget · 2" in response.text
     assert "Rare Trophy · 12,000" in response.text
@@ -1224,7 +1226,8 @@ def test_best_sellers_page_ranks_volume_and_surfaces_sales_decision_metrics(
     assert "Average Days to Sell" in response.text
     assert "Currently Selling" in response.text
     assert "Active Now" not in response.text
-    assert "Estimated Profit" in response.text
+    assert "Total Profit" in response.text
+    assert "Estimated Profit" not in response.text
     assert "Estimated ROI" in response.text
     assert '<details class="row-details">' in response.text
     assert not re.search(r"<th[^>]*>Average Sale Price</th>", response.text)

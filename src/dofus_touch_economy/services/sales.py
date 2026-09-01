@@ -100,7 +100,7 @@ class BestSellerItem:
     active_listing_count: int
     current_price: Decimal | None
     recipe_cost: Decimal | None
-    estimated_profit: Decimal | None
+    total_profit: Decimal | None
     estimated_roi: Decimal | None
     is_craftable: bool
 
@@ -156,6 +156,8 @@ class _BestSellerAccumulator:
     sold_count: int = 0
     priced_sale_count: int = 0
     total_revenue: int = 0
+    profit_count: int = 0
+    total_profit: Decimal = Decimal(0)
     total_seconds_to_sell: Decimal = Decimal(0)
 
 
@@ -353,6 +355,7 @@ class SalesService:
 
         totals: dict[int, _BestSellerAccumulator] = {}
         latest_sold_by_item: dict[int, SaleListing] = {}
+        sold_responses = {response.uuid: response for response in self._responses(sold_listings)}
         for listing in sold_listings:
             if listing.date_sold is None:  # pragma: no cover - sold query guarantees a date
                 continue
@@ -369,6 +372,10 @@ class SalesService:
             if listing.asking_price is not None:
                 item_total.priced_sale_count += 1
                 item_total.total_revenue += listing.asking_price
+            profit = sold_responses[listing.uuid].profit
+            if profit is not None:
+                item_total.profit_count += 1
+                item_total.total_profit += profit
 
         item_ids = list(latest_sold_by_item)
         current_prices = PriceService(self._session, self._market_context).current_for_items(
@@ -385,15 +392,15 @@ class SalesService:
             current = current_prices.get(item_id)
             current_price = None if current is None else current.unit_price
             recipe_cost = recipe_costs.get(item_id)
-            estimated_profit = (
+            estimated_profit_per_item = (
                 None
                 if current_price is None or recipe_cost is None
                 else current_price - recipe_cost
             )
             estimated_roi = (
                 None
-                if estimated_profit is None or recipe_cost is None or recipe_cost == 0
-                else estimated_profit / recipe_cost
+                if estimated_profit_per_item is None or recipe_cost is None or recipe_cost == 0
+                else estimated_profit_per_item / recipe_cost
             )
             items.append(
                 BestSellerItem(
@@ -424,7 +431,7 @@ class SalesService:
                     active_listing_count=active_counts[item_id],
                     current_price=current_price,
                     recipe_cost=recipe_cost,
-                    estimated_profit=estimated_profit,
+                    total_profit=(None if not item_total.profit_count else item_total.total_profit),
                     estimated_roi=estimated_roi,
                     is_craftable=item_id in latest_recipes,
                 )
@@ -456,14 +463,14 @@ class SalesService:
                 ),
             )
         )
-        profit_items = [item for item in items if item.estimated_profit is not None]
+        profit_items = [item for item in items if item.total_profit is not None]
         top_profit_item = (
             None
             if not profit_items
             else min(
                 profit_items,
                 key=lambda item: (
-                    -item.estimated_profit,
+                    -item.total_profit,
                     -item.sold_count,
                     item.display_name.casefold(),
                 ),
