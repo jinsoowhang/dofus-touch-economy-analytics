@@ -1430,6 +1430,10 @@ th.numeric .client-sort-header {
   min-width: 78rem;
 }
 
+.calculator-shopping-list-table tbody tr.price-review-due {
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+}
+
 .calculator-sales-table {
   min-width: 90rem;
 }

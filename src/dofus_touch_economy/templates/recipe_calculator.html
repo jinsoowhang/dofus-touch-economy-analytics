@@ -155,7 +155,7 @@
             </thead>
             <tbody>
               {% for ingredient in result.ingredients %}
-                <tr>
+                <tr{% if ingredient.price_age_days is not none and ingredient.price_age_days >= 10 %} class="price-review-due"{% endif %}>
                   <td>
                     <a class="item-label" href="/items/{{ ingredient.crafted_item_uuid }}">
                       {% if ingredient.crafted_item_icon_url %}<img class="item-icon" src="{{ ingredient.crafted_item_icon_url }}" alt="" loading="lazy">{% endif %}

@@ -201,3 +201,21 @@
   and public-file policy.
 - `git diff --check` passed, and no secrets, private raw data, operational databases,
   warehouses, or observer files entered the change set.
+
+## Combined Shopping List old-price highlight
+
+### Behavior
+
+- Added a light, theme-aware warning highlight to Combined Shopping List rows whose
+  current ingredient price was observed 10 or more calendar days ago.
+- Kept 9-day rows unhighlighted and left the existing 7-day **Stale price** status
+  unchanged; the new threshold is a separate visual prompt to review the price.
+- Documented the threshold in the public README.
+
+### Verification
+
+- Focused calculator and stylesheet verification passed, including the 9-day and
+  10-day boundary (3 tests).
+- `./scripts/check.sh` passed: Ruff lint and formatting, 343 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

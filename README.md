@@ -171,6 +171,8 @@ known-cost totals remain independent of weight coverage.
 Resolved ingredient unit prices are editable directly in the shopping list; Enter or
 leaving the field appends a price observation, restores the previous scroll position,
 and recalculates every affected total.
+Shopping-list rows receive a light warning highlight when their current price was last
+updated 10 or more calendar days ago.
 Missing prices and unresolved ingredients remain explicit rather than becoming zero.
 After calculation, **Selected craft breakdown** contains an independent **Sell**
 checkbox and editable **Sale Price Each** for every calculated item. **Add Checked to

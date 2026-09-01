@@ -198,3 +198,6 @@
   recipes immediately unlocked, then completed Sales across those outputs, affected
   recipe count, total affected-output Sales, and item name. Recipes with unresolved
   ingredient identities are excluded because price entry alone cannot complete them.
+- Combined Shopping List rows receive a light, theme-aware warning highlight when
+  the ingredient's current price observation is 10 or more calendar days old. This
+  visual review threshold is independent of the existing 7-day Stale price status.

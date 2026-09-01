@@ -336,3 +336,17 @@ def test_catalog_price_editor_saves_on_enter_or_blur_and_restores_scroll() -> No
     assert "window.scrollY" in script
     assert "window.scrollTo" in script
     assert 'document.body.addEventListener("htmx:afterSwap"' in script
+
+
+def test_recipe_calculator_old_price_highlight_is_light_and_theme_aware() -> None:
+    stylesheet = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/app.css")
+        .read_text(encoding="utf-8")
+    )
+
+    highlight_rule = stylesheet.split(
+        ".calculator-shopping-list-table tbody tr.price-review-due {",
+        maxsplit=1,
+    )[1].split("}", maxsplit=1)[0]
+    assert "color-mix(in srgb, var(--warning) 8%, var(--surface))" in highlight_rule

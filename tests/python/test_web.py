@@ -1951,6 +1951,66 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
         assert len({listing.selling_started_at for listing in listings}) == 1
 
 
+def test_recipe_calculator_highlights_prices_updated_ten_or_more_days_ago(
+    client,
+    session_factory,
+    fixture_dir,
+) -> None:
+    ImportService(session_factory, market_context="Dodge").import_files(
+        fixture_dir / "item_cost_valid.csv",
+        fixture_dir / "item_recipes_valid.csv",
+    )
+    with session_factory() as session:
+        items = {item.normalized_name: item for item in session.scalars(select(Item)).all()}
+        now = datetime.now(UTC)
+        observations = {
+            observation.item_id: observation
+            for observation in session.scalars(select(PriceObservation)).all()
+        }
+        observations[items["synthetic ore"].id].observed_at = now - timedelta(days=10)
+        observations[items["synthetic fiber"].id].observed_at = now - timedelta(days=9)
+        session.commit()
+        widget_uuid = items["synthetic widget"].uuid
+
+    response = client.post(
+        "/recipe-calculator",
+        data={
+            "selected_item_uuid": str(widget_uuid),
+            f"quantity_{widget_uuid}": "1",
+        },
+    )
+
+    assert response.status_code == 200
+    shopping_list_body = (
+        response.text.split(
+            'class="calculator-results-table calculator-shopping-list-table"',
+            maxsplit=1,
+        )[1]
+        .split("<tbody>", maxsplit=1)[1]
+        .split("</tbody>", maxsplit=1)[0]
+    )
+    rows = re.findall(r"<tr([^>]*)>(.*?)</tr>", shopping_list_body, flags=re.DOTALL)
+    row_attributes_by_ingredient = {
+        ingredient_name: attributes
+        for attributes, cells in rows
+        for ingredient_name in ("Synthetic Ore", "Synthetic Fiber")
+        if ingredient_name in cells
+    }
+
+    assert 'class="price-review-due"' in row_attributes_by_ingredient["Synthetic Ore"]
+    assert 'class="price-review-due"' not in row_attributes_by_ingredient["Synthetic Fiber"]
+    assert re.search(
+        r"Synthetic Ore.*?<td class=\"numeric\">10</td>",
+        shopping_list_body,
+        re.DOTALL,
+    )
+    assert re.search(
+        r"Synthetic Fiber.*?<td class=\"numeric\">9</td>",
+        shopping_list_body,
+        re.DOTALL,
+    )
+
+
 def test_recipe_calculator_requires_a_valid_selection(client) -> None:
     response = client.post("/recipe-calculator", data={})
 
