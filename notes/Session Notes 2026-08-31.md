@@ -219,3 +219,26 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 343 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Low-cost craft quantity and Current price color
+
+### Behavior
+
+- Added a quantity-five Recipe Calculator default for recipe costs from zero through
+  25,000 kamas inclusive. Costs above 25,000 through below 50,000 continue to default
+  to four; every higher band and incomplete-cost fallback remains unchanged.
+- Applied the quantity-five default to every shared Add-to-Calculator entry point.
+  Existing browser-local cart quantities and Out of Stock's explicit Suggested
+  Restock override remain unchanged.
+- Changed **Current price** in the Combined Shopping List to the normal theme text
+  color, which is white in dark mode. **Stale price** and **Missing price** retain the
+  warning color.
+- Updated the public README and durable project memory with the revised behavior.
+
+### Verification
+
+- Focused recipe, web, and static-asset verification passed (123 tests), including
+  zero, 24,999, 25,000, and 25,000.01-kama boundaries.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 347 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

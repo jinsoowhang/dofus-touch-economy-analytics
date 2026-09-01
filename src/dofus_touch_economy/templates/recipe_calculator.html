@@ -201,7 +201,7 @@
                   </td>
                   <td class="numeric">{{ "{:,}".format(ingredient.total_cost) if ingredient.total_cost is not none else "—" }}</td>
                   <td
-                    class="status"
+                    class="status{% if ingredient.price_status == 'Current price' %} status-current{% endif %}"
                     data-sort-value="{{ 0 if ingredient.price_status == 'Missing price' else (1 if ingredient.price_status == 'Stale price' else 2) }}"
                   >{{ ingredient.price_status }}</td>
                   <td class="numeric">{{ ingredient.price_age_days if ingredient.price_age_days is not none else "—" }}</td>

@@ -162,6 +162,10 @@ it as **Missing price**, **Current price**, or **Stale price** at seven days old
 The Recipe Calculator accepts multiple craftable items and a craft quantity for each.
 Items remain in its browser-local cart until removed, while row checkboxes, **Select
 all**, and **Select none** control which cart items are included in the next calculation.
+New cart entries default to quantity five for recipe costs from zero through 25,000
+kamas, four above 25,000 through below 50,000, three from 50,000 through below
+100,000, two from 100,000 through 500,000, and one above 500,000 or when cost is
+incomplete.
 It builds one shopping-list row per craft and ingredient with category, quantity for
 that craft, quantity across all selected crafts, total weight, current unit price,
 extended cost, price freshness status, price age in days, and consuming recipe.
@@ -173,6 +177,8 @@ leaving the field appends a price observation, restores the previous scroll posi
 and recalculates every affected total.
 Shopping-list rows receive a light warning highlight when their current price was last
 updated 10 or more calendar days ago.
+In the shopping-list Status column, **Current price** uses the normal page text color
+while **Stale price** retains the warning color.
 Missing prices and unresolved ingredients remain explicit rather than becoming zero.
 After calculation, **Selected craft breakdown** contains an independent **Sell**
 checkbox and editable **Sale Price Each** for every calculated item. **Add Checked to

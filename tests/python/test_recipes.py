@@ -40,7 +40,10 @@ def test_required_profession_level_uses_recipe_slot_unlocks(
     [
         (None, 1),
         (Decimal("-1"), 1),
-        (Decimal("0"), 4),
+        (Decimal("0"), 5),
+        (Decimal("24999"), 5),
+        (Decimal("25000"), 5),
+        (Decimal("25000.01"), 4),
         (Decimal("49999"), 4),
         (Decimal("50000"), 3),
         (Decimal("99999"), 3),
@@ -582,9 +585,9 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
         "Gamma Hat": 0,
     }
     assert {choice.display_name: choice.default_craft_quantity for choice in choices} == {
-        "Alpha Sword": 4,
-        "Beta Ring": 4,
-        "Gamma Hat": 4,
+        "Alpha Sword": 5,
+        "Beta Ring": 5,
+        "Gamma Hat": 5,
     }
     assert [item.display_name for item in result.selected_items] == [
         "Beta Ring",

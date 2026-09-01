@@ -350,3 +350,17 @@ def test_recipe_calculator_old_price_highlight_is_light_and_theme_aware() -> Non
         maxsplit=1,
     )[1].split("}", maxsplit=1)[0]
     assert "color-mix(in srgb, var(--warning) 8%, var(--surface))" in highlight_rule
+
+
+def test_recipe_calculator_current_price_status_uses_default_text_color() -> None:
+    stylesheet = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/app.css")
+        .read_text(encoding="utf-8")
+    )
+
+    current_status_rule = stylesheet.split(
+        ".calculator-shopping-list-table .status.status-current {",
+        maxsplit=1,
+    )[1].split("}", maxsplit=1)[0]
+    assert "color: var(--text);" in current_status_rule

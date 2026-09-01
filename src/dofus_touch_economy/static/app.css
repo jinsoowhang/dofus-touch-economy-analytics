@@ -1434,6 +1434,10 @@ th.numeric .client-sort-header {
   background: color-mix(in srgb, var(--warning) 8%, var(--surface));
 }
 
+.calculator-shopping-list-table .status.status-current {
+  color: var(--text);
+}
+
 .calculator-sales-table {
   min-width: 90rem;
 }
