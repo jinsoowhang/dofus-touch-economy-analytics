@@ -54,6 +54,13 @@ class SalesRepository:
         )
         return list(self._session.scalars(statement))
 
+    def listing_activity(self) -> list[tuple[datetime, int | None]]:
+        statement = select(
+            SaleListing.selling_started_at,
+            SaleListing.asking_price,
+        ).order_by(SaleListing.selling_started_at, SaleListing.id)
+        return list(self._session.execute(statement).tuples())
+
     def sold_prices(self) -> list[tuple[int, int]]:
         statement = (
             select(SaleListing.item_id, SaleListing.asking_price)

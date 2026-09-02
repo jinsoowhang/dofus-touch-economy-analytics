@@ -9,6 +9,7 @@
   --accent-contrast: #ffffff;
   --warning: #9a5a00;
   --danger: #a12d2d;
+  --chart-listed: #2d62b5;
   --chart-sales: #28645a;
   --chart-cost: #b06400;
   --chart-profit: #7651a8;
@@ -26,6 +27,7 @@
     --accent-contrast: #10221f;
     --warning: #f0b35f;
     --danger: #ff8b8b;
+    --chart-listed: #82b1ff;
     --chart-sales: #75c8b8;
     --chart-cost: #f0b35f;
     --chart-profit: #c7a8f3;
@@ -1195,6 +1197,10 @@ th.numeric .client-sort-header {
   color: var(--chart-sales);
 }
 
+.chart-legend-swatch--listed {
+  color: var(--chart-listed);
+}
+
 .chart-legend-swatch--cost {
   color: var(--chart-cost);
 }
@@ -1241,6 +1247,11 @@ th.numeric .client-sort-header {
 .chart-series--sales,
 .chart-point--sales {
   stroke: var(--chart-sales);
+}
+
+.chart-series--listed,
+.chart-point--listed {
+  stroke: var(--chart-listed);
 }
 
 .chart-series--cost,

@@ -56,11 +56,14 @@ class SaleListingConflict(RuntimeError):
 
 @dataclass(frozen=True)
 class DailySalesTotal:
-    sold_on: date
+    activity_on: date
+    total_listed_price: int
     total_price: int
     cost_covered_price: int | None
     total_cost: Decimal | None
     total_profit: Decimal | None
+    listed_count: int
+    listed_priced_count: int
     sold_count: int
     priced_count: int
     costed_count: int
@@ -141,10 +144,13 @@ class ActivePriceReview:
 
 @dataclass
 class _DailySalesAccumulator:
+    total_listed_price: int = 0
     total_price: int = 0
     cost_covered_price: int = 0
     total_cost: Decimal = Decimal(0)
     total_profit: Decimal = Decimal(0)
+    listed_count: int = 0
+    listed_priced_count: int = 0
     sold_count: int = 0
     priced_count: int = 0
     costed_count: int = 0
@@ -495,6 +501,13 @@ class SalesService:
         listings: list[SaleListingResponse] | None = None,
     ) -> list[DailySalesTotal]:
         totals: dict[date, _DailySalesAccumulator] = {}
+        for selling_started_at, asking_price in self._sales.listing_activity():
+            listed_on = _as_utc(selling_started_at).astimezone(display_timezone).date()
+            daily = totals.setdefault(listed_on, _DailySalesAccumulator())
+            daily.listed_count += 1
+            if asking_price is not None:
+                daily.total_listed_price += asking_price
+                daily.listed_priced_count += 1
         for listing in listings if listings is not None else self.sold("sold", "asc"):
             if listing.date_sold is None:  # pragma: no cover - sold query guarantees a date
                 continue
@@ -514,17 +527,20 @@ class SalesService:
                 daily.profit_count += 1
         return [
             DailySalesTotal(
-                sold_on=sold_on,
+                activity_on=activity_on,
+                total_listed_price=values.total_listed_price,
                 total_price=values.total_price,
                 cost_covered_price=(None if not values.costed_count else values.cost_covered_price),
                 total_cost=(None if not values.costed_count else values.total_cost),
                 total_profit=(None if not values.profit_count else values.total_profit),
+                listed_count=values.listed_count,
+                listed_priced_count=values.listed_priced_count,
                 sold_count=values.sold_count,
                 priced_count=values.priced_count,
                 costed_count=values.costed_count,
                 profit_count=values.profit_count,
             )
-            for sold_on, values in sorted(totals.items())
+            for activity_on, values in sorted(totals.items())
         ]
 
     def start(self, command: SaleListingCreate) -> SaleListingResponse:

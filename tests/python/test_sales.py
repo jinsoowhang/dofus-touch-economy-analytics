@@ -168,14 +168,56 @@ def test_daily_totals_separate_all_sales_from_cost_covered_sales(
     )
     session.commit()
 
-    daily_total = SalesService(session, "Dodge").daily_totals(UTC)[0]
+    daily_totals = SalesService(session, "Dodge").daily_totals(UTC)
+    listed_total = next(day for day in daily_totals if day.activity_on == date(2026, 8, 22))
+    daily_total = next(day for day in daily_totals if day.activity_on == date(2026, 8, 23))
 
+    assert listed_total.total_listed_price == 1_100
+    assert listed_total.listed_count == 2
     assert daily_total.total_price == 1_100
     assert daily_total.cost_covered_price == 100
     assert daily_total.total_cost == Decimal(80)
     assert daily_total.total_profit == Decimal(20)
     assert daily_total.sold_count == 2
     assert daily_total.costed_count == 1
+
+
+def test_daily_totals_include_active_and_sold_listed_prices_by_listed_date(
+    session,
+    catalog_item,
+) -> None:
+    session.add_all(
+        [
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=300,
+                selling_started_at=datetime(2026, 8, 21, 23, tzinfo=UTC),
+            ),
+            SaleListing(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                asking_price=700,
+                selling_started_at=datetime(2026, 8, 21, 23, tzinfo=UTC),
+                date_sold=datetime(2026, 8, 22, 1, tzinfo=UTC),
+            ),
+        ]
+    )
+    session.commit()
+
+    daily_totals = SalesService(session, "Dodge").daily_totals(UTC)
+
+    assert [day.activity_on for day in daily_totals] == [
+        date(2026, 8, 21),
+        date(2026, 8, 22),
+    ]
+    assert daily_totals[0].total_listed_price == 1_000
+    assert daily_totals[0].listed_count == 2
+    assert daily_totals[0].listed_priced_count == 2
+    assert daily_totals[0].sold_count == 0
+    assert daily_totals[1].listed_count == 0
+    assert daily_totals[1].total_price == 700
+    assert daily_totals[1].sold_count == 1
 
 
 def test_legacy_completed_sale_reconstructs_cost_only_from_sale_time_history(

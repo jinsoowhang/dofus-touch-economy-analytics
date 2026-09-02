@@ -115,10 +115,12 @@
   project. ADC remains outside Git and can be revoked separately from dbt Cloud's
   service-account key.
 - The loopback BigQuery Sync page manually runs the fixed content-addressed snapshot loader against configured project `claude-projects-489306`, location `US`, and datasets `dofus_dev` plus `dofus_prod`. A process-local manager rejects overlapping runs and retains the latest capped, timestamped progress log; the browser cannot supply commands, targets, or credentials. Table-level progress never includes source rows. A successful run updates raw snapshots only, so dbt Cloud builds remain separate manual actions.
-- Sales Over Time always covers all completed Sales regardless of the active table
-  filters. Its KPI strip, static legend, chart, and daily table show only All Sales,
-  All Cost, and All Profit. Cost and profit exclude completed Sales with unknown Cost
-  at Sale rather than treating missing cost as zero.
+- Sales Over Time remains independent of the active table filters. Listed includes
+  every active or completed listing's recorded Sales Price grouped by its Pacific
+  `selling_started_at` date. All Sales, All Cost, and All Profit remain grouped by
+  Pacific date sold; cost and profit exclude completed Sales with unknown Cost at
+  Sale rather than treating missing cost as zero. The KPI strip, static legend,
+  four-line chart, and daily table expose the same measures.
 - Correct accidental duplicate active listings by backing up the operational
   database and deleting only the duplicate active rows. Do not mark data-entry
   duplicates as sold because that would corrupt sales history and analytics.

@@ -430,6 +430,7 @@
     </summary>
     {% if sales_chart %}
       <div class="sales-metrics" aria-label="Sales summary">
+        <div><span>Listed</span><strong>{{ sales_chart.total_listed_price_label }}</strong></div>
         <div><span>All Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
         <div><span>All Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
         <div><span>All Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
@@ -443,8 +444,9 @@
         {% endfor %}
       </div>
       <p class="chart-note">
-        All three lines use completed Sales only. All Cost and All Profit include
-        completed Sales with a known Cost at Sale; missing costs remain excluded.
+        Listed sums recorded Sales Prices by the Pacific date each listing started.
+        The other lines use completed Sales by date sold. All Cost and All Profit
+        include completed Sales with a known Cost at Sale; missing costs remain excluded.
       </p>
       <div class="sales-chart-wrap">
         <svg
@@ -453,9 +455,9 @@
           role="img"
           aria-labelledby="sales-chart-title sales-chart-description"
         >
-          <title id="sales-chart-title">Daily all sales, all cost, and all profit by date sold</title>
+          <title id="sales-chart-title">Daily listed value, all sales, all cost, and all profit by activity date</title>
           <desc id="sales-chart-description">
-            A three-line chart of completed-sale prices, known costs at sale, and known profits on each Pacific calendar date.
+            A four-line chart of listed prices by date listed plus completed-sale prices, known costs at sale, and known profits by date sold on each Pacific calendar date.
           </desc>
           {% for tick in sales_chart.y_ticks %}
             <line
@@ -494,7 +496,7 @@
             </text>
           {% endfor %}
           <text class="chart-axis-title" x="{{ (sales_chart.left + sales_chart.right_x) / 2 }}" y="{{ sales_chart.height - 6 }}" text-anchor="middle">
-            Date Sold (Pacific Time)
+            Date (Pacific Time)
           </text>
           <text
             class="chart-axis-title"
@@ -510,7 +512,8 @@
         <table class="sales-data-table" data-sortable-table>
           <thead>
             <tr>
-              <th data-sort-type="date">Date Sold</th>
+              <th data-sort-type="date">Date</th>
+              <th class="numeric" data-sort-type="number">Listed</th>
               <th class="numeric" data-sort-type="number">All Sales</th>
               <th class="numeric" data-sort-type="number">All Cost</th>
               <th class="numeric" data-sort-type="number">All Profit</th>
@@ -519,8 +522,9 @@
           <tbody>
             {% for day in sales_chart.daily_totals %}
               <tr>
-                <td>{{ day.sold_on.isoformat() }}</td>
-                <td class="numeric">{{ "{:,}".format(day.total_price) }}</td>
+                <td>{{ day.activity_on.isoformat() }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_listed_price) if day.listed_priced_count else "—" }}</td>
+                <td class="numeric">{{ "{:,}".format(day.total_price) if day.sold_count else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_cost) if day.total_cost is not none else "—" }}</td>
                 <td class="numeric">{{ "{:,}".format(day.total_profit) if day.total_profit is not none else "—" }}</td>
               </tr>
@@ -529,7 +533,7 @@
         </table>
       </details>
     {% else %}
-      <p>Mark an item as sold to start the daily sales chart.</p>
+      <p>Add a listing or mark an item as sold to start the daily sales chart.</p>
     {% endif %}
   </details>
 {% endblock %}

@@ -65,3 +65,31 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 349 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Listed value in Sales Over Time
+
+### Behavior
+
+- Added a blue Listed series to Sales Over Time. It includes active and completed
+  listings, groups each listing by its Pacific `selling_started_at` date, and sums
+  the listing's recorded Sales Price.
+- The chart's event-date domain is the union of listed and sold dates. Listed remains
+  independent of the visible Sales table filters, matching the existing historical
+  series behavior.
+- Added Listed to the KPI strip and daily totals table, and changed the shared date
+  label from Date Sold to Date because the chart now combines listed and sold dates.
+- All Sales, All Cost, and All Profit retain their completed-sale semantics and group
+  by Pacific date sold. Missing Cost at Sale remains excluded rather than treated as
+  zero.
+
+### Verification
+
+- Focused Sales service and Web UI verification passed (101 tests), including active
+  plus completed listed totals, Pacific date grouping, filter independence, the
+  four chart series, and the daily table presentation.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 350 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
+- Restarted the loopback Web UI and confirmed the real ignored database renders the
+  Listed KPI, line, and point labels with HTTP 200; no operational values were copied
+  into tracked files.

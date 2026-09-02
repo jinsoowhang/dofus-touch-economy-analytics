@@ -672,7 +672,10 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
     bottom = 58
     plot_width = width - left - right
     plot_height = height - top - bottom
-    chart_values = [Decimal(point.total_price) for point in daily_totals]
+    chart_values = [
+        Decimal(point.total_listed_price) for point in daily_totals if point.listed_priced_count
+    ]
+    chart_values.extend(Decimal(point.total_price) for point in daily_totals if point.sold_count)
     chart_values.extend(
         value
         for point in daily_totals
@@ -698,13 +701,14 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         base_points.append(
             {
                 "x": round(x, 2),
-                "date": total.sold_on.isoformat(),
+                "date": total.activity_on.isoformat(),
                 "daily_total": total,
             }
         )
 
     series: list[dict[str, object]] = []
     for key, label, attribute, count_attribute in (
+        ("listed", "Listed", "total_listed_price", "listed_priced_count"),
         ("sales", "All Sales", "total_price", "sold_count"),
         ("cost", "All Cost", "total_cost", "costed_count"),
         ("profit", "All Profit", "total_profit", "profit_count"),
@@ -715,10 +719,13 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         for base_point in base_points:
             daily_total = base_point["daily_total"]
             value = getattr(daily_total, attribute)
+            item_count = getattr(daily_total, count_attribute)
             if value is None:
                 if current_segment:
                     segments.append(" ".join(current_segment))
                     current_segment = []
+                continue
+            if not item_count:
                 continue
             decimal_value = Decimal(value)
             y = top + plot_height * float(
@@ -729,7 +736,7 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
                 "y": round(y, 2),
                 "date": base_point["date"],
                 "value_label": f"{decimal_value:,}",
-                "item_count": getattr(daily_total, count_attribute),
+                "item_count": item_count,
             }
             points.append(point)
             current_segment.append(f"{point['x']},{point['y']}")
@@ -745,6 +752,7 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         )
 
     label_indexes = _chart_label_indexes(len(base_points))
+    total_listed_price = sum(point.total_listed_price for point in daily_totals)
     total_price = sum(point.total_price for point in daily_totals)
     total_cost = sum(
         (point.total_cost for point in daily_totals if point.total_cost is not None),
@@ -754,6 +762,7 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         (point.total_profit for point in daily_totals if point.total_profit is not None),
         start=Decimal(0),
     )
+    listed_priced_count = sum(point.listed_priced_count for point in daily_totals)
     costed_count = sum(point.costed_count for point in daily_totals)
     profit_count = sum(point.profit_count for point in daily_totals)
     return {
@@ -776,6 +785,7 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
             }
             for value in range(chart_min, chart_max + 1, tick_step)
         ],
+        "total_listed_price_label": ("—" if not listed_priced_count else f"{total_listed_price:,}"),
         "total_price_label": f"{total_price:,}",
         "total_cost_label": "—" if not costed_count else f"{total_cost:,}",
         "total_profit_label": "—" if not profit_count else f"{total_profit:,}",
