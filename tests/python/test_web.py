@@ -1749,7 +1749,11 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert 'action="/recipe-calculator/sales"' in response.text
     assert 'class="calculator-summary calculator-craft-summary"' in response.text
     assert 'aria-label="Selected craft summary"' in response.text
-    assert re.search(r"<span>Total Craft Quantity</span>\s*<strong>5</strong>", response.text)
+    assert re.search(
+        r"<span>Total Craft Quantity</span>\s*<strong><output "
+        r'id="calculator-craft-total-quantity"[^>]*>5</output></strong>',
+        response.text,
+    )
     assert re.search(
         r"<span>Total Recipe Cost</span>\s*"
         r'<strong\s+id="calculator-craft-total-recipe-cost"\s+'
@@ -1768,6 +1772,24 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     )
     assert "Sale Price Each" in response.text
     assert "Total Estimated Profit" in response.text
+    assert response.text.count('class="calculator-quantity calculator-breakdown-quantity"') == 2
+    assert re.search(
+        rf'id="calculator-breakdown-quantity-{items["alpha sword"].uuid}"\s*'
+        r'class="calculator-quantity calculator-breakdown-quantity"\s*'
+        rf'name="quantity_{items["alpha sword"].uuid}".*?value="2"',
+        response.text,
+        re.DOTALL,
+    )
+    assert re.search(
+        rf'id="calculator-breakdown-quantity-{items["beta ring"].uuid}"\s*'
+        r'class="calculator-quantity calculator-breakdown-quantity"\s*'
+        rf'name="quantity_{items["beta ring"].uuid}".*?value="3"',
+        response.text,
+        re.DOTALL,
+    )
+    assert 'id="calculator-recalculate-quantities"' in response.text
+    assert 'form="recipe-calculator-form"' in response.text
+    assert "Recalculate Shopping List" in response.text
     assert re.search(
         r'<th data-sort-type="text">Craftable Item</th>\s*'
         r'<th data-sort-type="text" aria-sort="ascending">Profession</th>',
@@ -1788,6 +1810,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert re.search(
         r'class="numeric calculator-estimated-profit"\s*'
         r'data-craft-quantity="2"\s*'
+        r'data-unit-recipe-cost="20"\s*'
         r'data-total-recipe-cost="40"\s*'
         r'data-sort-value="160".*?>160</output>',
         response.text,
@@ -1796,6 +1819,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert re.search(
         r'class="numeric calculator-estimated-profit"\s*'
         r'data-craft-quantity="3"\s*'
+        r'data-unit-recipe-cost="50"\s*'
         r'data-total-recipe-cost="150"\s*'
         r'data-sort-value="90".*?>90</output>',
         response.text,

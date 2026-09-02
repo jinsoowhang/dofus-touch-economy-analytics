@@ -220,7 +220,8 @@
           <p class="calculator-sale-help">
             Check the crafts you want to list. Each craft quantity becomes that many
             separate listings at the Sale Price Each. Total Estimated Profit is Sale
-            Price Each multiplied by Quantity, minus Total Recipe Cost.
+            Price Each multiplied by Quantity, minus Total Recipe Cost. Adjust Quantity
+            here, then recalculate to refresh the Combined Shopping List.
           </p>
           {% set craft_summary = namespace(projected_sales=0, sale_prices_complete=true) %}
           {% for item in result.selected_items %}
@@ -236,7 +237,10 @@
             {% endif %}
           {% endfor %}
           <div class="calculator-summary calculator-craft-summary" aria-label="Selected craft summary">
-            <div><span>Total Craft Quantity</span><strong>{{ result.total_crafts }}</strong></div>
+            <div>
+              <span>Total Craft Quantity</span>
+              <strong><output id="calculator-craft-total-quantity" aria-live="polite">{{ result.total_crafts }}</output></strong>
+            </div>
             <div>
               <span>Total Recipe Cost</span>
               <strong
@@ -284,7 +288,6 @@
                   <tr>
                     <td class="selection-column">
                       <input type="hidden" name="selected_item_uuid" value="{{ item.item_uuid }}">
-                      <input type="hidden" name="quantity_{{ item.item_uuid }}" value="{{ item.craft_quantity }}">
                       <input
                         class="calculator-sale-checkbox"
                         type="checkbox"
@@ -303,7 +306,22 @@
                     <td>{{ item.profession }}</td>
                     <td>{{ (item.category or "Uncategorized") | title }}</td>
                     <td class="numeric">{{ item.profession_level if item.profession_level is not none else "—" }}</td>
-                    <td class="numeric">{{ item.craft_quantity }}</td>
+                    <td class="numeric">
+                      <label class="visually-hidden" for="calculator-breakdown-quantity-{{ item.item_uuid }}">Craft quantity for {{ item.display_name }} in selected craft breakdown</label>
+                      <input
+                        id="calculator-breakdown-quantity-{{ item.item_uuid }}"
+                        class="calculator-quantity calculator-breakdown-quantity"
+                        name="quantity_{{ item.item_uuid }}"
+                        type="number"
+                        inputmode="numeric"
+                        min="1"
+                        max="1000"
+                        value="{{ item.craft_quantity }}"
+                        data-item-uuid="{{ item.item_uuid }}"
+                        data-display-name="{{ item.display_name }}"
+                        required
+                      >
+                    </td>
                     <td class="numeric">
                       <label class="visually-hidden" for="calculator-sale-price-{{ item.item_uuid }}">Sale price for each {{ item.display_name }}</label>
                       <input
@@ -316,10 +334,13 @@
                       >
                     </td>
                     <td class="numeric">{{ "{:,}".format(item.recipe_unit_cost) if item.recipe_unit_cost is not none else "—" }}</td>
-                    <td class="numeric">{{ "{:,}".format(item.total_recipe_cost) if item.total_recipe_cost is not none else "—" }}</td>
+                    <td
+                      class="numeric calculator-row-total-recipe-cost"
+                    >{{ "{:,}".format(item.total_recipe_cost) if item.total_recipe_cost is not none else "—" }}</td>
                     <td
                       class="numeric calculator-estimated-profit"
                       data-craft-quantity="{{ item.craft_quantity }}"
+                      data-unit-recipe-cost="{{ item.recipe_unit_cost if item.recipe_unit_cost is not none else '' }}"
                       data-total-recipe-cost="{{ item.total_recipe_cost if item.total_recipe_cost is not none else '' }}"
                       data-sort-value="{{ estimated_profit if estimated_profit is not none else '' }}"
                     >
@@ -334,6 +355,12 @@
             </table>
           </div>
           <div class="calculator-submit-actions">
+            <button
+              id="calculator-recalculate-quantities"
+              type="submit"
+              form="recipe-calculator-form"
+              class="secondary-button"
+            >Recalculate Shopping List</button>
             <button type="submit">Add Checked to Sales</button>
           </div>
         </form>

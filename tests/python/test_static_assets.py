@@ -99,6 +99,26 @@ def test_recipe_calculator_sale_submit_is_single_use_and_cleans_successful_cart_
     assert "selection.filter((itemUuid) => !itemUuids.has(itemUuid))" in sales_script
 
 
+def test_recipe_calculator_breakdown_quantity_updates_and_recalculates() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipe-calculator.js")
+        .read_text(encoding="utf-8")
+    )
+
+    assert '"#calculator-recalculate-quantities"' in script
+    assert 'document.querySelectorAll(".calculator-breakdown-quantity")' in script
+    assert "updateCalculatorBreakdownQuantity(input)" in script
+    assert 'profitCell.dataset.craftQuantity = quantityIsValid ? String(craftQuantity) : ""' in (
+        script
+    )
+    assert "unitRecipeCost * craftQuantity" in script
+    assert "calculatorQuantity.value = String(craftQuantity)" in script
+    assert "persistCart();" in script
+    assert "calculatorForm.requestSubmit(calculatorRecalculateQuantities)" in script
+    assert "input.reportValidity()" in script
+
+
 def test_recipe_cart_uses_an_optional_validated_craft_quantity() -> None:
     script = (
         resources.files("dofus_touch_economy")

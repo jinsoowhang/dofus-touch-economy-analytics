@@ -15,6 +15,12 @@ const calculatorSelectedCount = document.querySelector("#calculator-selected-cou
 const calculatorForm = document.querySelector("#recipe-calculator-form");
 const calculatorSalesForm = document.querySelector(".calculator-sales-form");
 const calculatorSaleSelectAll = document.querySelector("#calculator-sale-select-all");
+const calculatorRecalculateQuantities = document.querySelector(
+  "#calculator-recalculate-quantities",
+);
+const calculatorCraftTotalQuantity = document.querySelector(
+  "#calculator-craft-total-quantity",
+);
 const calculatorCraftTotalRecipeCost = document.querySelector(
   "#calculator-craft-total-recipe-cost",
 );
@@ -64,6 +70,7 @@ const updateCalculatorEstimatedProfit = (input) => {
     salePrice === null ||
     !Number.isInteger(craftQuantity) ||
     craftQuantity < 1 ||
+    craftQuantity > 1000 ||
     rawRecipeCost === "" ||
     !Number.isFinite(totalRecipeCost)
       ? null
@@ -80,6 +87,7 @@ const updateCalculatorEstimatedProfit = (input) => {
 const updateCalculatorCraftSummary = () => {
   if (
     !calculatorSalesForm ||
+    !calculatorCraftTotalQuantity ||
     !calculatorCraftTotalRecipeCost ||
     !calculatorCraftProjectedSales ||
     !calculatorCraftEstimatedProfit
@@ -87,16 +95,33 @@ const updateCalculatorCraftSummary = () => {
     return;
   }
 
+  let totalCraftQuantity = 0;
+  let craftQuantitiesComplete = true;
+  let totalRecipeCost = 0;
+  let recipeCostsComplete = true;
   let projectedSales = 0;
   let salePricesComplete = true;
   for (const input of calculatorSalesForm.querySelectorAll(".calculator-sale-price")) {
     const profitCell = input.closest("tr")?.querySelector(".calculator-estimated-profit");
     const salePrice = parseCalculatorSalePrice(input.value);
     const craftQuantity = Number(profitCell?.dataset.craftQuantity);
+    const rawRowRecipeCost = profitCell?.dataset.totalRecipeCost || "";
+    const rowRecipeCost = Number(rawRowRecipeCost);
+    if (!Number.isInteger(craftQuantity) || craftQuantity < 1 || craftQuantity > 1000) {
+      craftQuantitiesComplete = false;
+    } else {
+      totalCraftQuantity += craftQuantity;
+    }
+    if (rawRowRecipeCost === "" || !Number.isFinite(rowRecipeCost)) {
+      recipeCostsComplete = false;
+    } else {
+      totalRecipeCost += rowRecipeCost;
+    }
     if (
       salePrice === null ||
       !Number.isInteger(craftQuantity) ||
-      craftQuantity < 1
+      craftQuantity < 1 ||
+      craftQuantity > 1000
     ) {
       salePricesComplete = false;
       continue;
@@ -104,16 +129,22 @@ const updateCalculatorCraftSummary = () => {
     projectedSales += salePrice * craftQuantity;
   }
 
+  calculatorCraftTotalQuantity.textContent = craftQuantitiesComplete
+    ? calculatorKamaFormatter.format(totalCraftQuantity)
+    : "Incomplete";
+  calculatorCraftTotalRecipeCost.dataset.totalRecipeCost = recipeCostsComplete
+    ? String(totalRecipeCost)
+    : "";
+  calculatorCraftTotalRecipeCost.textContent = recipeCostsComplete
+    ? calculatorKamaFormatter.format(totalRecipeCost)
+    : "Incomplete";
   calculatorCraftProjectedSales.textContent = salePricesComplete
     ? calculatorKamaFormatter.format(projectedSales)
     : "Incomplete";
-
-  const rawTotalRecipeCost = calculatorCraftTotalRecipeCost.dataset.totalRecipeCost;
-  const totalRecipeCost = Number(rawTotalRecipeCost);
   calculatorCraftEstimatedProfit.textContent =
     salePricesComplete &&
-    rawTotalRecipeCost !== "" &&
-    Number.isFinite(totalRecipeCost)
+    recipeCostsComplete &&
+    craftQuantitiesComplete
       ? calculatorKamaFormatter.format(projectedSales - totalRecipeCost)
       : "Incomplete";
 };
@@ -374,6 +405,54 @@ if (
     } catch {
       // The checked controls remain authoritative for the current browser request.
     }
+  };
+
+  const updateCalculatorBreakdownQuantity = (input) => {
+    const row = input.closest("tr");
+    const profitCell = row?.querySelector(".calculator-estimated-profit");
+    const totalRecipeCostCell = row?.querySelector(".calculator-row-total-recipe-cost");
+    const salePriceInput = row?.querySelector(".calculator-sale-price");
+    const saleCheckbox = row?.querySelector(".calculator-sale-checkbox");
+    if (!row || !profitCell || !totalRecipeCostCell || !salePriceInput) {
+      return;
+    }
+
+    const craftQuantity = Number(input.value);
+    const quantityIsValid =
+      Number.isInteger(craftQuantity) && craftQuantity >= 1 && craftQuantity <= 1000;
+    const rawUnitRecipeCost = profitCell.dataset.unitRecipeCost;
+    const unitRecipeCost = Number(rawUnitRecipeCost);
+    const totalRecipeCost =
+      quantityIsValid && rawUnitRecipeCost !== "" && Number.isFinite(unitRecipeCost)
+        ? unitRecipeCost * craftQuantity
+        : null;
+
+    profitCell.dataset.craftQuantity = quantityIsValid ? String(craftQuantity) : "";
+    profitCell.dataset.totalRecipeCost =
+      totalRecipeCost === null ? "" : String(totalRecipeCost);
+    totalRecipeCostCell.textContent =
+      totalRecipeCost === null ? "—" : calculatorKamaFormatter.format(totalRecipeCost);
+
+    if (saleCheckbox) {
+      const quantityLabel = quantityIsValid ? String(craftQuantity) : "the selected";
+      saleCheckbox.setAttribute(
+        "aria-label",
+        `Add ${quantityLabel} ${input.dataset.displayName} listings to Currently Selling`,
+      );
+    }
+
+    if (quantityIsValid) {
+      const calculatorQuantity = calculatorSelectedItems.querySelector(
+        `[name="quantity_${input.dataset.itemUuid}"]`,
+      );
+      if (calculatorQuantity) {
+        calculatorQuantity.value = String(craftQuantity);
+        persistCart();
+      }
+    }
+
+    updateCalculatorEstimatedProfit(salePriceInput);
+    updateCalculatorCraftSummary();
   };
 
   const updateSelectedCount = () => {
@@ -645,6 +724,31 @@ if (
     persistCart();
     persistSelection();
   });
+
+  for (const input of document.querySelectorAll(".calculator-breakdown-quantity")) {
+    updateCalculatorBreakdownQuantity(input);
+    input.addEventListener("input", () => updateCalculatorBreakdownQuantity(input));
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      if (input.reportValidity() && calculatorRecalculateQuantities) {
+        calculatorForm.requestSubmit(calculatorRecalculateQuantities);
+      }
+    });
+  }
+
+  if (calculatorRecalculateQuantities) {
+    calculatorRecalculateQuantities.addEventListener("click", (event) => {
+      for (const input of document.querySelectorAll(".calculator-breakdown-quantity")) {
+        if (!input.reportValidity()) {
+          event.preventDefault();
+          return;
+        }
+      }
+    });
+  }
 
   for (const input of document.querySelectorAll(".calculator-sale-price")) {
     updateCalculatorEstimatedProfit(input);

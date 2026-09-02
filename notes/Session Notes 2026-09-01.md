@@ -93,3 +93,31 @@
 - Restarted the loopback Web UI and confirmed the real ignored database renders the
   Listed KPI, line, and point labels with HTTP 200; no operational values were copied
   into tracked files.
+
+## Editable Selected craft quantities
+
+### Behavior
+
+- Replaced the fixed Quantity text in Selected craft breakdown with validated number
+  inputs from 1 through 1,000. The edited values remain the quantities submitted by
+  Add Checked to Sales.
+- Quantity input synchronizes the corresponding primary calculator selection and the
+  browser-local cart. Row Total Recipe Cost and Total Estimated Profit plus all four
+  breakdown KPIs update immediately.
+- Added Recalculate Shopping List beside the Sales action. It submits the synchronized
+  primary calculator form to refresh ingredient quantities, weights, and costs; Enter
+  in a valid breakdown Quantity invokes the same recalculation.
+- Invalid quantities remain visibly incomplete and are blocked by native validation
+  before either recalculation or Sales submission.
+
+### Verification
+
+- Focused Web UI and static-asset verification passed (89 tests), and Node syntax
+  validation passed for the calculator script.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 351 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
+- Restarted the loopback Web UI and confirmed an ignored real-catalog calculation
+  returns HTTP 200 with the editable breakdown Quantity, requested value, and
+  Recalculate Shopping List action; no operational values were copied into tracked
+  files.
