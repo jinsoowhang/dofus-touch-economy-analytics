@@ -953,7 +953,8 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
     for series in ("listed", "sales", "cost", "profit"):
         assert f'class="chart-series chart-series--{series}"' in response.text
         assert f'class="chart-point chart-point--{series}"' in response.text
-    assert 'class="chart-series-toggle"' not in response.text
+        assert f'data-chart-series="{series}"' in response.text
+    assert response.text.count('class="chart-series-toggle"') == 4
     assert "Listed on 2026-08-21: 9,500 across 2 items" in response.text
     assert "Listed on 2026-08-22: 3,000 across 1 item" in response.text
     assert "All Sales on 2026-08-23: 4,500 across 1 item" in response.text

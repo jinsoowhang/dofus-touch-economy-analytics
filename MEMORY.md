@@ -119,8 +119,10 @@
   every active or completed listing's recorded Sales Price grouped by its Pacific
   `selling_started_at` date. All Sales, All Cost, and All Profit remain grouped by
   Pacific date sold; cost and profit exclude completed Sales with unknown Cost at
-  Sale rather than treating missing cost as zero. The KPI strip, static legend,
-  four-line chart, and daily table expose the same measures.
+  Sale rather than treating missing cost as zero. The KPI strip, checked series
+  controls, four-line chart, and daily table expose the same measures. Listed, All
+  Sales, All Cost, and All Profit begin visible; each control hides its matching line
+  and points immediately, while the final visible series cannot be unchecked.
 - Correct accidental duplicate active listings by backing up the operational
   database and deleting only the duplicate active rows. Do not mark data-entry
   duplicates as sold because that would corrupt sales history and analytics.

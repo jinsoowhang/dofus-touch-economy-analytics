@@ -1178,11 +1178,16 @@ th.numeric .client-sort-header {
   margin-block: 0.75rem;
 }
 
-.chart-legend > span {
+.chart-legend > label {
   align-items: center;
   display: inline-flex;
   font-weight: 700;
   gap: 0.4rem;
+}
+
+.chart-legend input[type="checkbox"] {
+  min-height: 0;
+  padding: 0;
 }
 
 .chart-legend-swatch {
@@ -1242,6 +1247,11 @@ th.numeric .client-sort-header {
 .chart-point {
   fill: var(--surface);
   stroke-width: 4;
+}
+
+.chart-series.is-hidden,
+.chart-point.is-hidden {
+  display: none;
 }
 
 .chart-series--sales,

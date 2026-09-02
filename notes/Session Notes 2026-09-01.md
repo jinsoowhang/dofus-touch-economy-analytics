@@ -150,3 +150,25 @@
 - Restarted the loopback Web UI and confirmed the ignored real Out of Stock page
   returns HTTP 200 with all craftable Add actions carrying their cost-tier quantity;
   no operational values were copied into tracked files.
+
+## Selectable Sales Over Time series
+
+### Behavior
+
+- Replaced the Sales Over Time static legend with checked controls for Listed, All
+  Sales, All Cost, and All Profit. Each checkbox immediately shows or hides its
+  corresponding chart line and points without changing Sales data or the daily table.
+- All four series begin visible. The final checked series becomes disabled so the
+  chart cannot be left empty.
+
+### Verification
+
+- Focused Web UI and static-asset verification passed (90 tests), and Node syntax
+  validation passed for the Sales script.
+- `./scripts/check.sh` passed on its clean rerun: Ruff lint and formatting, 352 Python
+  tests, package compilation, dbt debug/parse, nine seed loads, all 126 dbt build
+  nodes, SQLFluff, and public-file policy. One unrelated bulk Sales test transiently
+  returned 409 on the first run, then passed both in isolation and in the full rerun.
+- Restarted the loopback Web UI and confirmed the ignored real Sales page returns HTTP
+  200 with all four checked series controls and the Sales script loaded; no
+  operational values were copied into tracked files.

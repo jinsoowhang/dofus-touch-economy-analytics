@@ -437,10 +437,16 @@
       </div>
       <div class="chart-legend" aria-label="Chart series">
         {% for series in sales_chart.series %}
-          <span>
+          <label>
+            <input
+              type="checkbox"
+              class="chart-series-toggle"
+              data-chart-series="{{ series.key }}"
+              checked
+            >
             <i class="chart-legend-swatch chart-legend-swatch--{{ series.key }}" aria-hidden="true"></i>
             {{ series.label }}
-          </span>
+          </label>
         {% endfor %}
       </div>
       <p class="chart-note">

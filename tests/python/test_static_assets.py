@@ -165,6 +165,19 @@ def test_item_detail_scripts_do_not_redeclare_recipe_cart_storage_constants() ->
     assert "const recipeSelectionStorageKey" in cart_script
 
 
+def test_sales_chart_series_can_be_toggled_independently() -> None:
+    static_assets = resources.files("dofus_touch_economy").joinpath("static")
+    script = static_assets.joinpath("sales.js").read_text(encoding="utf-8")
+    stylesheet = static_assets.joinpath("app.css").read_text(encoding="utf-8")
+
+    assert 'document.querySelectorAll(".chart-series-toggle")' in script
+    assert 'toggle.addEventListener("change", updateChartSeriesVisibility)' in script
+    assert 'element.classList.toggle("is-hidden", !toggle.checked)' in script
+    assert "checkedToggles.length === 1 && toggle.checked" in script
+    assert ".chart-series.is-hidden" in stylesheet
+    assert ".chart-point.is-hidden" in stylesheet
+
+
 def test_recipe_level_number_inputs_defer_cross_endpoint_enforcement() -> None:
     script = (
         resources.files("dofus_touch_economy")
