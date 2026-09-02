@@ -133,6 +133,8 @@ market
 ```
 
 If the caption is absent or unrecognized, Slack presents owner-only action buttons.
+Clicking **Sold** or **Market** immediately replaces those buttons with an hourglass
+processing status. The eventual preview or review result replaces that same message.
 One message and all of its images form one atomic batch. The Slack message timestamp
 becomes the effective sold/listing time; history catch-up can therefore propose
 backdated changes, but never bypasses confirmation.

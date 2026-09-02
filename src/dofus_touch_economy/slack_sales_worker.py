@@ -104,15 +104,19 @@ class SlackSalesCaptureWorker:
     ) -> bool:
         if user_id != self._settings.slack_owner_user_id:
             return False
-        if action not in (CaptureAction.SOLD, CaptureAction.MARKET):
+        try:
+            selected_action = CaptureAction(action)
+        except ValueError:
             return False
         with self._session_factory() as session:
             changed = SaleCaptureRepository(session).set_requested_action(
                 batch_uuid,
-                action=str(action),
+                action=selected_action.value,
             )
             session.commit()
-            return changed
+        if changed:
+            self._replace_action_selection(batch_uuid, action=selected_action)
+        return changed
 
     def decide(
         self,
@@ -180,7 +184,7 @@ class SlackSalesCaptureWorker:
             text, blocks = _receipt(batch, active_item_ids=active_item_ids)
 
         try:
-            if preview_message_ts is not None and not is_preview:
+            if preview_message_ts is not None:
                 response = self._slack.chat_update(
                     channel=channel_id,
                     ts=preview_message_ts,
@@ -234,6 +238,33 @@ class SlackSalesCaptureWorker:
             )
         except (SlackApiError, TypeError):
             LOGGER.warning("could not remove capture preview actions after owner decision")
+
+    def _replace_action_selection(
+        self,
+        batch_uuid: UUID,
+        *,
+        action: CaptureAction,
+    ) -> None:
+        with self._session_factory() as session:
+            batch = SaleCaptureRepository(session).get_by_uuid(batch_uuid)
+            if (
+                batch is None
+                or batch.preview_message_ts is None
+                or batch.status not in ("queued", "extracting")
+            ):
+                return
+            channel_id = batch.channel_id
+            preview_message_ts = batch.preview_message_ts
+        text = f"⏳ {action.value.title()} selected — processing screenshots…"
+        try:
+            self._slack.chat_update(
+                channel=channel_id,
+                ts=preview_message_ts,
+                text=text,
+                blocks=[_section(text)],
+            )
+        except (SlackApiError, TypeError):
+            LOGGER.warning("could not replace capture action buttons with processing status")
 
     def catch_up(self) -> int:
         with self._session_factory() as session:

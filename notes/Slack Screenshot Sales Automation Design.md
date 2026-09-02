@@ -154,7 +154,10 @@ The requested action is established only by either:
 
 Any additional caption text is non-authoritative context. A missing action leaves the
 batch in `awaiting_action`. An unrecognized caption produces the same result. The
-worker never infers an action from the screenshot or from model output.
+worker never infers an action from the screenshot or from model output. An owner
+button click is acknowledged before processing, immediately replaces the action
+buttons with a non-interactive hourglass status, and lets the eventual preview or
+review result replace that same Slack message.
 
 The extraction also reports a `screen_kind` of `sold_notification`,
 `own_market_listings`, `other`, or `uncertain`. The batch requires manual review when
@@ -278,7 +281,9 @@ Only the allowlisted owner can confirm or reject. Confirmation is itself idempot
 The preview never exposes internal primary keys, private download URLs, or model
 payloads. Confirming or rejecting immediately replaces the interactive buttons with a
 non-interactive decision state, and the terminal receipt updates that same preview
-message.
+message. Selecting `sold` or `market` through the earlier action buttons follows the
+same pattern: show a processing state immediately, remove stale controls, and reuse
+the message for the next result.
 
 `sold` and `market` have independent auto-commit flags, both false by default. An
 action may graduate only after:

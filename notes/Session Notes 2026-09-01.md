@@ -41,3 +41,27 @@
 - `./scripts/check.sh` passed: Ruff lint and formatting, 349 Python tests, package
   compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
   and public-file policy.
+
+## Slack action-selection feedback
+
+### Behavior
+
+- A successful owner click on **Sold** or **Market** immediately replaces the action
+  buttons with `⏳ <Action> selected — processing screenshots…`.
+- The processing state is non-interactive and reuses the original action-selection
+  message for the eventual confirmation preview or terminal review result, preventing
+  stale controls or a stranded loading message.
+- The Bolt handler still acknowledges the interaction before the database transition
+  and Slack message update. Unauthorized or stale clicks produce no misleading status
+  change.
+- Slack Block Kit has no standard persistent animated spinner element, so the worker
+  uses the reliable hourglass status instead of repeated rate-limited message edits.
+
+### Verification
+
+- Focused capture-repository and Slack worker verification passed (15 tests),
+  including immediate feedback, same-message preview replacement, confirmation, and
+  rejection behavior.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 349 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.

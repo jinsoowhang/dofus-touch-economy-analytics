@@ -170,7 +170,9 @@
   Slack or application secrets. Validated hash-addressed evidence, durable SQLite
   leases/retries, owner-only buttons, deterministic reconciliation, pre-write backups,
   and atomic Sales commits remain unchanged. The executable rejects either auto-commit
-  flag when true.
+  flag when true. Clicking an owner-only `sold` or `market` action button immediately
+  replaces the controls with an hourglass processing status, and the next preview or
+  terminal review result updates that same message.
 - The private ignored `sold` gold case passed the live ChatGPT-authenticated Codex
   evaluation 1/1 with zero false positives on 2026-08-29. The controlled Slack pilot
   began on 2026-08-31 with one end-to-end confirmed `sold` batch that committed 18

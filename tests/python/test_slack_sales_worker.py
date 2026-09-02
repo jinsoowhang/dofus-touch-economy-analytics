@@ -248,9 +248,21 @@ def test_unauthorized_thread_and_bot_messages_are_ignored(session_factory, tmp_p
 
 
 def test_missing_caption_requires_owner_action_selection(session_factory, tmp_path: Path) -> None:
+    with session_factory() as session:
+        item = _craftable_item(session)
+        session.add(
+            SaleListing(
+                item=item,
+                lot_quantity=1,
+                asking_price=47_000,
+                selling_started_at=OBSERVED_AT - timedelta(days=1),
+            )
+        )
+        session.commit()
     slack = _FakeSlackClient()
+    settings = _settings(tmp_path, session_factory)
     worker = SlackSalesCaptureWorker(
-        _settings(tmp_path, session_factory),
+        settings,
         session_factory,
         slack,
         _FakeVision(_sold_extraction()),
@@ -266,12 +278,24 @@ def test_missing_caption_requires_owner_action_selection(session_factory, tmp_pa
 
     assert slack.messages
     assert worker.choose_action(batch_uuid, user_id="U999", action="sold") is False
+    assert slack.updates == []
     assert worker.choose_action(batch_uuid, user_id="U123", action="sold") is True
+    assert slack.updates[-1]["ts"] == "receipt-1"
+    assert slack.updates[-1]["text"] == "⏳ Sold selected — processing screenshots…"
+    assert all(block["type"] != "actions" for block in slack.updates[-1]["blocks"])
     with session_factory() as session:
         batch = session.scalar(select(SaleCaptureBatch))
         assert batch is not None
         assert batch.status == "queued"
         assert batch.requested_action == "sold"
+        assert batch.preview_message_ts == "receipt-1"
+        _mark_files_downloaded(session, batch_uuid, settings.evidence_path)
+
+    assert worker.process_once()
+    assert len(slack.messages) == 1
+    assert len(slack.updates) == 2
+    assert "*Sold preview*" in str(slack.updates[-1])
+    assert any(block["type"] == "actions" for block in slack.updates[-1]["blocks"])
 
 
 def test_sold_capture_previews_then_commits_only_after_owner_confirmation(

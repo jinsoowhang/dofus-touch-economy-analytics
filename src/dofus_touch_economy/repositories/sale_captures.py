@@ -145,6 +145,7 @@ class SaleCaptureRepository:
                 requested_action=action,
                 status="queued",
                 receipt_status="none",
+                preview_message_ts=SaleCaptureBatch.receipt_message_ts,
             )
             .execution_options(synchronize_session=False)
         )
