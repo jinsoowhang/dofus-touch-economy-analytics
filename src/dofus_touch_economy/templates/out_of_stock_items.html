@@ -61,15 +61,16 @@
                 <td class="numeric">{{ "{:.1%}".format(item.last_sale_roi) if item.last_sale_roi is not none else "—" }}</td>
                 <td class="recipe-cart-action">
                   {% if item.is_craftable %}
+                    {% set calculator_quantity = item.recipe_cost | default_recipe_calculator_quantity %}
                     <button
                       type="button"
                       class="recipe-cart-add secondary-button"
                       data-item-uuid="{{ item.item_uuid }}"
-                      data-craft-quantity="{{ item.suggested_restock_quantity }}"
+                      data-craft-quantity="{{ calculator_quantity }}"
                       data-cart-toggle="true"
-                      data-add-aria-label="Add {{ item.suggested_restock_quantity }} of {{ item.display_name }} to Recipe Calculator"
+                      data-add-aria-label="Add {{ calculator_quantity }} of {{ item.display_name }} to Recipe Calculator"
                       data-remove-aria-label="Remove {{ item.display_name }} from Recipe Calculator"
-                      aria-label="Add {{ item.suggested_restock_quantity }} of {{ item.display_name }} to Recipe Calculator"
+                      aria-label="Add {{ calculator_quantity }} of {{ item.display_name }} to Recipe Calculator"
                       aria-pressed="false"
                     >Add</button>
                   {% else %}

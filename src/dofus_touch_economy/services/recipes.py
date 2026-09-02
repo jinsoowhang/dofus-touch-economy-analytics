@@ -48,11 +48,11 @@ def required_profession_level(ingredient_count: int) -> int | None:
 def default_recipe_calculator_quantity(recipe_cost: Decimal | None) -> int:
     if recipe_cost is None or recipe_cost < 0 or recipe_cost > 500_000:
         return 1
-    if recipe_cost <= 25_000:
-        return 5
     if recipe_cost < 50_000:
-        return 4
+        return 5
     if recipe_cost < 100_000:
+        return 4
+    if recipe_cost < 250_000:
         return 3
     return 2
 

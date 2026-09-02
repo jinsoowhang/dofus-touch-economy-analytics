@@ -1121,13 +1121,13 @@ def test_out_of_stock_page_lists_only_sold_out_items_with_recipe_cart_action(
     assert "500" in response.text
     assert "14.3%" in response.text
     assert f'data-item-uuid="{widget_uuid}"' in response.text
-    assert 'data-craft-quantity="3"' in response.text
+    assert 'data-craft-quantity="5"' in response.text
     assert 'data-cart-toggle="true"' in response.text
-    assert 'data-add-aria-label="Add 3 of Synthetic Widget to Recipe Calculator"' in (response.text)
+    assert 'data-add-aria-label="Add 5 of Synthetic Widget to Recipe Calculator"' in (response.text)
     assert (
         'data-remove-aria-label="Remove Synthetic Widget from Recipe Calculator"' in response.text
     )
-    assert "Add 3 of Synthetic Widget to Recipe Calculator" in response.text
+    assert "Add 5 of Synthetic Widget to Recipe Calculator" in response.text
     assert 'aria-pressed="false"' in response.text
     assert 'class="recipe-cart-add secondary-button"' in response.text
     assert 'id="recipe-open-calculator"' in response.text

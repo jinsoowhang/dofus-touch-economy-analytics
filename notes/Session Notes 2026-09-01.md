@@ -121,3 +121,32 @@
   returns HTTP 200 with the editable breakdown Quantity, requested value, and
   Recalculate Shopping List action; no operational values were copied into tracked
   files.
+
+## Revised cost-based Craft Quantity defaults
+
+### Decision
+
+- Default new Recipe Calculator entries from Cost Per Item using half-open bands:
+  below 50,000 uses 5; 50,000 through below 100,000 uses 4; 100,000 through below
+  250,000 uses 3; 250,000 through 500,000 uses 2; and above 500,000 uses 1.
+- Missing or invalid cost remains quantity 1. Existing browser-local quantities and
+  explicit quantities remain untouched.
+
+### Behavior
+
+- Updated the shared default used by Recipe Calculator choices, Recipes, item detail,
+  Profit Opportunities, and Best Sellers.
+- Out of Stock no longer passes its sales-velocity Suggested Restock value into the
+  Calculator. Suggested Restock remains visible, while its Add action uses the same
+  Cost Per Item tiers as other entry points.
+
+### Verification
+
+- Focused recipe and Web UI verification passed (103 tests), including every cost
+  boundary and the Out of Stock calculator handoff.
+- `./scripts/check.sh` passed: Ruff lint and formatting, 351 Python tests, package
+  compilation, dbt debug/parse, nine seed loads, all 126 dbt build nodes, SQLFluff,
+  and public-file policy.
+- Restarted the loopback Web UI and confirmed the ignored real Out of Stock page
+  returns HTTP 200 with all craftable Add actions carrying their cost-tier quantity;
+  no operational values were copied into tracked files.
