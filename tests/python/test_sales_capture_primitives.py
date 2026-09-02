@@ -68,6 +68,46 @@ def test_capture_mark_sold_flushes_exact_time_and_lineage_without_committing(
         assert persisted.date_sold is None
 
 
+def test_capture_mark_sold_can_atomically_correct_the_listing_price(
+    session,
+    session_factory,
+    catalog_item,
+) -> None:
+    listing = SalesService(session, "Dodge").create_listings_at(
+        [SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=42_000)],
+        selling_started_at=OBSERVED_AT,
+        source="slack_market_capture",
+        capture_uuid=CAPTURE_UUID,
+    )[0]
+    session.commit()
+    original_observation_id = listing.price_observation_id
+    sold_at = OBSERVED_AT + timedelta(hours=2)
+
+    updated = SalesService(session, "Dodge").mark_listings_sold_at(
+        [listing.uuid],
+        sold_at=sold_at,
+        source="slack_sold_capture",
+        capture_uuid=CAPTURE_UUID,
+        asking_prices={listing.uuid: 47_000},
+    )
+
+    assert updated[0].asking_price == 47_000
+    assert updated[0].date_sold == sold_at
+    assert updated[0].price_observation_id != original_observation_id
+    correction = session.get(PriceObservation, updated[0].price_observation_id)
+    assert correction is not None
+    assert correction.total_price == 47_000
+    assert correction.observed_at == sold_at
+    assert correction.source == "slack_sold_capture"
+    with session_factory() as independent_session:
+        persisted = independent_session.scalar(
+            select(SaleListing).where(SaleListing.uuid == listing.uuid)
+        )
+        assert persisted is not None
+        assert persisted.asking_price == 42_000
+        assert persisted.date_sold is None
+
+
 def test_capture_mark_sold_rejects_time_before_listing_start(session, catalog_item) -> None:
     listing = SalesService(session, "Dodge").create_listings_at(
         [SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=42_000)],

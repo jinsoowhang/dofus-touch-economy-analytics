@@ -558,16 +558,24 @@ def _receipt(
         ]
     if batch.status == "awaiting_confirmation" and batch.validation_json:
         plan = CapturePlan.model_validate_json(batch.validation_json)
+        proposed_changes = iter(plan.changes)
         lines = [
             f"*{plan.requested_action.value.title()} preview* — "
             f"{len(plan.changes)} proposed change(s)"
         ]
         for row in plan.rows[:25]:
             name = html.escape(row.display_name or row.raw_item_name)
-            lines.append(
-                f"• {name} — {row.displayed_price_kamas:,} — "
-                f"{html.escape(row.disposition.replace('_', ' '))}"
-            )
+            price = f"{row.displayed_price_kamas:,}"
+            disposition = row.disposition.replace("_", " ")
+            if row.disposition == "actionable":
+                change = next(proposed_changes)
+                if change.action == "marked_sold" and (
+                    change.previous_asking_price is not None
+                    and change.previous_asking_price != change.asking_price
+                ):
+                    price = f"{change.previous_asking_price:,} → {change.asking_price:,}"
+                    disposition = "reprice and mark sold"
+            lines.append(f"• {name} — {price} — {html.escape(disposition)}")
         if len(plan.rows) > 25:
             lines.append(f"• … {len(plan.rows) - 25} more row(s)")
         text = "\n".join(lines)

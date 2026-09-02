@@ -696,6 +696,7 @@ class SalesService:
         sold_at: datetime,
         source: str,
         capture_uuid: UUID | None,
+        asking_prices: dict[UUID, int] | None = None,
     ) -> list[SaleListing]:
         if not source.strip():
             raise ValueError("sale source must not be empty")
@@ -705,6 +706,32 @@ class SalesService:
         resolved_sold_at = _as_utc(sold_at)
         if any(resolved_sold_at < _as_utc(listing.selling_started_at) for listing in listings):
             raise SaleListingConflict("sale timestamp is before the listing start")
+        selected_uuids = {listing.uuid for listing in listings}
+        price_corrections = asking_prices or {}
+        if unexpected_uuids := set(price_corrections) - selected_uuids:
+            raise SaleListingConflict(
+                f"price correction refers to an unselected listing: {next(iter(unexpected_uuids))}"
+            )
+        if any(price <= 0 for price in price_corrections.values()):
+            raise ValueError("corrected sale prices must be positive")
+        for listing in listings:
+            asking_price = price_corrections.get(listing.uuid)
+            if asking_price is None or asking_price == listing.asking_price:
+                continue
+            observation = self._new_price_observation(
+                listing.item_id,
+                asking_price,
+                resolved_sold_at,
+                source=source,
+            )
+            if not self._sales.update_price(
+                listing.uuid,
+                asking_price,
+                observation.id,
+            ):
+                raise SaleListingConflict("selected listing changed before its price was corrected")
+            listing.asking_price = asking_price
+            listing.price_observation = observation
         recipe_costs_at_sale = self._recipe_costs_at(
             listings,
             {listing.uuid: resolved_sold_at for listing in listings},

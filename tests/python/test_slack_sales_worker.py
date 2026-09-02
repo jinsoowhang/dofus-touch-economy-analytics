@@ -23,6 +23,7 @@ from dofus_touch_economy.capture_vision import VisionExtractionResult
 from dofus_touch_economy.models import (
     ImportBatch,
     Item,
+    PriceObservation,
     Recipe,
     SaleCaptureBatch,
     SaleCaptureListingAction,
@@ -157,24 +158,44 @@ def _sold_extraction() -> CaptureExtraction:
     )
 
 
+def _sold_multi_image_extraction() -> CaptureExtraction:
+    return CaptureExtraction(
+        screen_kind=ScreenKind.SOLD_NOTIFICATION,
+        occurrences=(
+            CaptureOccurrence(
+                raw_item_name="Synthetic Hat",
+                displayed_price_kamas=47_000,
+                image_number=1,
+                row_number=1,
+            ),
+            CaptureOccurrence(
+                raw_item_name="Synthetic Hat",
+                displayed_price_kamas=48_000,
+                image_number=2,
+                row_number=1,
+            ),
+        ),
+    )
+
+
 def _png_bytes() -> bytes:
     buffer = BytesIO()
     Image.new("RGB", (2, 2), color=(10, 20, 30)).save(buffer, format="PNG")
     return buffer.getvalue()
 
 
-def _mark_file_downloaded(session, batch_uuid: UUID, root: Path) -> None:
+def _mark_files_downloaded(session, batch_uuid: UUID, root: Path) -> None:
     batch = session.scalar(select(SaleCaptureBatch).where(SaleCaptureBatch.uuid == batch_uuid))
     assert batch is not None
-    file = batch.files[0]
     capture_directory = root / str(batch.uuid)
     capture_directory.mkdir(parents=True, exist_ok=True)
-    path = capture_directory / "01-synthetic.png"
-    path.write_bytes(b"synthetic")
-    file.local_relative_path = path.relative_to(root).as_posix()
-    file.sha256 = "a" * 64
-    file.status = "downloaded"
-    file.downloaded_at = OBSERVED_AT
+    for file in batch.files:
+        path = capture_directory / f"{file.attachment_order:02d}-synthetic.png"
+        path.write_bytes(b"synthetic")
+        file.local_relative_path = path.relative_to(root).as_posix()
+        file.sha256 = f"{file.attachment_order:064x}"
+        file.status = "downloaded"
+        file.downloaded_at = OBSERVED_AT
     session.commit()
 
 
@@ -259,40 +280,56 @@ def test_sold_capture_previews_then_commits_only_after_owner_confirmation(
 ) -> None:
     with session_factory() as session:
         item = _craftable_item(session)
-        session.add(
-            SaleListing(
-                item=item,
-                lot_quantity=1,
-                asking_price=47_000,
-                selling_started_at=OBSERVED_AT - timedelta(days=1),
-            )
+        session.add_all(
+            [
+                SaleListing(
+                    item=item,
+                    lot_quantity=1,
+                    asking_price=49_000,
+                    selling_started_at=OBSERVED_AT - timedelta(days=2),
+                ),
+                SaleListing(
+                    item=item,
+                    lot_quantity=1,
+                    asking_price=47_000,
+                    selling_started_at=OBSERVED_AT - timedelta(days=1),
+                ),
+            ]
         )
         session.commit()
     slack = _FakeSlackClient()
-    vision = _FakeVision(_sold_extraction())
+    vision = _FakeVision(_sold_multi_image_extraction())
     settings = _settings(tmp_path, session_factory)
     worker = SlackSalesCaptureWorker(settings, session_factory, slack, vision)
     body, event = _event()
+    event["files"].append(
+        {
+            "id": "F2",
+            "mimetype": "image/png",
+            "size": 100,
+        }
+    )
     worker.intake_event(body, event, lambda: None)
     with session_factory() as session:
         batch = session.scalar(select(SaleCaptureBatch))
         assert batch is not None
         batch_uuid = batch.uuid
-        _mark_file_downloaded(session, batch_uuid, settings.evidence_path)
+        assert [file.provider_file_id for file in batch.files] == ["F1", "F2"]
+        _mark_files_downloaded(session, batch_uuid, settings.evidence_path)
 
     assert worker.process_once()
     with session_factory() as session:
         batch = session.scalar(select(SaleCaptureBatch))
-        listing = session.scalar(select(SaleListing))
+        listings = list(session.scalars(select(SaleListing).order_by(SaleListing.id)))
         assert batch is not None
         assert batch.status == "awaiting_confirmation"
         assert batch.preview_message_ts == "receipt-1"
-        assert listing is not None
-        assert listing.date_sold is None
+        assert len(listings) == 2
+        assert all(listing.date_sold is None for listing in listings)
     assert slack.messages
     assert any(block["type"] == "actions" for block in slack.messages[-1]["blocks"])
     assert "Synthetic Hat" in str(slack.messages[-1])
-    assert "47,000" in str(slack.messages[-1])
+    assert "49,000 → 48,000" in str(slack.messages[-1])
     assert worker.decide(batch_uuid, user_id="U999", approve=True) is False
     assert worker.decide(batch_uuid, user_id="U123", approve=True) is True
     assert "processing capture" in str(slack.updates[-1])
@@ -301,12 +338,17 @@ def test_sold_capture_previews_then_commits_only_after_owner_confirmation(
     assert worker.process_once()
     with session_factory() as session:
         batch = session.scalar(select(SaleCaptureBatch))
-        listing = session.scalar(select(SaleListing))
+        listings = list(session.scalars(select(SaleListing).order_by(SaleListing.asking_price)))
         assert batch is not None
         assert batch.status == "committed"
-        assert listing is not None
-        assert listing.date_sold is not None
-        assert listing.sale_source == "slack_sold_capture"
+        assert [listing.asking_price for listing in listings] == [47_000, 48_000]
+        assert all(listing.date_sold is not None for listing in listings)
+        assert all(listing.sale_source == "slack_sold_capture" for listing in listings)
+        correction = session.scalar(
+            select(PriceObservation).where(PriceObservation.source == "slack_sold_capture")
+        )
+        assert correction is not None
+        assert correction.total_price == 48_000
     assert len(slack.messages) == 1
     assert "Sold capture committed" in str(slack.updates[-1])
     assert all(block["type"] != "actions" for block in slack.updates[-1]["blocks"])
@@ -499,7 +541,7 @@ def test_reject_replaces_preview_without_interactive_buttons(
         batch = session.scalar(select(SaleCaptureBatch))
         assert batch is not None
         batch_uuid = batch.uuid
-        _mark_file_downloaded(session, batch_uuid, settings.evidence_path)
+        _mark_files_downloaded(session, batch_uuid, settings.evidence_path)
 
     assert worker.process_once()
     assert worker.decide(batch_uuid, user_id="U123", approve=False) is True
@@ -528,7 +570,7 @@ def test_market_capture_is_review_only_until_private_layout_is_validated(
         batch = session.scalar(select(SaleCaptureBatch))
         assert batch is not None
         batch_uuid = batch.uuid
-        _mark_file_downloaded(session, batch_uuid, settings.evidence_path)
+        _mark_files_downloaded(session, batch_uuid, settings.evidence_path)
 
     assert worker.process_once()
 
@@ -588,7 +630,7 @@ def test_evidence_retention_marks_only_deleted_old_terminal_files_as_purged(
         batch = session.scalar(select(SaleCaptureBatch))
         assert batch is not None
         batch_uuid = batch.uuid
-        _mark_file_downloaded(session, batch_uuid, settings.evidence_path)
+        _mark_files_downloaded(session, batch_uuid, settings.evidence_path)
         batch.status = "rejected"
         batch.completed_at = OBSERVED_AT - timedelta(days=91)
         session.commit()

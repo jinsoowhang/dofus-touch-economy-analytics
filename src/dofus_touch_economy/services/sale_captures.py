@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict, deque
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -220,17 +220,39 @@ class SaleCaptureService:
         issues: list[str],
         observed_at: datetime,
     ) -> None:
-        candidates: dict[tuple[int, int], deque[SaleListing]] = defaultdict(deque)
+        candidates: dict[int, list[SaleListing]] = defaultdict(list)
         for listing in active:
-            if listing.asking_price is not None:
-                candidates[(listing.item_id, listing.asking_price)].append(listing)
+            candidates[listing.item_id].append(listing)
+
+        matched_by_row: dict[int, SaleListing] = {}
+        without_exact_match: list[_ResolvedOccurrence] = []
+        for value in resolved:
+            item_candidates = candidates[value.item.id]
+            exact_index = next(
+                (
+                    index
+                    for index, listing in enumerate(item_candidates)
+                    if listing.asking_price == value.occurrence.displayed_price_kamas
+                ),
+                None,
+            )
+            if exact_index is None:
+                without_exact_match.append(value)
+            else:
+                matched_by_row[value.row_index] = item_candidates.pop(exact_index)
+
+        for value in without_exact_match:
+            item_candidates = candidates[value.item.id]
+            if item_candidates:
+                matched_by_row[value.row_index] = item_candidates.pop(0)
+
         resolved_observed_at = _as_utc(observed_at)
         for value in resolved:
             occurrence = value.occurrence
             normalized_name = normalize_item_name(occurrence.raw_item_name)
-            listing_candidates = candidates[(value.item.id, occurrence.displayed_price_kamas)]
-            if not listing_candidates:
-                issue = f"row {occurrence.row_number}: no active exact item-and-price listing"
+            listing = matched_by_row.get(value.row_index)
+            if listing is None:
+                issue = f"row {occurrence.row_number}: no active listing for exact item"
                 issues.append(issue)
                 rows[value.row_index] = _row(
                     occurrence,
@@ -241,7 +263,6 @@ class SaleCaptureService:
                     detail=issue,
                 )
                 continue
-            listing = listing_candidates.popleft()
             if resolved_observed_at < _as_utc(listing.selling_started_at):
                 issue = f"row {occurrence.row_number}: sale time is before listing start"
                 issues.append(issue)
@@ -254,13 +275,22 @@ class SaleCaptureService:
                     detail=issue,
                 )
                 continue
+            if listing.asking_price == occurrence.displayed_price_kamas:
+                detail = "mark oldest exact active listing sold"
+            elif listing.asking_price is None:
+                detail = f"set Sales Price to {occurrence.displayed_price_kamas:,} and mark sold"
+            else:
+                detail = (
+                    f"update Sales Price from {listing.asking_price:,} to "
+                    f"{occurrence.displayed_price_kamas:,} and mark sold"
+                )
             rows[value.row_index] = _row(
                 occurrence,
                 normalized_name,
                 item=value.item,
                 recipe=value.recipe,
                 disposition="actionable",
-                detail="mark oldest exact active listing sold",
+                detail=detail,
             )
             changes.append(
                 CapturePlanChange(
@@ -268,6 +298,7 @@ class SaleCaptureService:
                     item_uuid=value.item.uuid,
                     display_name=value.item.display_name,
                     asking_price=occurrence.displayed_price_kamas,
+                    previous_asking_price=listing.asking_price,
                     listing_uuid=listing.uuid,
                 )
             )
@@ -371,6 +402,14 @@ class SaleCaptureService:
                 sold_at=plan.observed_at,
                 source="slack_sold_capture",
                 capture_uuid=batch.uuid,
+                asking_prices={
+                    listing_uuid: change.asking_price
+                    for listing_uuid, change in zip(
+                        listing_uuids,
+                        plan.changes,
+                        strict=True,
+                    )
+                },
             )
 
         for listing, change in zip(listings, plan.changes, strict=True):

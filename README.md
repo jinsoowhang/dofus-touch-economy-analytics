@@ -86,9 +86,11 @@ successfully downloaded icons remain usable.
 An optional local Socket Mode worker can ingest owner-posted screenshots from a
 single private `#dofus-touch` Slack channel. It records intake durably, extracts
 visible rows through a local, ChatGPT-authenticated Codex CLI bridge, reconciles them
-against SQLite with exact rules, and requires an owner preview confirmation before
-any Sales mutation. It never automates the game client and does not run inside the
-FastAPI process. No OpenAI API key is required.
+against SQLite with deterministic rules, and requires an owner preview confirmation
+before any Sales mutation. A confirmed `sold` capture can correct the matched active
+listing's Sales Price to the screenshot price before marking it sold; it never creates
+a missing listing. The worker never automates the game client and does not run inside
+the FastAPI process. No OpenAI API key is required.
 
 Store the required private settings from the runbook in the ignored
 `.env.slack` file, then validate and start the worker:

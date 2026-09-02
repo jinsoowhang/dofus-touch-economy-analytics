@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-01
 
 ## Dofus Touch Economy Analytics
 
@@ -128,10 +128,12 @@
 - For screenshot-based Sales reconciliation, keep screenshots outside the tracked
   repository, remove only visually confirmed screenshot overlap, and classify a
   sale as in-scope only when the item's latest recipe has an explicitly approved
-  profession. Require an exact active item-name and asking-price match, select the
-  oldest identical active listing first, back up SQLite before mutation, and write
-  the confirmed batch atomically with recipe-cost snapshots calculated at the
-  assigned sale timestamps. Never fabricate missing listings or guessed sale data.
+  profession. Require exact item-name identity and enough active listings for every
+  occurrence. For `sold`, reserve oldest exact-price matches first, then assign the
+  oldest remaining exact-item listing and correct its Sales Price to the screenshot
+  price. Back up SQLite before mutation and write the confirmed batch atomically with
+  recipe-cost snapshots calculated at the assigned sale timestamps. Never fabricate
+  missing listings or guessed item identity.
 - A 2026-08-29 screenshot reconciliation completed three exact active matches for
   270,000 kamas. A fourth visible message, Minoskito Skin at 1,517 kamas, remained
   unchanged because the catalog item had no Sales listing; screenshot evidence does
@@ -140,17 +142,20 @@
   `#dofus-touch` channel and a separate local Socket Mode worker. Each top-level
   image message explicitly selects `sold` or `market`; the vision model extracts
   ordered names and prices only, while deterministic services own catalog identity,
-  latest-recipe/profession scope, exact active-listing reconciliation, authorization,
-  backups, and one-transaction writes. Both actions begin confirmation-required and
-  may graduate independently only after private evaluation and 20 error-free live
-  confirmed batches.
-- `sold` selects the oldest exact active item-and-price listing for each in-scope
-  occurrence, never fabricates a missing listing, and snapshots recipe cost at the
-  Slack parent timestamp. `market` compares exact active item-and-price occurrence
-  counts and creates only missing listings and linked append-only observations; it
-  never reprices, removes extras, marks sold, or creates catalog/recipe data. Exact
-  non-craftable or unapproved-profession rows are visibly out of scope, while
-  unresolved/ambiguous names and invalid in-scope rows require review.
+  latest-recipe/profession scope, deterministic active-listing reconciliation,
+  authorization, backups, and one-transaction writes. Both actions begin
+  confirmation-required and may graduate independently only after private evaluation
+  and 20 error-free live confirmed batches.
+- `sold` reserves the oldest exact active item-and-price listings first, then uses the
+  oldest remaining active exact-item listings for unmatched prices. Confirmation
+  appends `slack_sold_capture` quantity-one price observations for corrections,
+  updates the Sales Prices, marks the listings sold, and snapshots recipe cost at the
+  Slack parent timestamp in the same transaction. It never fabricates a missing
+  listing. `market` compares exact active item-and-price occurrence counts and creates
+  only missing listings and linked append-only observations; it never reprices,
+  removes extras, marks sold, or creates catalog/recipe data. Exact non-craftable or
+  unapproved-profession rows are visibly out of scope, while unresolved/ambiguous
+  names and invalid in-scope rows require review.
 - Slack screenshots, identifiers, captions, raw model responses, and local capture
   audit tables remain ignored and out of BigQuery/dbt. Append-only local
   capture-to-listing action history handles create, sell, reopen, and re-sell
@@ -163,8 +168,8 @@
   config and rules, disables shell/multi-agent/view-image/web-search tools, uses a
   read-only temporary workspace, and receives an allowlisted environment without
   Slack or application secrets. Validated hash-addressed evidence, durable SQLite
-  leases/retries, owner-only buttons, exact reconciliation, pre-write backups, and
-  atomic Sales commits remain unchanged. The executable rejects either auto-commit
+  leases/retries, owner-only buttons, deterministic reconciliation, pre-write backups,
+  and atomic Sales commits remain unchanged. The executable rejects either auto-commit
   flag when true.
 - The private ignored `sold` gold case passed the live ChatGPT-authenticated Codex
   evaluation 1/1 with zero false positives on 2026-08-29. The controlled Slack pilot
@@ -173,7 +178,8 @@
   screenshot exists, so live `market` image extraction is hard-disabled and routes
   to `needs_review` without a model call or Sales write. Do not remove that gate or
   enable autonomy until the approved action-specific evaluation and pilot criteria
-  are met.
+  are met. The 2026-09-01 `sold` price-correction expansion remains confirmation-only
+  and must be represented in the private evaluation before any later autonomy review.
 - A committed Slack `sold` receipt replaces the generic listing-change count with
   listings sold, total recorded sales revenue, total known cost and profit, explicit
   cost coverage, affected items with no remaining active listing, and aggregated

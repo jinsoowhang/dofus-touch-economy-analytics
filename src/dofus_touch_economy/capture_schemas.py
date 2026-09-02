@@ -66,6 +66,7 @@ class CapturePlanChange(BaseModel):
     item_uuid: UUID
     display_name: str
     asking_price: int
+    previous_asking_price: int | None = None
     listing_uuid: UUID | None = None
 
 

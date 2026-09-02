@@ -131,6 +131,15 @@ may be reconstructed from the known recipe definition and ingredient price
 observations recorded no later than their sale timestamp. If that history is
 incomplete, sale cost and profit remain null.
 
+For a confirmed Slack `sold` capture, exact-price active listings are reserved first.
+If an exact item has remaining screenshot occurrences and remaining active listings,
+the oldest remaining listing is corrected to the screenshot price before it is marked
+sold. Each correction appends a linked quantity-one price observation at the Slack
+message timestamp with `slack_sold_capture` provenance. Price correction, sale state,
+cost snapshot, lineage, and capture audit writes share one transaction. The capture
+never fabricates a missing listing, and insufficient active item counts block the
+entire batch.
+
 ## Hosted analytical snapshot
 
 The BigQuery loader reads the normalized SQLite tables, not the source CSV files. Its

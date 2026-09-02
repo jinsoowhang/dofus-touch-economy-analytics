@@ -142,7 +142,62 @@ def test_sold_plan_uses_oldest_exact_matches_and_reports_out_of_scope(session) -
     ]
 
 
-def test_sold_plan_blocks_entire_batch_on_missing_exact_match_or_warning(session) -> None:
+def test_sold_plan_reserves_exact_prices_then_reprices_oldest_remaining_listing(
+    session,
+) -> None:
+    item = _craftable_item(session, "Synthetic Hat")
+    oldest = SaleListing(
+        item=item,
+        lot_quantity=1,
+        asking_price=49_000,
+        selling_started_at=OBSERVED_AT - timedelta(days=3),
+    )
+    exact = SaleListing(
+        item=item,
+        lot_quantity=1,
+        asking_price=47_000,
+        selling_started_at=OBSERVED_AT - timedelta(days=2),
+    )
+    newest = SaleListing(
+        item=item,
+        lot_quantity=1,
+        asking_price=55_000,
+        selling_started_at=OBSERVED_AT - timedelta(days=1),
+    )
+    session.add_all([newest, exact, oldest])
+    session.commit()
+
+    plan = SaleCaptureService(session, "Dodge", approved_professions=("Tailor",)).plan(
+        CaptureAction.SOLD,
+        _extraction(
+            ScreenKind.SOLD_NOTIFICATION,
+            [
+                ("Synthetic Hat", 51_000),
+                ("Synthetic Hat", 47_000),
+                ("Synthetic Hat", 52_000),
+            ],
+        ),
+        observed_at=OBSERVED_AT,
+    )
+
+    assert plan.can_commit
+    assert [change.listing_uuid for change in plan.changes] == [
+        oldest.uuid,
+        exact.uuid,
+        newest.uuid,
+    ]
+    assert [change.previous_asking_price for change in plan.changes] == [
+        49_000,
+        47_000,
+        55_000,
+    ]
+    assert [change.asking_price for change in plan.changes] == [51_000, 47_000, 52_000]
+    assert plan.rows[0].detail == "update Sales Price from 49,000 to 51,000 and mark sold"
+    assert plan.rows[1].detail == "mark oldest exact active listing sold"
+    assert plan.rows[2].detail == "update Sales Price from 55,000 to 52,000 and mark sold"
+
+
+def test_sold_plan_blocks_entire_batch_on_missing_listing_or_warning(session) -> None:
     _craftable_item(session, "Synthetic Hat")
     session.commit()
 
@@ -158,7 +213,7 @@ def test_sold_plan_blocks_entire_batch_on_missing_exact_match_or_warning(session
 
     assert not plan.can_commit
     assert plan.changes == ()
-    assert any("no active exact" in issue for issue in plan.issues)
+    assert any("no active listing" in issue for issue in plan.issues)
     assert any("partially visible" in issue for issue in plan.issues)
 
 

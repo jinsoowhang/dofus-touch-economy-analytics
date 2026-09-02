@@ -68,7 +68,9 @@ extraction. Each invocation is ephemeral, ignores user configuration and executi
 rules, disables shell, multi-agent, local-image-tool, and web-search access, runs in a
 temporary directory with a read-only sandbox, and receives only an allowlisted process
 environment. The model has no database context and cannot select the action.
-Deterministic services plan and revalidate exact Sales changes; owner confirmation,
+Deterministic services plan and revalidate Sales changes. A `sold` capture reserves
+exact-price matches first, then may correct the oldest remaining active listing for
+the exact item to the screenshot price before marking it sold. Owner confirmation,
 an integrity-checked backup, and one SQLite transaction precede each mutation.
 Receipt delivery is a separate retryable side effect. Live marketplace extraction
 remains disabled until its private layout gate is met.

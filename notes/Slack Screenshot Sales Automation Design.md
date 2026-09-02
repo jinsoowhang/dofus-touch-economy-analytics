@@ -4,12 +4,14 @@
 
 **Date:** 2026-08-29
 
+**Last updated:** 2026-09-01
+
 ## Objective
 
 Add a private, local-first Slack intake workflow for two explicit screenshot actions:
 
 - `sold`: reconcile visible Dofus Touch sale notifications with active Web UI
-  listings and mark only exact matches sold.
+  listings, correct a matched listing's Sales Price when needed, and mark it sold.
 - `market`: reconcile the player's own visible marketplace listings with active Web
   UI listings and add only missing craftable item-and-price occurrences.
 
@@ -57,7 +59,8 @@ The pilot is successful when all of the following are true:
 - Vision extraction through a local, ChatGPT-authenticated Codex CLI subprocess with
   structured output.
 - A Slack preview with Confirm and Reject actions for the initial pilot.
-- Exact item-name and asking-price reconciliation against active Sales listings.
+- Exact item-name reconciliation against active Sales listings, with screenshot-led
+  price correction for `sold` after exact-price matches are reserved.
 - Existing latest-recipe and profession rules for deciding whether an item is
   craftable and in scope.
 - Local evidence retention, pre-mutation SQLite backups, and operational logging.
@@ -71,8 +74,8 @@ The pilot is successful when all of the following are true:
 - Public HTTP ingress, Slack HTTP Events API hosting, or a continuously hosted worker.
 - Automatic item/catalog creation, recipe creation, recipe inference, fuzzy item
   matching, or guessed prices.
-- Repricing or deleting listings, or treating an absent screenshot row as evidence
-  that a Web UI listing was removed from the game.
+- Standalone repricing, `market` repricing, deleting listings, or treating an absent
+  screenshot row as evidence that a Web UI listing was removed from the game.
 - Processing other players' marketplace screens, chat messages, spreadsheets,
   receipts, videos, GIFs, PDFs, or unsupported image formats.
 - Game-client automation, scraping, or external collection beyond screenshots the
@@ -223,19 +226,22 @@ safely and therefore sends the full batch to review. No row disappears silently.
 For every extracted in-scope occurrence:
 
 1. Resolve the exact catalog item and displayed asking price.
-2. Find active Sales listings with the same item identity and asking price.
-3. Assign repeated occurrences to matching listings oldest
-   `selling_started_at`, then lowest internal ID, first.
-4. Reject the entire batch when there are fewer active exact matches than screenshot
+2. Reserve active listings that already have the same item identity and asking price,
+   oldest `selling_started_at`, then lowest internal ID, first.
+3. Assign each remaining occurrence to the oldest remaining active listing for the
+   exact item and propose changing its Sales Price to the screenshot price.
+4. Reject the entire batch when there are fewer active item listings than screenshot
    occurrences, when any row is ambiguous, or when the timestamp predates a match.
 5. On confirmation, re-run all checks in the write transaction to protect against
    stale previews.
-6. Set one shared `date_sold` from the Slack timestamp and snapshot each recipe cost
-   using only recipe and price information available at that timestamp. Missing
-   historical cost coverage remains null.
+6. Append one linked quantity-one `slack_sold_capture` price observation for each
+   correction, update the matched listing price, set one shared `date_sold` from the
+   Slack timestamp, and snapshot each recipe cost using only recipe and price
+   information available at that timestamp. Missing historical cost coverage remains
+   null.
 
-The action never creates a listing to make a screenshot match. Exact extra active Web
-UI listings that are not represented by the screenshot remain unchanged.
+The action never creates a listing to make a screenshot match. Extra active Web UI
+listings that are not represented by the screenshot remain unchanged.
 
 ## `market` reconciliation
 
@@ -264,7 +270,7 @@ Initial operation is confirmation-required for both actions. The Slack preview s
 - requested action and detected screen kind;
 - observed timestamp and ordered source rows;
 - exact catalog matches and craftable profession;
-- proposed listing UUID-free descriptions and counts;
+- proposed listing UUID-free descriptions, counts, and old-to-new price corrections;
 - conflicts, out-of-scope rows, and warnings;
 - Confirm and Reject buttons.
 
@@ -412,8 +418,8 @@ leaving the existing public methods as commit-owning wrappers for web behavior.
 For a confirmed capture:
 
 1. Reload the batch and obtain an idempotent committing transition.
-2. Re-run exact catalog, recipe, profession, active-listing, count, and timestamp
-   validation.
+2. Re-run exact catalog, recipe, profession, active-listing, deterministic matching,
+   price-correction, count, and timestamp validation.
 3. Create and integrity-check a timestamped SQLite online backup in the ignored
    backup directory.
 4. Apply all listing, price-observation, cost-snapshot, current-lineage, action-history,
@@ -520,9 +526,9 @@ No Slack workspace or app configuration is changed as part of this design phase.
 | Duplicate Slack delivery | Durable unique message identity and idempotent transitions. |
 | Stale preview | Full revalidation inside the write transaction. |
 | Partial batch mutation | One transaction for all domain and audit writes. |
-| Wrong duplicate listing selected | Oldest exact active item-and-price match first. |
+| Wrong duplicate listing selected | Reserve oldest exact-price matches first, then use the oldest remaining exact-item listing. |
 | Market screenshot treated as authoritative absence | Add missing exact counts only; never remove extras. |
-| Price conflict | Review; never auto-reprice. |
+| Incorrect sold price correction | Exact item identity, owner-visible old-to-new preview, confirmation, backup, and atomic write. |
 | Private data leak | Ignored local evidence, redacted logs, `store: false`, no raw capture publication. |
 | Worker crash | Durable states, leases, startup history catch-up, retry queue. |
 | Bad automated write | Pre-mutation online backup and existing Web UI correction path. |
@@ -535,8 +541,9 @@ No Slack workspace or app configuration is changed as part of this design phase.
 - Use direct SDK integrations, not a general-purpose agent framework.
 - Let the model extract pixels only; deterministic code owns identity, craftability,
   reconciliation, authorization, and writes.
-- Require exact names, prices, counts, supported latest-recipe professions, and
-  message-level atomicity.
+- Require exact names, active-item counts, supported latest-recipe professions, and
+  message-level atomicity; use a confirmed `sold` screenshot price to correct the
+  deterministically matched listing.
 - Preserve full local action history and publish only generic normalized lineage.
 - Begin with confirmation for both actions and graduate them independently, if ever.
 - Do not implement until Gate 0 provides real private samples for both layouts.

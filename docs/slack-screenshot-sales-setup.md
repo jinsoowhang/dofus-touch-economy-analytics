@@ -137,10 +137,12 @@ One message and all of its images form one atomic batch. The Slack message times
 becomes the effective sold/listing time; history catch-up can therefore propose
 backdated changes, but never bypasses confirmation.
 
-For `sold`, a row such as invented item **Synthetic Hat** at 47,000 kamas can mark
-only the oldest active Web UI listing with that exact catalog identity and price.
-Repeated screenshot rows require the same number of exact active listings. The action
-never creates a listing.
+For `sold`, exact catalog identity is required. The worker reserves active listings
+that already have the screenshot price first. It then assigns any remaining
+occurrences to the oldest remaining active listing for that item, shows the proposed
+old-to-new Sales Price correction in the Slack preview, and applies the correction
+before marking the listing sold. Repeated screenshot rows require the same number of
+active listings for that exact item. The action never creates a listing.
 
 For `market`, the intended rule is additive count reconciliation: create only the
 missing number of exact craftable item-and-price occurrences. Different active prices
