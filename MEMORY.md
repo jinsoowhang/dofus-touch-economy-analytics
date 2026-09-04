@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-03
 
 ## Dofus Touch Economy Analytics
 
@@ -203,6 +203,14 @@
   time, so all three use 23:59:59 Pacific, which is after every selected listing start.
   Historical recipe cost was unavailable and remains null rather than being treated
   as zero. An ignored integrity-checked online backup precedes the update.
+- On 2026-09-03, three user-provided sold-notification screenshots atomically marked
+  49 exact active listings sold: 34 for the 2026-09-02 Pacific date and 15 for
+  2026-09-03. The prior date uses 23:59:59 Pacific; the current date uses the
+  screenshot's local save time. One screenshot-authoritative Sales Price correction
+  was applied, one Hunter item remained out of the approved profession scope, and
+  clipped boundary rows were excluded rather than guessed. Recipe cost at sale was
+  available for 46 listings. An ignored integrity-checked online backup precedes the
+  single transaction.
 - Item Search Current Price cells and the Item-menu Price Priorities page both append
   audited quantity-one price observations on Enter or blur and never create Sales
   listings. Price Priorities considers the crafted output and every resolved
