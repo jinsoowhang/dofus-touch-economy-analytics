@@ -27,7 +27,7 @@ if (recipeCartCount && recipeOpenCalculator) {
     }
   };
 
-  const cart = readCart();
+  let cart = readCart();
 
   const readSelection = () => {
     try {
@@ -49,7 +49,7 @@ if (recipeCartCount && recipeOpenCalculator) {
     }
   };
 
-  const selectedItems = readSelection();
+  let selectedItems = readSelection();
 
   const writeCart = () => {
     try {
@@ -139,6 +139,15 @@ if (recipeCartCount && recipeOpenCalculator) {
     }
     document.body.append(form);
     form.requestSubmit();
+  });
+
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) {
+      return;
+    }
+    cart = readCart();
+    selectedItems = readSelection();
+    renderCart();
   });
 
   renderCart();

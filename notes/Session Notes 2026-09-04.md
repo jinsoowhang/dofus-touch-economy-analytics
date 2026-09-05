@@ -72,3 +72,24 @@
   configuration. A live `max_level=60` request returned 100 rows with level 60 as
   the highest and zero rows above the cap; `max_level=100` returned level-80 rows as
   expected.
+
+## Recipe cart Back-navigation state
+
+### Request and implementation
+
+- Profit Opportunities could retain stale `Added` button text after an item was
+  explicitly removed in Recipe Calculator and the browser navigated Back.
+- The shared cart script had captured local-storage state only at initial execution;
+  a back/forward-cache restore reused that stale in-memory state and DOM.
+- Added a `pageshow` handler for cached restores that rereads both cart membership
+  and calculation selection before rendering every shared cart button.
+- Preserved the existing distinction between unchecking a calculator row, which
+  keeps it in the cart, and explicitly removing the row, which returns entry-point
+  buttons to Add.
+
+### Verification
+
+- Added focused static-asset coverage for cart and selection resynchronization on a
+  persisted `pageshow` event.
+- `./scripts/check.sh` passed: 354 Python tests, dbt debug/parse/seed/build with all
+  126 build nodes passing, SQL lint, and the public-file policy.

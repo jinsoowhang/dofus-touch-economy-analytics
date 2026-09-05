@@ -152,6 +152,22 @@ def test_recipe_cart_supports_opt_in_add_remove_toggles() -> None:
     assert "selectedItems.delete(itemUuid);" in script
 
 
+def test_recipe_cart_resyncs_buttons_after_back_navigation() -> None:
+    script = (
+        resources.files("dofus_touch_economy")
+        .joinpath("static/recipe-cart.js")
+        .read_text(encoding="utf-8")
+    )
+
+    pageshow_handler = script.split('window.addEventListener("pageshow", (event) => {', maxsplit=1)[
+        1
+    ].split("});", maxsplit=1)[0]
+    assert "if (!event.persisted)" in pageshow_handler
+    assert "cart = readCart();" in pageshow_handler
+    assert "selectedItems = readSelection();" in pageshow_handler
+    assert "renderCart();" in pageshow_handler
+
+
 def test_item_detail_scripts_do_not_redeclare_recipe_cart_storage_constants() -> None:
     static_assets = resources.files("dofus_touch_economy").joinpath("static")
     sales_script = static_assets.joinpath("sales.js").read_text(encoding="utf-8")
