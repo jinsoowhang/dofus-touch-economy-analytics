@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-04
 
 ## Dofus Touch Economy Analytics
 
@@ -211,6 +211,14 @@
   clipped boundary rows were excluded rather than guessed. Recipe cost at sale was
   available for 46 listings. An ignored integrity-checked online backup precedes the
   single transaction.
+- On 2026-09-04, two user-provided sold-notification screenshots atomically marked
+  20 exact active listings sold at their shared Pacific save time. The screenshots
+  were separate character/login receipts rather than overlapping scroll captures.
+  One Jellicape Sales Price was corrected from 57,000 to 56,000 kamas; all 20 sales
+  have recipe-cost snapshots. Eighteen exact visible occurrences stayed unchanged
+  because they were non-craftable or outside the approved Tailor, Shoemaker, and
+  Jeweller professions. An ignored integrity-checked online backup precedes the
+  transaction.
 - Item Search Current Price cells and the Item-menu Price Priorities page both append
   audited quantity-one price observations on Enter or blur and never create Sales
   listings. Price Priorities considers the crafted output and every resolved
