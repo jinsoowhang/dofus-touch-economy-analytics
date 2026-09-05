@@ -1314,6 +1314,12 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     )[1].split(">", maxsplit=1)[0]
     assert "checked" in default_checkbox_attributes
     assert 'name="availability_filter" value="true"' in default_response.text
+    assert 'aria-label="Maximum profession level"' in default_response.text
+    default_maximum_level_input = default_response.text.split(
+        'aria-label="Maximum profession level"', maxsplit=1
+    )[0].rsplit("<input", maxsplit=1)[1]
+    assert 'name="max_level"' in default_maximum_level_input
+    assert 'value="60"' in default_maximum_level_input
     for profession in ("Shoemaker", "Jeweller", "Tailor"):
         assert f'name="profession" value="{profession}" checked' in default_response.text
 
@@ -1325,6 +1331,17 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert all_professions_response.status_code == 200
     assert "Professions · All" in all_professions_response.text
     assert "Synthetic Widget" in all_professions_response.text
+
+    all_level_response = client.get(
+        "/profit-opportunities",
+        params={"profession_filter": "true", "max_level": "100"},
+    )
+
+    assert all_level_response.status_code == 200
+    maximum_level_input = all_level_response.text.split(
+        'aria-label="Maximum profession level"', maxsplit=1
+    )[0].rsplit("<input", maxsplit=1)[1]
+    assert 'value="100"' in maximum_level_input
 
     response = client.get(
         "/profit-opportunities",
@@ -1343,7 +1360,12 @@ def test_profit_opportunities_include_improving_recipes_without_sales_history(
     assert "+128.6%" in response.text
     assert "Completed Sales</dt><dd>0</dd>" in response.text
     assert '<th data-sort-type="text">Profession</th>' in response.text
-    assert "<td>Crafting</td>" in response.text
+    assert '<th class="numeric" data-sort-type="number">Profession Level</th>' in response.text
+    assert re.search(
+        r'<td>Crafting</td>\s*<td class="numeric" data-sort-value="1">\s*1\s*</td>',
+        response.text,
+    )
+    assert "<dt>Required Level</dt>" not in response.text
     assert "Currently Selling</th>" in response.text
     assert (
         f'href="/sales?item_uuid={widget_uuid}&amp;status=active#currently-selling">0</a>'

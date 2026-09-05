@@ -73,6 +73,7 @@ ITEM_PAGE_SIZE = 100
 RECIPE_PAGE_SIZE = 100
 PRICE_PRIORITY_LIMIT = 100
 DEFAULT_PROFIT_OPPORTUNITY_PROFESSIONS = ("Shoemaker", "Jeweller", "Tailor")
+DEFAULT_OPPORTUNITY_MAX_LEVEL = 60
 
 
 def _pacific_time(value: datetime) -> datetime:
@@ -1662,6 +1663,7 @@ def profit_opportunities_page(
     availability_filter: Annotated[bool, Query()] = False,
     profession: Annotated[list[str] | None, Query()] = None,
     profession_filter: Annotated[bool, Query()] = False,
+    max_level: Annotated[int, Query(ge=1, le=100)] = DEFAULT_OPPORTUNITY_MAX_LEVEL,
 ) -> HTMLResponse:
     if not_currently_selling is None:
         not_currently_selling = not availability_filter
@@ -1674,6 +1676,7 @@ def profit_opportunities_page(
     ).profit_opportunities(
         not_currently_selling=not_currently_selling,
         professions=selected_professions,
+        maximum_level=max_level,
     )
     return templates.TemplateResponse(
         request,
@@ -1683,6 +1686,7 @@ def profit_opportunities_page(
             "report": report,
             "not_currently_selling": not_currently_selling,
             "selected_professions": selected_professions,
+            "maximum_profession_level": max_level,
             "profession_choices": sorted(
                 {
                     *report.professions,

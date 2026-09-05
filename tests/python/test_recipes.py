@@ -407,6 +407,31 @@ def test_profit_opportunities_include_improving_and_newly_priced_unsold_recipes(
     assert shield_report.total_count == 1
 
 
+def test_profit_opportunities_filter_by_maximum_profession_level(session_factory) -> None:
+    items = seed_recipe_catalog(session_factory)
+    with session_factory() as session:
+        PriceService(session, "Dodge").record(
+            items["beta"].uuid,
+            PriceObservationCreate(
+                lot_quantity=1,
+                total_price=1_000,
+                observed_at=datetime(2026, 8, 23, tzinfo=UTC),
+            ),
+        )
+        service = RecipeCatalogService(session, "Dodge")
+        all_levels = service.profit_opportunities(maximum_level=100)
+        through_level_60 = service.profit_opportunities(maximum_level=60)
+
+    assert {item.display_name for item in all_levels.items} == {
+        "Alpha Sword",
+        "Beta Ring",
+    }
+    assert [item.display_name for item in through_level_60.items] == ["Alpha Sword"]
+    assert through_level_60.total_count == 1
+    assert through_level_60.top_profit_item is through_level_60.items[0]
+    assert through_level_60.top_roi_item is through_level_60.items[0]
+
+
 def test_price_priorities_rank_immediate_recipe_profit_unlocks_and_demand(
     session_factory,
 ) -> None:

@@ -237,6 +237,11 @@ form .htmx-indicator {
   min-width: 14rem;
 }
 
+.opportunity-level-filter {
+  display: grid;
+  gap: 0.3rem;
+}
+
 .checkbox-filter {
   align-items: center;
   display: inline-flex;
@@ -751,7 +756,7 @@ th.numeric .client-sort-header {
 }
 
 .profit-opportunities-table {
-  min-width: 76rem;
+  min-width: 82rem;
 }
 
 .profit-opportunities-table td {

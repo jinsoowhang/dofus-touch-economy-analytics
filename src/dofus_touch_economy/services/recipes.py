@@ -328,6 +328,7 @@ class RecipeCatalogService:
         limit: int = 100,
         not_currently_selling: bool = False,
         professions: tuple[str, ...] = (),
+        maximum_level: int | None = None,
     ) -> ProfitOpportunityReport:
         if limit < 1:
             raise ValueError("limit must be positive")
@@ -461,6 +462,12 @@ class RecipeCatalogService:
                 item
                 for item in opportunities
                 if item.profession.casefold() in normalized_professions
+            ]
+        if maximum_level is not None:
+            opportunities = [
+                item
+                for item in opportunities
+                if item.profession_level is not None and item.profession_level <= maximum_level
             ]
         if not_currently_selling:
             opportunities = [item for item in opportunities if item.active_listing_count == 0]

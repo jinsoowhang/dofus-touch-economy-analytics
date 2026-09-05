@@ -20,6 +20,18 @@
         {% endfor %}
       </div>
     </details>
+    <label class="opportunity-level-filter">
+      Maximum profession level
+      <input
+        name="max_level"
+        type="number"
+        inputmode="numeric"
+        min="1"
+        max="100"
+        value="{{ maximum_profession_level }}"
+        aria-label="Maximum profession level"
+      >
+    </label>
     <label class="checkbox-filter">
       <input
         type="checkbox"
@@ -72,6 +84,7 @@
               <th data-sort-type="text">Item</th>
               <th data-sort-type="text">Category</th>
               <th data-sort-type="text">Profession</th>
+              <th class="numeric" data-sort-type="number">Profession Level</th>
               <th data-sort-type="text">Signal</th>
               <th class="numeric" data-sort-type="number">Currently Selling</th>
               <th class="numeric" data-sort-type="number">Current Profit</th>
@@ -92,6 +105,9 @@
                 </td>
                 <td>{{ (item.category or "Uncategorized") | title }}</td>
                 <td>{{ item.profession }}</td>
+                <td class="numeric" data-sort-value="{{ item.profession_level if item.profession_level is not none else '' }}">
+                  {{ item.profession_level if item.profession_level is not none else "—" }}
+                </td>
                 <td><span class="opportunity-signal">{{ item.signal }}</span></td>
                 <td class="numeric">
                   <a href="/sales?item_uuid={{ item.item_uuid }}&amp;status=active#currently-selling">{{ item.active_listing_count }}</a>
@@ -114,7 +130,6 @@
                   <details class="row-details">
                     <summary>More</summary>
                     <dl>
-                      <div><dt>Required Level</dt><dd>{{ item.profession_level if item.profession_level is not none else "Unknown" }}</dd></div>
                       <div><dt>Current Price</dt><dd>{{ "{:,}".format(item.current_price) }}</dd></div>
                       <div><dt>Recipe Cost</dt><dd>{{ "{:,}".format(item.recipe_cost) }}</dd></div>
                       <div><dt>Prior Recipe Cost</dt><dd>{{ "{:,}".format(item.previous_recipe_cost) if item.previous_recipe_cost is not none else "—" }}</dd></div>
@@ -131,7 +146,7 @@
       </div>
     </details>
   {% else %}
-    {% if not_currently_selling or selected_professions %}
+    {% if not_currently_selling or selected_professions or maximum_profession_level < 100 %}
       <p>No profitable recipes match the selected filters.</p>
     {% else %}
       <p>

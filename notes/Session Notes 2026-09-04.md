@@ -43,3 +43,32 @@
 - No application code, screenshot, local database, or backup was added to Git. The
   full check suite was not run because application code, schemas, dependencies, and
   model behavior were unchanged.
+
+## Profit Opportunities profession-level filter
+
+### Request and implementation
+
+- Added a URL-backed maximum profession-level filter to Profit Opportunities and
+  defaulted the page to level 60.
+- The route accepts levels 1 through 100 and applies the selected maximum through
+  the recipe service before summary metrics, ranking, and the 100-row display limit.
+- Kept the default page behavior scoped to Profit Opportunities; the unfiltered
+  recipe-service call used by Insights remains unchanged.
+- Added the derived Profession Level as a visible sortable numeric column in Current
+  Opportunities and removed its duplicate row-detail entry.
+
+### Verification
+
+- Added service coverage proving a profitable level-100 recipe is excluded at level
+  60 and included at level 100, plus web coverage for the default and overridden
+  form values.
+- `./scripts/check.sh` passed: 353 Python tests, dbt debug/parse/seed/build with all
+  126 build nodes passing, SQL lint, and the public-file policy.
+- `git diff --check` passed before the session-note update.
+- Reproduced the user's live level-filter failure against a web process started
+  before the Python changes. Jinja had picked up the new form and column, while the
+  stale route and service still ignored `max_level`.
+- Restarted the loopback-only `dofus-web` process with the same default project
+  configuration. A live `max_level=60` request returned 100 rows with level 60 as
+  the highest and zero rows above the cap; `max_level=100` returned level-80 rows as
+  expected.
