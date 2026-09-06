@@ -2013,3 +2013,18 @@ th.numeric .client-sort-header {
     grid-column: 1 / -1;
   }
 }
+
+#sale-item-results {
+  display: grid;
+  gap: 0.65rem;
+  grid-column: 1 / -1;
+}
+
+#sale-item-results select {
+  min-width: 0;
+  width: 100%;
+}
+
+.sales-table-wrap {
+  position: relative;
+}

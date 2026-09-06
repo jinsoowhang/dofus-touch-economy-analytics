@@ -191,10 +191,10 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     assert 'value="ring"' in response.text
     assert 'data-category="ring"' in response.text
     assert 'data-category="hat"' in response.text
-    assert '<script src="/static/sales.js" defer></script>' in response.text
+    assert '<script src="/static/sales.js?v=20260905-pagination" defer></script>' in response.text
     assert script.status_code == 200
-    assert 'categorySelect.addEventListener("change", filterItems)' in script.text
-    assert "moveItemToTop(matchingItem)" in script.text
+    assert 'hx-get="/sales/item-choices"' in response.text
+    assert 'hx-trigger="input changed delay:250ms, search"' in response.text
     assert "updateSalePriceSuggestion(true)" in script.text
     assert "salePriceInput.value = suggestedPrice" in script.text
     assert "No completed sales for this item yet." in script.text
@@ -555,7 +555,7 @@ def test_sales_page_bulk_marks_sold_and_deletes_selected_rows(
     escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
     assert f'action="/sales/bulk?{escaped_query}"' in page.text
     assert page.text.count('class="active-sale-checkbox"') == 3
-    assert 'aria-label="Select all currently selling rows"' in page.text
+    assert 'aria-label="Select all currently selling rows on this page"' in page.text
     assert "Mark selected sold" in page.text
     assert "Delete selected" in page.text
     assert page.text.count("data-preserve-scroll") == 13

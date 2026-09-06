@@ -1,0 +1,5 @@
+<nav class="table-pagination" aria-label="{{ pagination.label }} pages">
+  <span>{{ pagination.start }}–{{ pagination.end }} of {{ pagination.count }} · Page {{ pagination.page }} of {{ pagination.pages }}</span>
+  {% if pagination.previous %}<a href="{{ pagination.previous }}">Previous</a>{% endif %}
+  {% if pagination.next %}<a href="{{ pagination.next }}">Next</a>{% endif %}
+</nav>

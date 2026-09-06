@@ -67,7 +67,9 @@ class SalesRepository:
         ).order_by(SaleListing.selling_started_at, SaleListing.id)
         return list(self._session.execute(statement).tuples())
 
-    def sold_prices(self) -> list[tuple[int, int]]:
+    def sold_prices(self, item_ids: set[int] | None = None) -> list[tuple[int, int]]:
+        if item_ids == set():
+            return []
         statement = (
             select(SaleListing.item_id, SaleListing.asking_price)
             .where(
@@ -76,6 +78,8 @@ class SalesRepository:
             )
             .order_by(SaleListing.item_id, SaleListing.asking_price)
         )
+        if item_ids is not None:
+            statement = statement.where(SaleListing.item_id.in_(item_ids))
         return [
             (item_id, asking_price)
             for item_id, asking_price in self._session.execute(statement)

@@ -16,7 +16,10 @@
     <summary><h2>Add an Item to Sell</h2></summary>
     <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
       <label for="sale-category">Category (Optional)</label>
-      <select id="sale-category" name="category">
+      <select id="sale-category" name="category"
+        hx-get="/sales/item-choices" hx-trigger="change" hx-target="#sale-item-results"
+        hx-include="#sale-item-query" hx-sync="closest form:replace"
+        aria-controls="sale-item-results">
         <option value="">All categories</option>
         {% for category in category_choices %}
           <option
@@ -25,21 +28,14 @@
           >{{ category.label }}</option>
         {% endfor %}
       </select>
-      <label for="sale-item">Item</label>
-      <select id="sale-item" name="item_uuid" required>
-        <option value="">Choose an item</option>
-        {% for item in item_choices %}
-          <option
-            value="{{ item.uuid }}"
-            data-category="{{ item.category_key }}"
-            data-name="{{ item.display_name }}"
-            data-suggested-price="{{ '{:,}'.format(item.suggested_price) if item.suggested_price is not none else '' }}"
-            data-sold-count="{{ item.sold_count }}"
-            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
-          >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
-        {% endfor %}
-      </select>
-      <p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>
+      <label for="sale-item-query">Search items</label>
+      <input id="sale-item-query" name="q" type="search" maxlength="200"
+        value="{{ form_values.get('q', '') }}" placeholder="Type an item name…"
+        hx-get="/sales/item-choices" hx-trigger="input changed delay:250ms, search"
+        hx-target="#sale-item-results" hx-include="#sale-category"
+        hx-sync="closest form:replace" aria-controls="sale-item-results">
+      <div id="sale-item-results">{% include "partials/sale_item_choices.html" %}</div>
+      <p id="sale-item-error" role="alert" hidden>Item search failed. Change the search to try again.</p>
       <label for="sale-asking-price">Sale Price</label>
       <input
         id="sale-asking-price"
@@ -125,12 +121,14 @@
       <span class="section-summary">
         <h2>Currently Selling</h2>
         <span>
-          {{ active_sales | length }} active · Total Price: {{ "{:,}".format(active_total_price) }}
+          {{ active_count }} active · Total Price: {{ "{:,}".format(active_total_price) }}
           {% if active_price_reviews %}· {{ active_price_reviews | length }} due for price review{% endif %}
         </span>
       </span>
     </summary>
     {% if active_sales %}
+      {% with pagination = active_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
+      <p class="filter-help">Bulk selection applies to this page only.</p>
       {% if active_price_reviews %}
         <p class="price-review-summary">
           Listings shown below have gone at least {{ active_price_review_days }} days since listing or their latest relist. Suggestions use the lower of a {{ active_price_markdown_percent }}% markdown or the item's completed-sale median.
@@ -161,7 +159,7 @@
                 <input
                   id="select-all-active-sales"
                   type="checkbox"
-                  aria-label="Select all currently selling rows"
+                  aria-label="Select all currently selling rows on this page"
                 >
               </th>
               {% for column in active_sort_columns %}
@@ -331,10 +329,11 @@
     <summary>
       <span class="section-summary">
         <h2>Sold History</h2>
-        <span>{{ sold_sales | length }} sold</span>
+        <span>{{ sold_count }} sold</span>
       </span>
     </summary>
     {% if sold_sales %}
+      {% with pagination = sold_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
       <div class="sales-table-wrap">
         <table class="sales-table">
           <thead>
@@ -553,4 +552,4 @@
     {% endif %}
   </details>
 {% endblock %}
-{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/sales.js?v=20260905-pagination" defer></script>{% endblock %}

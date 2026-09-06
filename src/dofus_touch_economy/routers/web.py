@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil, floor, log10
@@ -70,6 +70,8 @@ from dofus_touch_economy.services.sales import (
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
 PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
+SALES_PAGE_SIZE = 50
+SALE_ITEM_CHOICE_LIMIT = 25
 ITEM_PAGE_SIZE = 100
 RECIPE_PAGE_SIZE = 100
 PRICE_PRIORITY_LIMIT = 100
@@ -91,14 +93,21 @@ class SalesSortState:
     active_direction: SaleSortDirection = "desc"
     sold_sort: SaleSortField = "sold"
     sold_direction: SaleSortDirection = "desc"
+    active_page: int = 1
+    sold_page: int = 1
 
     def parameters(self) -> dict[str, str]:
-        return {
+        parameters = {
             "active_sort": self.active_sort,
             "active_direction": self.active_direction,
             "sold_sort": self.sold_sort,
             "sold_direction": self.sold_direction,
         }
+        if self.active_page > 1:
+            parameters["active_page"] = str(self.active_page)
+        if self.sold_page > 1:
+            parameters["sold_page"] = str(self.sold_page)
+        return parameters
 
 
 DEFAULT_SALES_SORT_STATE = SalesSortState()
@@ -237,8 +246,12 @@ def _sales_sort_state(
     active_direction: Annotated[SaleSortDirection, Query()] = "desc",
     sold_sort: Annotated[SaleSortField, Query()] = "sold",
     sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
+    active_page: Annotated[int, Query(ge=1)] = 1,
+    sold_page: Annotated[int, Query(ge=1)] = 1,
 ) -> SalesSortState:
-    return SalesSortState(active_sort, active_direction, sold_sort, sold_direction)
+    return SalesSortState(
+        active_sort, active_direction, sold_sort, sold_direction, active_page, sold_page
+    )
 
 
 def _sales_filter_state(
@@ -556,7 +569,17 @@ def _sales_context(
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    item_choices = service.item_choices()
+    form_values = form_values or {}
+    try:
+        selected_uuid = UUID(form_values["item_uuid"]) if form_values.get("item_uuid") else None
+    except ValueError:
+        selected_uuid = None
+    item_choices = service.item_choices(
+        form_values.get("q", ""),
+        category=form_values.get("category", ""),
+        limit=SALE_ITEM_CHOICE_LIMIT,
+        selected_uuid=selected_uuid,
+    )
     listing_filters = filter_state.listing_filters()
     show_active = filter_state.status in ("all", "active")
     show_sold = filter_state.status in ("all", "sold")
@@ -569,11 +592,13 @@ def _sales_context(
         if show_active
         else []
     )
+    all_sold = service.sold()
     sold_sales = (
         service.sold(
             sort_state.sold_sort,
             sort_state.sold_direction,
             listing_filters,
+            listings=all_sold,
         )
         if show_sold
         else []
@@ -583,21 +608,25 @@ def _sales_context(
         as_of=datetime.now(UTC),
         display_timezone=PACIFIC_TIME,
     )
-    category_labels: dict[str, str] = {}
-    for item in item_choices:
-        if item.category_key:
-            category_labels.setdefault(item.category_key, (item.category or "").title())
-    daily_totals = service.daily_totals(PACIFIC_TIME)
+    category_labels = {
+        normalize_item_name(category): category.title() for category in service.item_categories()
+    }
+    daily_totals = service.daily_totals(PACIFIC_TIME, all_sold)
+    active_count, sold_count = len(active_sales), len(sold_sales)
+    sort_state = replace(
+        sort_state,
+        active_page=min(sort_state.active_page, max(1, ceil(active_count / SALES_PAGE_SIZE))),
+        sold_page=min(sort_state.sold_page, max(1, ceil(sold_count / SALES_PAGE_SIZE))),
+    )
     filter_parameters = filter_state.parameters()
     sales_parameters = {**sort_state.parameters(), **filter_parameters}
+    sort_link_parameters = {
+        **filter_parameters,
+        **{key: value for key, value in sort_state.parameters().items() if key.endswith("_page")},
+    }
     filter_item_value = filter_state.item_query
     if filter_state.item_uuid is not None:
-        matching_item = next(
-            (item for item in item_choices if item.uuid == filter_state.item_uuid),
-            None,
-        )
-        if matching_item is not None:
-            filter_item_value = matching_item.display_name
+        filter_item_value = service.item_name(filter_state.item_uuid) or filter_item_value
     return {
         "active_tab": "sales",
         "item_choices": item_choices,
@@ -608,19 +637,30 @@ def _sales_context(
                 key=lambda entry: entry[1].casefold(),
             )
         ],
-        "active_sales": active_sales,
+        "active_sales": active_sales[
+            (sort_state.active_page - 1) * SALES_PAGE_SIZE : sort_state.active_page
+            * SALES_PAGE_SIZE
+        ],
+        "active_count": active_count,
+        "sold_count": sold_count,
+        "active_pagination": _sales_pagination(
+            "active", active_count, sort_state, sales_parameters
+        ),
+        "sold_pagination": _sales_pagination("sold", sold_count, sort_state, sales_parameters),
         "active_price_reviews": active_price_reviews,
         "active_price_markdown_percent": ACTIVE_PRICE_MARKDOWN_PERCENT,
         "active_price_review_days": ACTIVE_PRICE_REVIEW_DAYS,
         "active_total_price": sum(sale.asking_price or 0 for sale in active_sales),
-        "sold_sales": sold_sales,
+        "sold_sales": sold_sales[
+            (sort_state.sold_page - 1) * SALES_PAGE_SIZE : sort_state.sold_page * SALES_PAGE_SIZE
+        ],
         "active_sort_columns": _sales_sort_columns(
             "active",
             sort_state.active_sort,
             sort_state.active_direction,
             sort_state.sold_sort,
             sort_state.sold_direction,
-            filter_parameters,
+            sort_link_parameters,
         ),
         "sold_sort_columns": _sales_sort_columns(
             "sold",
@@ -628,7 +668,7 @@ def _sales_context(
             sort_state.sold_direction,
             sort_state.active_sort,
             sort_state.active_direction,
-            filter_parameters,
+            sort_link_parameters,
         ),
         "sales_sort_query": urlencode(sales_parameters),
         "sort_state": sort_state,
@@ -643,6 +683,31 @@ def _sales_context(
         "notification": notification,
         "errors": [*filter_state.errors(), *(errors or [])],
         "form_values": form_values or {},
+    }
+
+
+def _sales_pagination(
+    table: Literal["active", "sold"],
+    count: int,
+    sort_state: SalesSortState,
+    parameters: dict[str, str],
+) -> dict[str, object]:
+    page = sort_state.active_page if table == "active" else sort_state.sold_page
+    pages = max(1, ceil(count / SALES_PAGE_SIZE))
+    anchor = "currently-selling" if table == "active" else "sold-history"
+
+    def page_url(target: int) -> str:
+        return f"/sales?{urlencode({**parameters, f'{table}_page': str(target)})}#{anchor}"
+
+    return {
+        "label": "Currently Selling" if table == "active" else "Sold History",
+        "page": page,
+        "pages": pages,
+        "count": count,
+        "start": (page - 1) * SALES_PAGE_SIZE + 1 if count else 0,
+        "end": min(page * SALES_PAGE_SIZE, count),
+        "previous": page_url(page - 1) if page > 1 else None,
+        "next": page_url(page + 1) if page < pages else None,
     }
 
 
@@ -881,6 +946,7 @@ def _sales_sort_columns(
                 "sold_direction": next_direction,
             }
         parameters.update(filter_parameters)
+        parameters.pop(f"{table}_page", None)
         result.append(
             {
                 "field": field,
@@ -1580,6 +1646,26 @@ async def update_recipe_item_current_price(
     )
 
 
+@router.get("/sales/item-choices", response_class=HTMLResponse)
+def sales_item_choices(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    q: Annotated[str, Query(max_length=200)] = "",
+    category: Annotated[str, Query(max_length=200)] = "",
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "partials/sale_item_choices.html",
+        context={
+            "item_choices": SalesService(session, settings.market_context).item_choices(
+                q, category=category, limit=SALE_ITEM_CHOICE_LIMIT
+            ),
+            "form_values": {},
+        },
+    )
+
+
 @router.get("/sales", response_class=HTMLResponse)
 def sales_page(
     request: Request,
@@ -1803,7 +1889,7 @@ async def start_sale(
     filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
-    values = _form_values(form, ("category", "item_uuid", "asking_price"))
+    values = _form_values(form, ("q", "category", "item_uuid", "asking_price"))
     service = SalesService(session, settings.market_context)
     try:
         command = SaleListingCreate.model_validate(values)

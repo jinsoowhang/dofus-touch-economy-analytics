@@ -27,7 +27,11 @@ class PriceRepository:
         )
         return self._session.scalar(statement)
 
-    def latest_valid_for_market(self, market_context: str) -> list[PriceObservation]:
+    def latest_valid_for_market(
+        self, market_context: str, item_ids: set[int] | None = None
+    ) -> list[PriceObservation]:
+        if item_ids == set():
+            return []
         ranked = (
             select(
                 PriceObservation.id.label("observation_id"),
@@ -45,6 +49,7 @@ class PriceRepository:
             .where(
                 PriceObservation.market_context == market_context,
                 PriceObservation.invalidated_at.is_(None),
+                *([] if item_ids is None else [PriceObservation.item_id.in_(item_ids)]),
             )
             .subquery()
         )

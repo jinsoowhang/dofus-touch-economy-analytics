@@ -52,6 +52,13 @@ class CatalogRepository:
         )
         return list(self._session.scalars(statement))
 
+    def name_for_uuid(self, item_uuid: UUID) -> str | None:
+        return self._session.scalar(
+            select(Item.display_name).where(
+                Item.uuid == item_uuid, active_catalog_item_clause(Item)
+            )
+        )
+
     def find_by_identity(self, normalized_name: str, identity_category: str) -> Item | None:
         return self._session.scalar(
             select(Item).where(

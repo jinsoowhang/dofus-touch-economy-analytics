@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from dofus_touch_economy.catalog_scope import active_catalog_item_clause
@@ -174,9 +174,21 @@ class SalesService:
         self._catalog = CatalogRepository(session)
         self._sales = SalesRepository(session)
 
-    def item_choices(self) -> list[SaleItemChoiceResponse]:
+    def item_choices(
+        self,
+        query: str = "",
+        *,
+        category: str = "",
+        limit: int | None = None,
+        selected_uuid: UUID | None = None,
+    ) -> list[SaleItemChoiceResponse]:
+        items = self._catalog.search(query, limit=limit, category=category)
+        if selected_uuid is not None and all(item.uuid != selected_uuid for item in items):
+            selected = self._catalog.get_by_uuid(selected_uuid)
+            if selected is not None:
+                items = [selected, *items]
         sold_prices: dict[int, list[int]] = defaultdict(list)
-        for item_id, asking_price in self._sales.sold_prices():
+        for item_id, asking_price in self._sales.sold_prices({item.id for item in items}):
             sold_prices[item_id].append(asking_price)
         return [
             SaleItemChoiceResponse(
@@ -188,8 +200,14 @@ class SalesService:
                 suggested_price=_median_price(sold_prices[item.id]),
                 sold_count=len(sold_prices[item.id]),
             )
-            for item in self._catalog.search("", limit=None)
+            for item in items
         ]
+
+    def item_categories(self) -> list[str]:
+        return self._catalog.categories()
+
+    def item_name(self, item_uuid: UUID) -> str | None:
+        return self._catalog.name_for_uuid(item_uuid)
 
     def active(
         self,
@@ -264,8 +282,11 @@ class SalesService:
         sort_field: SaleSortField = "sold",
         sort_direction: SaleSortDirection = "desc",
         filters: SaleListingFilters | None = None,
+        *,
+        listings: list[SaleListingResponse] | None = None,
     ) -> list[SaleListingResponse]:
-        listings = self._responses(self._sales.sold())
+        if listings is None:
+            listings = self._responses(self._sales.sold())
         listings = _filter_listings(listings, filters, use_sold_date=True)
         return _sort_listings(listings, sort_field, sort_direction)
 
@@ -836,7 +857,13 @@ class SalesService:
             return {}
         recipes = self._session.scalars(
             select(Recipe)
-            .where(Recipe.crafted_item_id.in_(crafted_item_ids))
+            .where(
+                Recipe.id.in_(
+                    select(func.max(Recipe.id))
+                    .where(Recipe.crafted_item_id.in_(crafted_item_ids))
+                    .group_by(Recipe.crafted_item_id)
+                )
+            )
             .options(selectinload(Recipe.ingredients))
             .order_by(Recipe.crafted_item_id, Recipe.id.desc())
         )

@@ -52,10 +52,7 @@ const removeCompletedRecipeCalculatorSales = () => {
 
 removeCompletedRecipeCalculatorSales();
 
-const categorySelect = document.querySelector("#sale-category");
-const itemSelect = document.querySelector("#sale-item");
 const salePriceInput = document.querySelector("#sale-asking-price");
-const salePriceSuggestion = document.querySelector("#sale-price-suggestion");
 const chartSeriesToggles = Array.from(
   document.querySelectorAll(".chart-series-toggle"),
 );
@@ -79,120 +76,78 @@ if (chartSeriesToggles.length > 0) {
   updateChartSeriesVisibility();
 }
 
-if (categorySelect && itemSelect) {
-  const placeholder = itemSelect.options[0];
-  const itemOptions = Array.from(itemSelect.options).slice(1);
-  let typeaheadQuery = "";
-  let lastTypeaheadAt = 0;
-
+const initializeSaleItemPicker = () => {
+  const itemSelect = document.querySelector("#sale-item");
+  const salePriceSuggestion = document.querySelector("#sale-price-suggestion");
+  if (!itemSelect || !salePriceSuggestion) {
+    return;
+  }
   const updateSalePriceSuggestion = (prefillPrice) => {
-    if (!salePriceSuggestion) {
-      return;
-    }
     const selectedItem = itemSelect.selectedOptions[0];
-    if (!selectedItem || selectedItem === placeholder) {
-      salePriceSuggestion.hidden = true;
+    salePriceSuggestion.hidden = !itemSelect.value;
+    if (!itemSelect.value) {
       salePriceSuggestion.textContent = "";
-      if (prefillPrice && salePriceInput) {
-        salePriceInput.value = "";
-      }
       return;
     }
-
-    salePriceSuggestion.hidden = false;
     const suggestedPrice = selectedItem.dataset.suggestedPrice || "";
     const soldCount = Number(selectedItem.dataset.soldCount || 0);
-    if (!suggestedPrice) {
-      salePriceSuggestion.textContent = "No completed sales for this item yet.";
-      if (prefillPrice && salePriceInput) {
-        salePriceInput.value = "";
-      }
-      return;
-    }
-
     const saleLabel = soldCount === 1 ? "sale" : "sales";
-    salePriceSuggestion.textContent =
-      `Suggested Price: ${suggestedPrice} · Median of ${soldCount} completed ${saleLabel}.`;
+    salePriceSuggestion.textContent = suggestedPrice
+      ? `Suggested Price: ${suggestedPrice} · Median of ${soldCount} completed ${saleLabel}.`
+      : "No completed sales for this item yet.";
     if (prefillPrice && salePriceInput) {
       salePriceInput.value = suggestedPrice;
     }
   };
-
-  const moveItemToTop = (option) => {
-    itemSelect.insertBefore(option, placeholder.nextElementSibling);
-    option.selected = true;
-    itemSelect.scrollTop = 0;
-    updateSalePriceSuggestion(true);
-  };
-
-  const filterItems = () => {
-    const selectedCategory = categorySelect.value;
-    for (const option of itemOptions) {
-      const matches = !selectedCategory || option.dataset.category === selectedCategory;
-      option.hidden = !matches;
-      option.disabled = !matches;
-    }
-
-    const selectedItem = itemSelect.selectedOptions[0];
-    if (selectedItem && selectedItem.disabled) {
-      itemSelect.value = "";
-      updateSalePriceSuggestion(true);
-    }
-
-    const categoryLabel = categorySelect.selectedOptions[0]?.textContent?.trim();
-    placeholder.textContent = selectedCategory
-      ? `Choose a ${categoryLabel} item`
-      : "Choose an item";
-  };
-
-  categorySelect.addEventListener("change", filterItems);
-  itemSelect.addEventListener("change", () => {
-    const selectedItem = itemSelect.selectedOptions[0];
-    if (selectedItem && selectedItem !== placeholder) {
-      moveItemToTop(selectedItem);
-    } else {
-      updateSalePriceSuggestion(true);
-    }
-  });
-  itemSelect.addEventListener("keydown", (event) => {
-    const isPrintable =
-      event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey;
-    if (!isPrintable && event.key !== "Backspace") {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastTypeaheadAt > 800) {
-      typeaheadQuery = "";
-    }
-    lastTypeaheadAt = now;
-    typeaheadQuery =
-      event.key === "Backspace"
-        ? typeaheadQuery.slice(0, -1)
-        : `${typeaheadQuery}${event.key.toLocaleLowerCase()}`;
-
-    const findMatch = (query) =>
-      itemOptions.find(
-        (option) =>
-          !option.disabled &&
-          (option.dataset.name || "").toLocaleLowerCase().startsWith(query),
-      );
-    let matchingItem = findMatch(typeaheadQuery);
-    if (!matchingItem && isPrintable && typeaheadQuery.length > 1) {
-      typeaheadQuery = event.key.toLocaleLowerCase();
-      matchingItem = findMatch(typeaheadQuery);
-    }
-    if (matchingItem) {
-      event.preventDefault();
-      moveItemToTop(matchingItem);
-    }
-  });
-  itemSelect.addEventListener("blur", () => {
-    typeaheadQuery = "";
-  });
-  filterItems();
+  itemSelect.addEventListener("change", () => updateSalePriceSuggestion(true));
   updateSalePriceSuggestion(false);
+};
+
+initializeSaleItemPicker();
+
+// Clear a stale selection immediately, including during the search debounce.
+for (const control of document.querySelectorAll("#sale-item-query, #sale-category")) {
+  control.addEventListener(control.id === "sale-category" ? "change" : "input", () => {
+    document.querySelector("#sale-item").value = "";
+    document.querySelector("#sale-item").disabled = true;
+    document.querySelector(".sales-form button[type=submit]").disabled = true;
+    document.querySelector("#sale-price-suggestion").hidden = true;
+    document.querySelector("#sale-item-error").hidden = true;
+  });
 }
+document.body.addEventListener("htmx:beforeRequest", (event) => {
+  if (event.detail.target?.id === "sale-item-results") {
+    document.querySelector("#sale-item").disabled = true;
+    document.querySelector(".sales-form button[type=submit]").disabled = true;
+  }
+});
+const isCurrentItemSearch = (event) => {
+  const parameters = event.detail.requestConfig.parameters;
+  return parameters.q === document.querySelector("#sale-item-query").value
+    && parameters.category === document.querySelector("#sale-category").value;
+};
+document.body.addEventListener("htmx:beforeSwap", (event) => {
+  if (event.detail.target?.id === "sale-item-results" && !isCurrentItemSearch(event)) {
+    event.detail.shouldSwap = false;
+  }
+});
+document.querySelector(".sales-form")?.addEventListener("submit", (event) => {
+  if (document.querySelector("#sale-item").disabled) {
+    event.preventDefault();
+  }
+});
+document.body.addEventListener("htmx:afterRequest", (event) => {
+  if (event.detail.target?.id === "sale-item-results" && isCurrentItemSearch(event)) {
+    document.querySelector("#sale-item").disabled = false;
+    document.querySelector(".sales-form button[type=submit]").disabled = false;
+    document.querySelector("#sale-item-error").hidden = !event.detail.failed;
+  }
+});
+document.body.addEventListener("htmx:afterSwap", (event) => {
+  if (event.detail.target?.id === "sale-item-results") {
+    initializeSaleItemPicker();
+  }
+});
 
 const activeSalesBulkForm = document.querySelector("#active-sales-bulk-form");
 const activeSalesSelectAll = document.querySelector("#select-all-active-sales");

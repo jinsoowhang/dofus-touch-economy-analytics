@@ -100,6 +100,18 @@ and Sales tables sort on the server while detail, calculator, out-of-stock, and 
 summary tables use one local typed sorter. Selection and action-only columns remain
 controls rather than misleading sort targets.
 
+Sales Activity searches item names through a bounded HTMX fragment (25 choices,
+250 ms debounce) and paginates active and sold tables independently at 50 rows.
+The native item selector retains keyboard support and completed-sale median price
+suggestions. Search clears stale selections and ignores superseded responses.
+Full matching counts, asking-price totals, and cost/profit sorting are computed
+before pagination; the daily chart always uses unfiltered history. Bulk selection
+is explicitly limited to the current page. A request materializes sold history
+once and shares it with daily totals. Current recipe costs load only the latest
+recipe versions and requested ingredient prices; historical reconstruction keeps
+its existing timestamp rules. Page payloads are bounded, while server calculations
+and filtering still scale with full listing history.
+
 The Recipe Calculator is an operational projection over the latest recipe per
 crafted item and the latest valid ingredient prices. Resolved shopping-list prices
 can append quantity-one observations through an inline editor; a successful save

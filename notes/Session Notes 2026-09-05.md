@@ -150,3 +150,71 @@
   dropdown order, active states, and absence of a top-level sync link.
 - The full check script was not repeated for this navigation-template-only change.
   No sync job was started and no web-process restart was needed.
+
+## Activity performance research only
+
+- The user requested research, a proposal, and options without implementation.
+  Traced Activity queries, rendering, and client behavior; profiled an isolated
+  read-only SQLite app instance and measured live GETs in headless Chromium.
+- Found approximately 2-second full loads, 0.8-second TTFB, 5.94 MB decoded HTML,
+  28,665 document elements, and a 10,948-choice picker accounting for 3.31 MB.
+  All 328 active and 412 sold rows rendered; sold-history loading and historical
+  cost reconstruction repeated for the chart. Scoped ingredient-price requests
+  currently load all market prices before Python filtering.
+- Browser-only script blocking left most main-thread cost intact. An isolated,
+  sequential native-WSL database comparison reduced median context/render work
+  from 735 ms to 514 ms. The temporary private database copy was deleted.
+- Saved `notes/Sales Activity Performance Research and Proposal 2026-09-05.md`
+  with measurements, limitations, four options, recommended sequencing, correctness
+  constraints, acceptance targets, and primary-source references.
+- Recommended a bounded item search and paginated tables plus request-scoped
+  result reuse, then partial updates; native WSL storage is an independent option.
+  No application code, database state, configuration, or web process changed.
+  Research tools/results stayed under `/tmp`; only project notes were updated.
+- Full tests were not run because this was research only. Verified note formatting
+  with `git diff --check` and ran the public-file policy check.
+
+## Implement Activity performance phase one
+
+- The user authorized implementation after reviewing the performance proposal.
+  Implemented bounded item search (25 matches, 250 ms debounce), native keyboard
+  selection with median suggestions, and independent 50-row active/sold pages.
+- Full matching summaries and cost/profit sorting precede pagination; the chart
+  retains unfiltered history. Page state survives row actions, filters reset pages,
+  sorting resets its own page, and bulk selection covers the current page only.
+- Reused one completed-Sales materialization for table and daily totals. Restricted
+  current ingredient-price queries and latest-recipe loading; historical cost and
+  unknown-value semantics stay intact. Removed obsolete client-side full-catalog
+  filtering and custom typeahead.
+- Measured warm Chromium loads at 0.44–0.52 seconds versus about 2 seconds before;
+  HTML dropped from 5.94 MB to 0.43 MB and elements from 28,665 to 3,139. A disposable
+  same-filesystem 7,660-listing copy retained bounded HTML but took 0.79–0.83 seconds
+  for warm server GETs; full-history calculations remain a follow-on bottleneck.
+- `./scripts/check.sh` passed: 371 Python tests and 126 dbt nodes, plus all lint,
+  formatting, compile, and public-file checks. Chromium verified search, keyboard,
+  category filtering, empty/error recovery, stale-response suppression, pagination,
+  and selecting exactly 50 visible rows with zero JavaScript errors. Mobile testing
+  identified and fixed accessible labels escaping the table scroll container.
+- Final CSS containment and asset-version changes received focused browser/template
+  checks after the full suite. Updated architecture, MEMORY, and the proposal with
+  implementation results and remaining limitations.
+- Used an isolated read-only preview on port 8001 and disposable benchmark copies;
+  the user's operational records and port-8000 server were not changed by this task.
+  The temporary preview was stopped after verification. Python changes require the
+  user to restart their existing `uv run dofus-web` process.
+
+## Remote publication preparation
+
+- The user requested a push to the remote. Confirmed local `main` and remote
+  `origin/main` began at the same commit, then separated reconciliation notes,
+  Sales summary rows, Data dashboard/navigation, and Activity performance into
+  four logical commits without changing the final application content.
+- Verified staged intermediate trees in disposable checkouts: 127 focused tests
+  passed for Sales summaries and 133 for dashboard/navigation, with Python lint
+  and formatting passing for each. The final implementation retains the preceding
+  full check result of 371 Python tests and 126 dbt build/test nodes; no application
+  changes were made during publication preparation.
+- Checked staged whitespace and the public-file policy. Operational databases,
+  screenshots, private reports, credentials, and temporary verification files
+  remain outside the commits. Publication targets `origin/main` with a normal
+  fast-forward push.

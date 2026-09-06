@@ -156,8 +156,9 @@ class PriceService:
         requested_ids = set(item_ids)
         return {
             observation.item_id: _current_price_response(observation)
-            for observation in self._repository.latest_valid_for_market(self._market_context)
-            if observation.item_id in requested_ids
+            for observation in self._repository.latest_valid_for_market(
+                self._market_context, requested_ids
+            )
         }
 
     def current_and_previous_for_items(
