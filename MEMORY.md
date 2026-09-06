@@ -123,6 +123,17 @@
   controls, four-line chart, and daily table expose the same measures. Listed, All
   Sales, All Cost, and All Profit begin visible; each control hides its matching line
   and points immediately, while the final visible series cannot be unchecked.
+- Sales Over Time summary cards use exactly two four-column rows: Total Listed,
+  Total Sales, Total Cost, and Total Profit above Listed Today, Sold Today, Cost
+  Today, and Profit Today. The user explicitly requested the lower Listed metric
+  to sum asking prices across all currently active listings, regardless of listing
+  date, then requested the Today labels. The explanatory note states that Listed
+  Today is the active inventory total; the other three cards show today's Pacific
+  sales activity. Both rows ignore table filters. Days without sales show zero in
+  the three daily cards; completed sales with no known cost retain
+  missing cost/profit indicators. Small screens scroll each four-card row
+  horizontally instead of stacking. The scoped grid rule overrides the shared
+  mobile metric layout; the stylesheet URL is versioned to refresh cached styles.
 - Correct accidental duplicate active listings by backing up the operational
   database and deleting only the duplicate active rows. Do not mark data-entry
   duplicates as sold because that would corrupt sales history and analytics.

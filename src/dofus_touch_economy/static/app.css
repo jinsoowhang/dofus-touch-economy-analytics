@@ -1063,6 +1063,11 @@ th.numeric .client-sort-header {
   margin-block: 1rem;
 }
 
+.sales-metrics.sales-metrics--four {
+  grid-template-columns: repeat(4, minmax(9rem, 1fr));
+  overflow-x: auto;
+}
+
 .sales-metrics div {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   border: 1px solid var(--border);

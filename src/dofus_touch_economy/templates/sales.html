@@ -429,11 +429,21 @@
       </span>
     </summary>
     {% if sales_chart %}
-      <div class="sales-metrics" aria-label="Sales summary">
-        <div><span>Listed</span><strong>{{ sales_chart.total_listed_price_label }}</strong></div>
-        <div><span>All Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
-        <div><span>All Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
-        <div><span>All Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
+      <div class="sales-metrics sales-metrics--four" aria-label="Total sales summary">
+        <div><span>Total Listed</span><strong>{{ sales_chart.total_listed_price_label }}</strong></div>
+        <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Total Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
+        <div><span>Total Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
+      </div>
+      <p class="chart-note">
+        Listed Today totals all active asking prices. Sold Today, Cost Today, and Profit Today
+        show today, {{ sales_chart.current_date }} (Pacific Time).
+      </p>
+      <div class="sales-metrics sales-metrics--four" aria-label="Current sales summary">
+        <div><span>Listed Today</span><strong>{{ sales_chart.current_listed_price_label }}</strong></div>
+        <div><span>Sold Today</span><strong>{{ sales_chart.current_price_label }}</strong></div>
+        <div><span>Cost Today</span><strong>{{ sales_chart.current_cost_label }}</strong></div>
+        <div><span>Profit Today</span><strong>{{ sales_chart.current_profit_label }}</strong></div>
       </div>
       <div class="chart-legend" aria-label="Chart series">
         {% for series in sales_chart.series %}

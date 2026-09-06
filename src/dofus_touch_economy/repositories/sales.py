@@ -42,6 +42,12 @@ class SalesRepository:
         )
         return list(self._session.scalars(statement))
 
+    def active_total_price(self) -> int:
+        statement = select(func.sum(SaleListing.asking_price)).where(
+            SaleListing.date_sold.is_(None)
+        )
+        return self._session.scalar(statement) or 0
+
     def sold(self) -> list[SaleListing]:
         statement = (
             select(SaleListing)

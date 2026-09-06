@@ -201,6 +201,9 @@ class SalesService:
         listings = _filter_listings(listings, filters, use_sold_date=False)
         return _sort_listings(listings, sort_field, sort_direction)
 
+    def active_total_price(self) -> int:
+        return self._sales.active_total_price()
+
     def active_price_reviews(
         self,
         listings: list[SaleListingResponse],

@@ -38,6 +38,7 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert listing.relisted_at is None
     assert listing.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
+    assert service.active_total_price() == 50_000
     current_price = PriceService(session, "Dodge").current_for_item(catalog_item.id)
     assert current_price is not None
     assert current_price.total_price == 50_000
@@ -47,12 +48,14 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert sold.date_sold is not None
     assert sold.date_sold.tzinfo == UTC
     assert service.active() == []
+    assert service.active_total_price() == 0
     assert [sale.uuid for sale in service.sold()] == [listing.uuid]
 
     reopened = service.reopen(listing.uuid)
 
     assert reopened.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
+    assert service.active_total_price() == 50_000
     assert service.sold() == []
 
 

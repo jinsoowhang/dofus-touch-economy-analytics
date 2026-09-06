@@ -636,7 +636,9 @@ def _sales_context(
         "has_sales_filters": bool(filter_parameters),
         "show_active": show_active,
         "show_sold": show_sold,
-        "sales_chart": _sales_chart(daily_totals),
+        "sales_chart": _sales_chart(
+            daily_totals, current_listed_price=service.active_total_price()
+        ),
         "notification": notification,
         "errors": [*filter_state.errors(), *(errors or [])],
         "form_values": form_values or {},
@@ -662,7 +664,9 @@ def _sales_redirect_url(
     return f"/sales?{urlencode(parameters)}{fragment}"
 
 
-def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | None:
+def _sales_chart(
+    daily_totals: list[DailySalesTotal], *, current_listed_price: int
+) -> dict[str, object] | None:
     if not daily_totals:
         return None
     width = 900
@@ -766,6 +770,8 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
     listed_priced_count = sum(point.listed_priced_count for point in daily_totals)
     costed_count = sum(point.costed_count for point in daily_totals)
     profit_count = sum(point.profit_count for point in daily_totals)
+    current_date = datetime.now(PACIFIC_TIME).date()
+    current = next((point for point in daily_totals if point.activity_on == current_date), None)
     return {
         "width": width,
         "height": height,
@@ -790,6 +796,23 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         "total_price_label": f"{total_price:,}",
         "total_cost_label": "—" if not costed_count else f"{total_cost:,}",
         "total_profit_label": "—" if not profit_count else f"{total_profit:,}",
+        "current_date": current_date.isoformat(),
+        "current_listed_price_label": f"{current_listed_price:,}",
+        "current_price_label": "0" if current is None else f"{current.total_price:,}",
+        "current_cost_label": (
+            "0"
+            if current is None or not current.sold_count
+            else "—"
+            if current.total_cost is None
+            else f"{current.total_cost:,}"
+        ),
+        "current_profit_label": (
+            "0"
+            if current is None or not current.sold_count
+            else "—"
+            if current.total_profit is None
+            else f"{current.total_profit:,}"
+        ),
         "daily_totals": daily_totals,
     }
 

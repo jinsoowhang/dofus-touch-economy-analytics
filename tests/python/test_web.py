@@ -4,11 +4,13 @@ from decimal import Decimal
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+import pytest
 from sqlalchemy import select
 
 from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item, PriceObservation, Recipe, SaleListing
+from dofus_touch_economy.routers import web
 from dofus_touch_economy.schemas import PriceObservationCreate, SaleListingCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
@@ -872,16 +874,77 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
         "Daily listed value, all sales, all cost, and all profit by activity date" in response.text
     )
     assert "Date (Pacific Time)" in response.text
-    assert "<span>Listed</span><strong>300</strong>" in response.text
-    assert "<span>All Sales</span><strong>300</strong>" in response.text
-    assert "<span>All Cost</span><strong>—</strong>" in response.text
-    assert "<span>All Profit</span><strong>—</strong>" in response.text
+    assert "<span>Total Listed</span><strong>300</strong>" in response.text
+    assert "<span>Total Sales</span><strong>300</strong>" in response.text
+    assert "<span>Total Cost</span><strong>—</strong>" in response.text
+    assert "<span>Total Profit</span><strong>—</strong>" in response.text
+    assert "<span>Listed Today</span><strong>0</strong>" in response.text
 
     filtered = client.get("/sales", params={"status": "active"})
 
     assert filtered.status_code == 200
     assert "All Sales on 2026-08-21: 100 across 1 item" in filtered.text
     assert "All Sales on 2026-08-23: 200 across 1 item" in filtered.text
+
+
+@pytest.mark.parametrize(
+    ("now", "current_date", "expected"),
+    [
+        (datetime(2026, 9, 6, 2, tzinfo=UTC), "2026-09-05", ("100", "200", "250", "-50")),
+        (datetime(2026, 9, 6, 8, tzinfo=UTC), "2026-09-06", ("100", "0", "0", "0")),
+        (datetime(2026, 9, 7, 9, tzinfo=UTC), "2026-09-07", ("100", "300", "—", "—")),
+    ],
+)
+def test_sales_current_summary_uses_active_inventory_and_todays_pacific_sales(
+    client, session_factory, catalog_item, monkeypatch, now, current_date, expected
+) -> None:
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz)
+
+    monkeypatch.setattr(web, "datetime", FixedDatetime)
+    with session_factory() as session:
+        for price, started_at, sold_at, cost in [
+            (100, datetime(2026, 9, 5, 2, tzinfo=UTC), datetime(2026, 9, 5, 3, tzinfo=UTC), 50),
+            (200, datetime(2026, 9, 6, 0, tzinfo=UTC), datetime(2026, 9, 6, 1, tzinfo=UTC), 250),
+            (40, datetime(2026, 9, 6, 1, tzinfo=UTC), None, None),
+            (60, datetime(2026, 9, 1, 1, tzinfo=UTC), None, None),
+            (300, datetime(2026, 9, 7, 8, tzinfo=UTC), datetime(2026, 9, 7, 9, tzinfo=UTC), None),
+        ]:
+            session.add(
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=price,
+                    selling_started_at=started_at,
+                    date_sold=sold_at,
+                    recipe_cost_at_sale=None if cost is None else Decimal(cost),
+                )
+            )
+        session.commit()
+
+    for params in (
+        {},
+        {"status": "active", "date_to": "2026-09-04"},
+        {"status": "sold", "min_price": "200"},
+    ):
+        response = client.get("/sales", params=params)
+        assert response.status_code == 200
+        assert "Listed Today totals all active asking prices." in response.text
+        assert f"show today, {current_date} (Pacific Time)." in response.text
+        assert response.text.index('aria-label="Total sales summary"') < response.text.index(
+            'aria-label="Current sales summary"'
+        )
+        for label, current_label, total, current in zip(
+            ("Listed", "Sales", "Cost", "Profit"),
+            ("Listed Today", "Sold Today", "Cost Today", "Profit Today"),
+            ("700", "600", "300", "0"),
+            expected,
+            strict=True,
+        ):
+            assert f"<span>Total {label}</span><strong>{total}</strong>" in response.text
+            assert f"<span>{current_label}</span><strong>{current}</strong>" in response.text
 
 
 def test_sales_show_recipe_cost_profit_and_four_chart_series(
@@ -961,10 +1024,10 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
     assert "All Cost on 2026-08-23: 3,500 across 1 item" in response.text
     assert "All Profit on 2026-08-23: 1,000 across 1 item" in response.text
     assert "All Profit on 2026-08-24: -500 across 1 item" in response.text
-    assert "<span>Listed</span><strong>16,500</strong>" in response.text
-    assert "<span>All Sales</span><strong>7,500</strong>" in response.text
-    assert "<span>All Cost</span><strong>7,000</strong>" in response.text
-    assert "<span>All Profit</span><strong>500</strong>" in response.text
+    assert "<span>Total Listed</span><strong>16,500</strong>" in response.text
+    assert "<span>Total Sales</span><strong>7,500</strong>" in response.text
+    assert "<span>Total Cost</span><strong>7,000</strong>" in response.text
+    assert "<span>Total Profit</span><strong>500</strong>" in response.text
     chart_section = response.text.split("<h2>Sales Over Time</h2>", maxsplit=1)[1]
     assert "Cost-Covered Sales" not in chart_section
     assert "Covered Cost" not in chart_section
