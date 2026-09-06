@@ -35,6 +35,7 @@ from dofus_touch_economy.services.catalog import (
     ItemSortField,
     SortDirection,
 )
+from dofus_touch_economy.services.dashboard import DashboardPeriod, DashboardService
 from dofus_touch_economy.services.insights import InsightsService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
@@ -1675,6 +1676,77 @@ def insights_page(
             ).report(),
         },
     )
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    days: Annotated[int, Query(ge=7, le=90)] = 30,
+) -> HTMLResponse:
+    report = DashboardService(
+        session, settings.market_context, display_timezone=PACIFIC_TIME
+    ).report(days)
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        context={
+            "active_tab": "dashboard",
+            "report": report,
+            "charts": {
+                key: _dashboard_chart(report.daily, key)
+                for key in ("profit", "revenue", "sold_count")
+            },
+            "profit_scale": max((abs(item.profit) for item in report.profit_items), default=1) or 1,
+        },
+    )
+
+
+def _dashboard_chart(daily: tuple[DashboardPeriod, ...], attribute: str) -> dict[str, object]:
+    values = [getattr(day, attribute) for day in daily]
+    known = [Decimal(value) for value in values if value is not None]
+    minimum = min([Decimal(0), *known])
+    maximum = max([Decimal(0), *known])
+    step = _nice_tick_step(max(1, ceil(maximum - minimum)))
+    lower = floor(minimum / step) * step
+    upper = ceil(maximum / step) * step
+    if lower == upper:
+        upper = lower + step * 4
+
+    def y(value: Decimal | int) -> float:
+        return round(18 + 172 * float((upper - value) / (upper - lower)), 2)
+
+    points = []
+    segments = []
+    segment = []
+    for index, (day, value) in enumerate(zip(daily, values, strict=True)):
+        x = round(68 + index * 630 / (len(daily) - 1), 2)
+        point = {
+            "x": x,
+            "date": day.ended_on.isoformat(),
+            "label": "Unknown" if value is None else f"{value:,.0f}",
+            "y": None if value is None else y(value),
+        }
+        points.append(point)
+        if value is None:
+            if segment:
+                segments.append(" ".join(segment))
+                segment = []
+        else:
+            segment.append(f"{x},{point['y']}")
+    if segment:
+        segments.append(" ".join(segment))
+    return {
+        "points": points,
+        "segments": segments,
+        "ticks": [
+            {"y": y(value), "label": f"{value:,}"} for value in range(lower, upper + 1, step)
+        ],
+        "labels": [points[index] for index in (0, len(points) // 2, len(points) - 1)],
+        "zero_y": y(0),
+        "bar_width": round(min(24, 450 / len(daily)), 2),
+    }
 
 
 @router.get("/profit-opportunities", response_class=HTMLResponse)

@@ -93,3 +93,60 @@
 - Restarted the loopback web process with its existing command and environment.
   The live page and a sold-only price-filtered view both show 30,568,600 kamas
   for active inventory, matching an independent sum through the Sales service.
+
+## Data navigation and performance dashboard
+
+- Replaced the top-level Insights link with a Data dropdown containing Dashboard
+  and Insights in alphabetical order. Existing Insights content and URL remain
+  available. The new menu reuses click/keyboard handling, exclusive opening,
+  outside-focus closing, and Escape behavior; the selected child stays identified.
+- Added `/dashboard` as a read-only operational Sales projection. Used known
+  realized profit as the proposed North Star, with its definition and cost
+  coverage beside the main figure. The optional preference question received no
+  different selection during implementation.
+- Added 7-, 30-, and 90-day controls, defaulting to 30, anchored on today's Pacific
+  date with a preceding equal-length comparison window. The page explicitly notes
+  that today is partial and shows the last recorded sale time.
+- Added daily realized-profit and revenue line charts, sales-volume bars,
+  revenue/count/margin/time-to-sell KPIs, and coverage comparisons. Pointer,
+  keyboard focus, and touch/click update a chart readout; a sortable daily table
+  provides underlying values. All assets are local.
+- Added an all-date active-inventory snapshot and selected-period top-five items
+  by known profit. Snapshot totals remain distinct from period activity.
+- Unknown sale cost stays excluded from both known profit and the margin revenue
+  denominator. No-sale days are zero; sales whose profit is entirely unknown
+  produce a line gap. Future sale timestamps are excluded, and stale history does
+  not move the reporting window away from today.
+- Service tests cover Pacific boundaries, preceding periods, losses, missing
+  costs, cost coverage, margin, daily gaps/zeros, future timestamps, old active
+  inventory, item ranking, empty data, and stale history. Web tests cover the
+  Data navigation, reporting windows, empty views, and parameter validation.
+- `./scripts/check.sh` passed: 363 Python tests, lint/formatting, compilation,
+  dbt debug/parse/seed/build with all 126 build nodes passing, SQL lint, and
+  public-file policy. `git diff --check` passed.
+- Restarted the existing loopback web process with its command and environment.
+  Chromium verified Data menu navigation, exclusive menu opening, the 7-day
+  control, chart hover/focus readouts, and zero JavaScript errors on the live page.
+  Browser checks passed at 1440, 900, and 390 pixels. The mobile pass identified
+  and corrected a header-tab overflow; the inventory value now occupies a full
+  mobile row. These final CSS adjustments were verified in the browser after the
+  full suite. Screenshots stayed in `/tmp`, outside Git.
+
+## Return web-server control to the terminal
+
+- The user's manual `uv run dofus-web` failed because the agent-started background
+  instance still owned port 8000. Confirmed that exact process and a successful
+  Dashboard response, then gracefully stopped it so the user can start the app.
+- Verified that `127.0.0.1:8000` can bind again. No application or data changes;
+  full tests were not repeated for this process-only correction.
+
+## Move BigQuery Sync under Data
+
+- Moved BigQuery Sync from the top-level header into the Data dropdown, ordered
+  BigQuery Sync, Dashboard, Insights. Data and the BigQuery Sync child are marked
+  active on the existing sync page.
+- The four focused navigation/page tests passed, along with Python lint,
+  formatting, and `git diff --check`. A rendered-page inspection confirmed the
+  dropdown order, active states, and absence of a top-level sync link.
+- The full check script was not repeated for this navigation-template-only change.
+  No sync job was started and no web-process restart was needed.

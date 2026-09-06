@@ -77,8 +77,10 @@ remains disabled until its private layout gate is met.
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
-The shared page layout exposes Item, Sales, Insights, and BigQuery Sync as top-level navigation.
-Item opens an accessible hover, click, and keyboard-focus submenu for Item Search,
+The shared page layout exposes Item, Sales, and Data as top-level navigation.
+Data contains BigQuery Sync, Dashboard, and Insights. Menus open by click or keyboard and close
+when another menu opens, focus leaves, or Escape is pressed.
+Item opens an accessible submenu for Item Search,
 Recipes, and Recipe Calculator; Sales uses the same pattern for Sales Activity, Best
 Sellers, Out of Stock Items, and Profit Opportunities. Item Search renders 100-row pages of alphabetical
 catalog summaries and uses one bulk latest-price query for the active market context.
@@ -123,6 +125,15 @@ Out of Stock Items is a grouped Sales projection: an item qualifies when it has 
 least one completed listing and zero active listings. It uses the most recent sold
 listing plus bulk current-price and recipe-cost calculations, and exposes craftable
 items through the shared browser-local Recipe Calculator cart without adding listings.
+
+Dashboard is a read-only Sales projection with known realized profit as its North
+Star. Its 7-, 30-, and 90-day controls end on today's Pacific calendar date and
+compare against the preceding equal-length period; today is explicitly partial.
+Daily profit, revenue, and sales-volume charts preserve calendar gaps, distinguish
+unknown profit from zero activity, and provide pointer/keyboard readouts plus a
+sortable data table. Margin uses only revenue from sales with known costs, and
+cost coverage accompanies profit. Current inventory is a separate all-date
+snapshot. These views use the operational SQLite services without hosted queries.
 
 Insights is a read-only operational synthesis over the existing Sales and recipe
 services. It compares the seven calendar days ending on the latest recorded Pacific

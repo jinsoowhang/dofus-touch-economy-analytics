@@ -37,6 +37,7 @@ def test_main_pages_include_one_line_descriptions(client) -> None:
         "/best-sellers": "Compare every item with completed Sales history",
         "/out-of-stock-items": "Items appear here after at least one completed sale",
         "/insights": "A stakeholder view of sales momentum, demand, inventory",
+        "/dashboard": "Track realized profit, sales momentum",
         "/bigquery-sync": "Manually publish one immutable snapshot",
     }
 
@@ -112,7 +113,7 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
 
 
-def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
+def test_insights_page_synthesizes_sales_and_sits_in_data_menu(
     client,
     session_factory,
     catalog_item,
@@ -135,10 +136,14 @@ def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
     assert response.status_code == 200
     assert "<title>Insights · Dofus Touch Economy</title>" in response.text
     assert "<h1>Insights</h1>" in response.text
-    assert re.search(r'href="/insights"\s+class="site-tab is-active"', response.text)
+    assert re.search(r'href="/insights"\s+class="site-submenu-link is-active"', response.text)
     assert 'aria-current="page"' in response.text
-    assert response.text.index("<span>Sales</span>") < response.text.index(">Insights</a>")
-    assert response.text.index(">Insights</a>") < response.text.index(">BigQuery Sync</a>")
+    assert response.text.index("<span>Sales</span>") < response.text.index("<span>Data</span>")
+    assert (
+        response.text.index(">BigQuery Sync</a>")
+        < response.text.index(">Dashboard</a>")
+        < response.text.index(">Insights</a>")
+    )
     assert 'class="page-shell page-shell--wide"' in response.text
     assert "Executive Overview" in response.text
     assert "Analyst Readout" in response.text
@@ -3081,3 +3086,27 @@ def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
     assert 'value="100"' in response.text
     assert "Invalidate" not in response.text
     assert 'hx-swap-oob="true"' in response.text
+
+
+def test_dashboard_renders_metrics_periods_and_data_navigation(client):
+    for days in (7, 30, 90):
+        response = client.get("/dashboard", params={"days": days})
+        assert response.status_code == 200
+        assert "<h1>Dashboard</h1>" in response.text
+        assert "<span>Data</span>" in response.text
+        assert 'aria-label="Data navigation"' in response.text
+        assert re.search(
+            r'href="/dashboard" class="site-submenu-link is-active" aria-current="page"',
+            response.text,
+        )
+        assert f'href="/dashboard?days={days}" aria-current="page"' in response.text
+        assert "Known Realized Profit" in response.text
+        assert "Cost coverage" in response.text
+        assert "No completed sales in this period." in response.text
+        assert response.text.count("data-dashboard-chart") == 3
+        assert response.text.count('<td class="numeric">0</td>') == days
+        assert "Inventory to Convert" in response.text
+        assert 'src="/static/dashboard.js"' in response.text
+        assert 'class="page-shell page-shell--wide"' in response.text
+    for days in (0, 91, "invalid"):
+        assert client.get("/dashboard", params={"days": days}).status_code == 422

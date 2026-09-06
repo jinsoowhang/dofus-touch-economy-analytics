@@ -1696,6 +1696,10 @@ th.numeric .client-sort-header {
     padding-block-end: 0.25rem;
   }
 
+  .site-tab {
+    padding-inline: 0.6rem;
+  }
+
   form {
     display: flex;
     flex-direction: column;
@@ -1726,5 +1730,286 @@ th.numeric .client-sort-header {
 
   .sales-metrics {
     grid-template-columns: 1fr;
+  }
+}
+
+.dashboard {
+  --dashboard-profit: var(--accent);
+  --dashboard-revenue: var(--chart-listed);
+}
+
+.dashboard-header,
+.dashboard-periods,
+.dashboard-profit-items li > div:first-child {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.dashboard-header h1 {
+  margin-block: 0.15rem;
+}
+.dashboard-header .page-description {
+  margin-block-end: 0;
+}
+.dashboard-eyebrow {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-block: 0 0.5rem;
+  text-transform: uppercase;
+}
+
+.dashboard-periods {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  padding: 0.25rem;
+}
+.dashboard-periods a {
+  border-radius: 0.4rem;
+  color: var(--text);
+  padding: 0.45rem 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.dashboard-periods a[aria-current="page"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.dashboard-window,
+.dashboard-note,
+.dashboard-comparison,
+.dashboard-chart-readout,
+.dashboard small {
+  color: var(--muted);
+}
+.dashboard-window, .dashboard-note {
+  font-size: 0.85rem;
+}
+.dashboard-comparison {
+  display: block;
+  font-size: 0.8rem;
+}
+.dashboard-north-star {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface) 70%);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 0.85rem;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+  padding: 1.5rem;
+}
+.dashboard-north-star h2, .dashboard-panel h2 {
+  margin-block: 0 0.75rem;
+}
+.dashboard-main-value {
+  display: block;
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  margin-block-end: 0.6rem;
+  overflow-wrap: anywhere;
+}
+.dashboard-main-value small, .dashboard-kpis strong small {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.dashboard-north-star-summary > p:not(.dashboard-eyebrow) {
+  font-size: 0.85rem;
+}
+.dashboard-coverage {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 1fr auto;
+  margin-top: 1.25rem;
+}
+.dashboard-coverage meter, .dashboard-coverage small {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.dashboard-coverage meter {
+  accent-color: var(--accent);
+  height: 0.65rem;
+}
+.dashboard-coverage small {
+  font-size: 0.75rem;
+}
+.dashboard-kpis {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-block: 1rem;
+}
+.dashboard-kpis article, .dashboard-panel, .dashboard-chart-grid > figure {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.2rem;
+}
+.dashboard-kpis article {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+.dashboard-kpis strong {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-kpis small {
+  font-size: 0.75rem;
+}
+.dashboard-chart-grid, .dashboard-bottom-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block: 1rem;
+}
+.dashboard-chart {
+  margin: 0;
+  min-width: 0;
+}
+.dashboard-chart figcaption {
+  font-weight: 700;
+}
+.dashboard-chart figcaption span {
+  color: var(--muted);
+  float: right;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.dashboard-chart svg {
+  display: block;
+  overflow: visible;
+  width: 100%;
+}
+.dashboard-line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.dashboard-line--profit {
+  stroke: var(--dashboard-profit);
+}
+.dashboard-line--revenue {
+  stroke: var(--dashboard-revenue);
+}
+.dashboard-point--profit {
+  fill: var(--dashboard-profit);
+}
+.dashboard-point--revenue {
+  fill: var(--dashboard-revenue);
+}
+.dashboard-bar {
+  fill: var(--chart-cost);
+}
+.dashboard-point, .dashboard-bar {
+  cursor: crosshair;
+}
+.dashboard-point:focus, .dashboard-point:hover, .dashboard-bar:focus, .dashboard-bar:hover {
+  outline: none;
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.dashboard-chart-readout {
+  font-size: 0.75rem;
+  margin-block: 0.5rem 0;
+  min-height: 2.5em;
+}
+.dashboard-inventory {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+.dashboard-inventory div {
+  display: grid;
+  gap: 0.3rem;
+}
+.dashboard-inventory strong {
+  font-size: 1.4rem;
+  overflow-wrap: anywhere;
+}
+.dashboard-inventory span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.dashboard-profit-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.dashboard-profit-items li + li {
+  margin-top: 0.85rem;
+}
+.dashboard-profit-items li > div:first-child {
+  font-size: 0.9rem;
+}
+.dashboard-profit-items small {
+  font-size: 0.7rem;
+}
+.dashboard-profit-track {
+  background: var(--background);
+  border-radius: 0.3rem;
+  height: 0.4rem;
+  margin-block: 0.3rem;
+}
+.dashboard-profit-track span {
+  background: var(--accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+.dashboard-profit-track .is-loss {
+  background: var(--danger);
+}
+.dashboard-daily-table table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 42rem;
+}
+.dashboard-daily-table td, .dashboard-daily-table th {
+  border-bottom: 1px solid var(--border);
+  padding: 0.65rem;
+}
+
+@media (max-width: 1000px) {
+  .dashboard-north-star {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .dashboard-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .dashboard-chart-grid, .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-north-star {
+    padding: 1rem;
+  }
+  .dashboard-kpis {
+    gap: 0.65rem;
+  }
+  .dashboard-kpis article {
+    padding: 0.85rem;
+  }
+  .dashboard-kpis strong {
+    font-size: 1.3rem;
+  }
+  .dashboard-inventory {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-inventory > div:first-child {
+    grid-column: 1 / -1;
   }
 }
