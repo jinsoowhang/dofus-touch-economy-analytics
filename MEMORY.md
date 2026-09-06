@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 ## Dofus Touch Economy Analytics
 
@@ -231,3 +231,10 @@
   visual review threshold is independent of the existing 7-day Stale price status.
   In that table, Current price uses the normal theme text color while Stale price and
   Missing price retain the warning color.
+- On 2026-09-05, two Downloads screenshots atomically marked 34 exact active
+  listings sold using their Pacific save times. One screenshot-authoritative price
+  correction was applied and all 34 recipe costs were captured. Fifteen visible
+  occurrences remained outside the approved professions; the ambiguous Sapphire
+  name was left unresolved after verifying every exact candidate was out of scope.
+  The ignored reconciliation report retains the original plan and an
+  integrity-checked pre-write backup supports recovery.
