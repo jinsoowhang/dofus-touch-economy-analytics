@@ -152,3 +152,9 @@
   working and staged whitespace. Private operational databases, screenshots,
   reports, backups, and credentials remain excluded. Publication uses a normal
   fast-forward push to `origin/main`.
+
+## Deterministic sale-cost test publication
+
+- Kept the sale-cost snapshot test's post-sale observation in the present rather
+  than one second in the future, so reopening sees it regardless of machine speed.
+  Isolated verification runs the Sales tests before this test-only commit.

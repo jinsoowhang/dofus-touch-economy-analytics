@@ -94,7 +94,8 @@ def test_completed_sale_profit_keeps_its_sale_time_recipe_cost(
         )
         assert stored_costs == [Decimal(3_500), Decimal(3_500)]
 
-        later_observed_at = datetime.now(UTC) + timedelta(seconds=1)
+        # The observation follows the sale but must already be current when reopening.
+        later_observed_at = datetime.now(UTC)
         prices = PriceService(session, "Dodge")
         prices.record(
             items["synthetic ore"].uuid,
