@@ -354,10 +354,11 @@
 - Price Review, Sales Activity, Recipes, Recipe Calculator Sale Price Each, and
   Sales price filters use thousands of kamas (77 = 77,000). Ingredient Per Unit
   Price in item recipes and Recipe Calculator always uses full kamas (77 = 77),
-  including any craftable intermediate ingredient. Item Search/detail and Price
-  Priorities use thousands for items with recipes and full kamas for other items;
-  visible unit labels and page help state the distinction. Catalog/priority pages
-  look up recipe membership in one bulk query for their displayed items.
+  including any craftable intermediate ingredient. Price Priorities Current Price
+  always uses full kamas, including craftable items. Item Search/detail uses thousands
+  for items with recipes and full kamas for other items; visible unit labels and
+  page help state the distinction. Catalog search looks up recipe membership in
+  one bulk query for its displayed items.
   Prefills and unchanged-value baselines follow the field's unit. Read-only amounts,
   history, totals, profit filters, storage, and JSON API values remain full kamas.
 - HTML forms explicitly carry `price_unit=thousands` or `price_unit=kamas`; the shared web boundary uses

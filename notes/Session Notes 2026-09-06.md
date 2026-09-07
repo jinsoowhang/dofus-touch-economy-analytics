@@ -357,3 +357,13 @@
   also received isolated lint, formatting, and relevant Python test checks.
 - Checked staged changes for whitespace errors and kept operational databases,
   raw exports, generated artifacts, and local verification logs out of Git.
+
+## Price Priorities units
+
+- Price Priorities Current Price now uses literal full kamas for every item,
+  including craftable items. Updated the help text, field labels, unit marker, and
+  input mode, and removed the recipe-membership query that this page no longer needs.
+- Updated existing checks for full-kama priority submissions. All 101 focused web,
+  price-unit, and Sales Activity tests passed, along
+  with Python lint/formatting, public-file policy, and `git diff --check`.
+  The full dbt check sequence was not repeated for these small web-only changes.

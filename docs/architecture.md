@@ -111,8 +111,8 @@ or operational write is introduced by the checklist.
 
 Craftable-item price entry uses thousands of kamas with explicit labels and examples.
 Ingredient Per Unit Price always uses full kamas, including craftable intermediates.
-Mixed Item Search/detail and Price Priorities views choose units by recipe membership;
-search and priority pages use one bulk lookup for their displayed items. Templates
+Price Priorities Current Price also always uses full kamas. Mixed Item Search/detail
+views choose units by recipe membership; search uses one bulk lookup for its displayed items. Templates
 format prefills and unchanged-value baselines in the field's unit. Explicitly marked
 thousands forms convert back to whole kamas with exact Decimal arithmetic at the web
 boundary; full-kama forms pass through unchanged. Calculator Sale Price Each and its

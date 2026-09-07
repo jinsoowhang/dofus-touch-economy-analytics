@@ -191,6 +191,8 @@ def test_mixed_catalog_units_and_per_unit_prices(client, session_factory, fixtur
     ]:
         page = client.get(url)
         for item_uuid, unit in [(craft, "thousands"), (ingredient, "kamas")]:
+            if url == "/price-priorities":
+                unit = "kamas"
             form = re.search(
                 r'<form\b[^>]*action="' + prefix + str(item_uuid) + suffix + r'[^\"]*".*?</form>',
                 page.text,
@@ -215,7 +217,7 @@ def test_mixed_catalog_units_and_per_unit_prices(client, session_factory, fixtur
     assert 'value="77"' in raw_page.text
     assert 'name="price_unit" value="kamas"' in raw_page.text
     craft_page = client.get(f"/items/{craft}")
-    assert 'value="77"' in craft_page.text
+    assert 'value="0.077"' in craft_page.text
     assert 'name="price_unit" value="thousands"' in craft_page.text
     assert "kamas per unit" in craft_page.text
     calculator = client.post(
@@ -236,4 +238,4 @@ def test_mixed_catalog_units_and_per_unit_prices(client, session_factory, fixtur
                 )
             )
         )
-        assert sorted(prices) == [77, 77, 77000]
+        assert sorted(prices) == [77, 77, 77]

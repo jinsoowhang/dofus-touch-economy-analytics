@@ -518,9 +518,6 @@ def _price_priorities_context(
         "active_tab": "price_priorities",
         "market_context": market_context,
         "report": report,
-        "craftable_item_uuids": CatalogService(session, market_context).craftable_item_uuids(
-            [item.item_uuid for item in report.items]
-        ),
         "notification": notification,
         "price_errors": price_errors or [],
         "price_item_uuid": price_item_uuid,
