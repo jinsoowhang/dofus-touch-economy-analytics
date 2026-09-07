@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-06
 
 ## Dofus Touch Economy Analytics
 
@@ -277,3 +277,11 @@
   name was left unresolved after verifying every exact candidate was out of scope.
   The ignored reconciliation report retains the original plan and an
   integrity-checked pre-write backup supports recovery.
+
+- On 2026-09-06, both Downloads screenshots atomically marked 26 exact active
+  listings sold using their Pacific save times. One screenshot-authoritative price
+  correction was applied; 25 sales have recipe-cost snapshots and one remains
+  unknown. Nine notifications were non-craftable or outside the approved
+  professions. An integrity-checked backup and reconciliation report remain ignored;
+  verification confirmed exactly the planned listing changes and one appended
+  price observation, with all other tables unchanged.
