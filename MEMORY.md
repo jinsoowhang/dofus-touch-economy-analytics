@@ -285,3 +285,23 @@
   professions. An integrity-checked backup and reconciliation report remain ignored;
   verification confirmed exactly the planned listing changes and one appended
   price observation, with all other tables unchanged.
+
+- Sales > Price Review (`/sales/price-review`) shows one row per active listing
+  after seven Pacific calendar days since its latest relist, or its original
+  Selling Since date when never repriced. Missing-price and one-kama listings
+  remain eligible even without a markdown suggestion. Catalog-excluded items are
+  omitted. Item names sort A–Z by default; eight data columns sort on the server,
+  missing values stay last, and 50-row pages retain full due counts and listed value.
+- Price Review reuses the existing append-only Sales price update: Enter, blur,
+  or Apply suggestion records the relisted date, preserves Selling Since, and
+  removes only that listing until another seven days pass. Item-level price entry
+  does not reset listing age. Current recipe cost, estimated profit, and profit at
+  the suggested price support review; More shows latest observed item price/date,
+  category, completed-sale count, and suggestion basis. Missing costs remain unknown.
+  Sorting and page state survive saves, and failed saves retain the entered price.
+
+- Price Review rounds suggestions of at least 1,000 kamas to the nearest thousand
+  (half-thousands round up), capped at the largest thousand below the current Sales
+  Price. Sub-1,000 suggestions retain their positive original amount. Display,
+  suggestion sorting, estimated suggestion profit, and Apply suggestion use the
+  same rounded value; manual prices and Sales Activity suggestions are unchanged.

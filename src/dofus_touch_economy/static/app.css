@@ -755,6 +755,19 @@ th.numeric .client-sort-header {
   padding: 0.75rem;
 }
 
+.price-review-table {
+  min-width: 76rem;
+}
+
+.price-review-table td {
+  padding: 0.75rem;
+  position: relative;
+}
+
+.price-review-table .row-details {
+  min-width: 10rem;
+}
+
 .profit-opportunities-table {
   min-width: 82rem;
 }

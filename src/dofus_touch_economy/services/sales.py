@@ -1,6 +1,6 @@
 from bisect import bisect_right
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, tzinfo
 from decimal import Decimal
 from typing import Literal
@@ -15,6 +15,7 @@ from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.repositories.sales import SalesRepository
 from dofus_touch_economy.schemas import (
+    CurrentPriceResponse,
     SaleItemChoiceResponse,
     SaleListingCreate,
     SaleListingResponse,
@@ -40,6 +41,9 @@ SaleSortField = Literal[
 SaleSortDirection = Literal["asc", "desc"]
 ACTIVE_PRICE_REVIEW_DAYS = 7
 ACTIVE_PRICE_MARKDOWN_PERCENT = 5
+PriceReviewSortField = Literal[
+    "name", "age", "price", "cost", "profit", "suggested", "started", "relisted"
+]
 
 
 class SaleItemNotFound(LookupError):
@@ -142,6 +146,20 @@ class ActivePriceReview:
     completed_sale_count: int
 
 
+@dataclass(frozen=True)
+class PriceReviewListing:
+    listing: SaleListingResponse
+    age_days: int
+    current_price: CurrentPriceResponse | None
+    suggestion: ActivePriceReview | None
+
+    @property
+    def suggested_profit(self) -> Decimal | None:
+        if self.suggestion is None or self.listing.recipe_cost is None:
+            return None
+        return self.suggestion.suggested_price - self.listing.recipe_cost
+
+
 @dataclass
 class _DailySalesAccumulator:
     total_listed_price: int = 0
@@ -221,6 +239,77 @@ class SalesService:
 
     def active_total_price(self) -> int:
         return self._sales.active_total_price()
+
+    def price_review_listings(
+        self,
+        *,
+        as_of: datetime,
+        display_timezone: tzinfo,
+        sort_field: PriceReviewSortField = "name",
+        sort_direction: SaleSortDirection = "asc",
+    ) -> list[PriceReviewListing]:
+        review_date = _as_utc(as_of).astimezone(display_timezone).date()
+        due: list[tuple[SaleListingResponse, int]] = []
+        for listing in self.active(sort_field="started", sort_direction="asc"):
+            started = listing.relisted_at or listing.selling_started_at
+            age_days = (review_date - started.astimezone(display_timezone).date()).days
+            if age_days >= ACTIVE_PRICE_REVIEW_DAYS:
+                due.append((listing, age_days))
+        if not due:
+            return []
+        item_ids = dict(
+            self._session.execute(
+                select(Item.uuid, Item.id).where(
+                    Item.uuid.in_({listing.item_uuid for listing, _ in due}),
+                    active_catalog_item_clause(Item),
+                )
+            )
+            .tuples()
+            .all()
+        )
+        due = [(listing, age) for listing, age in due if listing.item_uuid in item_ids]
+        suggestions = self.active_price_reviews(
+            [listing for listing, _ in due],
+            as_of=as_of,
+            display_timezone=display_timezone,
+        )
+        for listing, _ in due:
+            suggestion = suggestions.get(listing.uuid)
+            if suggestion is not None and suggestion.suggested_price >= 1_000:
+                rounded_price = (suggestion.suggested_price + 500) // 1_000 * 1_000
+                maximum_price = (listing.asking_price - 1) // 1_000 * 1_000
+                suggestions[listing.uuid] = replace(
+                    suggestion, suggested_price=min(rounded_price, maximum_price)
+                )
+        prices = PriceService(self._session, self._market_context).current_for_items(
+            set(item_ids.values())
+        )
+        rows = [
+            PriceReviewListing(
+                listing=listing,
+                age_days=age_days,
+                current_price=prices.get(item_ids[listing.item_uuid]),
+                suggestion=suggestions.get(listing.uuid),
+            )
+            for listing, age_days in due
+        ]
+
+        def sort_value(row: PriceReviewListing):
+            return {
+                "name": row.listing.display_name.casefold(),
+                "age": row.age_days,
+                "price": row.listing.asking_price,
+                "cost": row.listing.recipe_cost,
+                "profit": row.listing.profit,
+                "suggested": None if row.suggestion is None else row.suggestion.suggested_price,
+                "started": row.listing.selling_started_at,
+                "relisted": row.listing.relisted_at,
+            }[sort_field]
+
+        # Keep missing prices, costs, and dates last in either direction.
+        present = [row for row in rows if sort_value(row) is not None]
+        missing = [row for row in rows if sort_value(row) is None]
+        return sorted(present, key=sort_value, reverse=sort_direction == "desc") + missing
 
     def active_price_reviews(
         self,

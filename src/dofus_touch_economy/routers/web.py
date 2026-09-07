@@ -58,6 +58,7 @@ from dofus_touch_economy.services.sales import (
     ACTIVE_PRICE_MARKDOWN_PERCENT,
     ACTIVE_PRICE_REVIEW_DAYS,
     DailySalesTotal,
+    PriceReviewSortField,
     SaleItemNotFound,
     SaleListingConflict,
     SaleListingFilters,
@@ -1707,6 +1708,153 @@ def sales_page(
         notification=notifications.get(notice),
     )
     return templates.TemplateResponse(request, "sales.html", context=context)
+
+
+def _price_review_context(
+    service: SalesService,
+    *,
+    sort: PriceReviewSortField,
+    direction: SaleSortDirection,
+    page: int,
+    errors: list[str] | None = None,
+    edited_uuid: UUID | None = None,
+    price_value: str = "",
+    updated: bool = False,
+) -> dict[str, object]:
+    rows = service.price_review_listings(
+        as_of=datetime.now(UTC),
+        display_timezone=PACIFIC_TIME,
+        sort_field=sort,
+        sort_direction=direction,
+    )
+    pages = max(1, ceil(len(rows) / SALES_PAGE_SIZE))
+    page = min(page, pages)
+    offset = (page - 1) * SALES_PAGE_SIZE
+    query = urlencode({"sort": sort, "direction": direction, "page": page})
+    columns = []
+    for field, label, numeric in (
+        ("name", "Item", False),
+        ("age", "Days Since List / Relist", True),
+        ("price", "Sales Price", True),
+        ("cost", "Recipe Cost", True),
+        ("profit", "Estimated Profit", True),
+        ("suggested", "Suggested Price", True),
+        ("started", "Selling Since", False),
+        ("relisted", "Relisted Date", False),
+    ):
+        active = field == sort
+        next_direction = "asc" if active and direction == "desc" else "desc"
+        columns.append(
+            {
+                "label": label,
+                "numeric": numeric,
+                "aria_sort": ("ascending" if direction == "asc" else "descending")
+                if active
+                else "none",
+                "arrow": ("▲" if direction == "asc" else "▼") if active else "",
+                "url": "/sales/price-review?"
+                + urlencode({"sort": field, "direction": next_direction}),
+            }
+        )
+    return {
+        "active_tab": "price_review",
+        "rows": rows[offset : offset + SALES_PAGE_SIZE],
+        "count": len(rows),
+        "total_price": sum(row.listing.asking_price or 0 for row in rows),
+        "unpriced_count": sum(row.listing.asking_price is None for row in rows),
+        "review_days": ACTIVE_PRICE_REVIEW_DAYS,
+        "markdown_percent": ACTIVE_PRICE_MARKDOWN_PERCENT,
+        "columns": columns,
+        "review_query": query,
+        "errors": errors or [],
+        "edited_uuid": edited_uuid,
+        "price_value": price_value,
+        "updated": updated,
+        "pagination": {
+            "label": "Price Review",
+            "start": offset + 1 if rows else 0,
+            "end": min(offset + SALES_PAGE_SIZE, len(rows)),
+            "count": len(rows),
+            "page": page,
+            "pages": pages,
+            "previous": "/sales/price-review?"
+            + urlencode({"sort": sort, "direction": direction, "page": page - 1})
+            if page > 1
+            else None,
+            "next": "/sales/price-review?"
+            + urlencode({"sort": sort, "direction": direction, "page": page + 1})
+            if page < pages
+            else None,
+        },
+    }
+
+
+@router.get("/sales/price-review", response_class=HTMLResponse)
+def price_review_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort: PriceReviewSortField = "name",
+    direction: SaleSortDirection = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+    updated: bool = False,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "price_review.html",
+        context=_price_review_context(
+            SalesService(session, settings.market_context),
+            sort=sort,
+            direction=direction,
+            page=page,
+            updated=updated,
+        ),
+    )
+
+
+@router.post(
+    "/sales/price-review/{listing_uuid}/price", response_class=HTMLResponse, response_model=None
+)
+async def update_price_review_listing(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort: PriceReviewSortField = "name",
+    direction: SaleSortDirection = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> HTMLResponse | RedirectResponse:
+    values = _form_values(await request.form(), ("asking_price",))
+    service = SalesService(session, settings.market_context)
+    try:
+        command = SalePriceUpdate.model_validate(values)
+        service.update_price(listing_uuid, command)
+    except ValidationError as error:
+        errors, status = _validation_messages(error), 422
+    except SaleListingNotFound:
+        errors, status = ["Sale listing not found."], 404
+    except SaleListingConflict:
+        errors, status = ["A sold listing cannot be repriced."], 409
+    else:
+        return RedirectResponse(
+            url="/sales/price-review?"
+            + urlencode({"sort": sort, "direction": direction, "page": page, "updated": "true"}),
+            status_code=303,
+        )
+    return templates.TemplateResponse(
+        request,
+        "price_review.html",
+        context=_price_review_context(
+            service,
+            sort=sort,
+            direction=direction,
+            page=page,
+            errors=errors,
+            edited_uuid=listing_uuid,
+            price_value=values["asking_price"],
+        ),
+        status_code=status,
+    )
 
 
 @router.get("/out-of-stock-items", response_class=HTMLResponse)

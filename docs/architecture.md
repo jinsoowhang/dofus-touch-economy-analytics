@@ -82,7 +82,7 @@ Data contains BigQuery Sync, Dashboard, and Insights. Menus open by click or key
 when another menu opens, focus leaves, or Escape is pressed.
 Item opens an accessible submenu for Item Search,
 Recipes, and Recipe Calculator; Sales uses the same pattern for Sales Activity, Best
-Sellers, Out of Stock Items, and Profit Opportunities. Item Search renders 100-row pages of alphabetical
+Sellers, Out of Stock Items, Price Review, and Profit Opportunities. Item Search renders 100-row pages of alphabetical
 catalog summaries and uses one bulk latest-price query for the active market context.
 Filtering replaces only the table fragment. Item rows link to detail; price changes remain append-only
 observations rather than direct edits. Recipes selects the latest recipe per crafted
@@ -111,6 +111,17 @@ once and shares it with daily totals. Current recipe costs load only the latest
 recipe versions and requested ingredient prices; historical reconstruction keeps
 its existing timestamp rules. Page payloads are bounded, while server calculations
 and filtering still scale with full listing history.
+
+Price Review (`/sales/price-review`) projects active listings whose latest relist,
+or original listing date, is at least seven Pacific calendar days old. Each row
+retains listing identity; missing-price rows remain eligible. Server sorting and
+50-row pagination accompany full due counts and listed value. Price changes reuse
+the Sales service and append a linked price observation, preserving the original
+listing start while recording the relisted date. The updated listing leaves the
+queue until seven more days pass. Item-level observations do not reset this clock.
+Current recipe cost, estimated profit, suggestion profit, and observed item-price
+context support manual decisions; unknown cost remains explicit. No schema change
+or game-client action is involved.
 
 The Recipe Calculator is an operational projection over the latest recipe per
 crafted item and the latest valid ingredient prices. Resolved shopping-list prices
