@@ -367,3 +367,15 @@
   price-unit, and Sales Activity tests passed, along
   with Python lint/formatting, public-file policy, and `git diff --check`.
   The full dbt check sequence was not repeated for these small web-only changes.
+
+## Bottom navigation for every paginated section
+
+- Reused the existing pagination controls below Currently Selling, preserving its
+  filters, sorting, and the independent Sold History page.
+- Audited all pagination templates and added the existing Sold History pagination
+  below its table. Item Search, Recipes, Price Review, and Currently Selling already
+  had bottom navigation; every paginated section now provides it.
+- Reused Sold History's existing page state and URLs, preserving filters, sorting,
+  and the independent Currently Selling page. All 96 focused web, Sales Activity,
+  and Price Review tests passed, as did Python lint/formatting and `git diff --check`.
+  The full dbt check sequence was not repeated for this template-only addition.

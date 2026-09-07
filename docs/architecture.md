@@ -124,6 +124,8 @@ Sales Activity focuses on managing existing listings; the Add an Item to Sell fo
 and its picker queries/client handlers are removed. Recipe Calculator listing creation
 and existing write endpoints remain available. Active and sold tables paginate
 independently at 50 rows.
+Currently Selling and Sold History repeat their page number and Previous/Next
+navigation below the table, so every paginated table has bottom navigation.
 Full matching counts, asking-price totals, and cost/profit sorting are computed
 before pagination; the daily chart always uses unfiltered history. Bulk selection
 is explicitly limited to the current page. A request materializes sold history

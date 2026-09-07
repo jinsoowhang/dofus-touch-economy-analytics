@@ -285,6 +285,7 @@
           </tbody>
         </table>
       </div>
+      {% with pagination = active_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
     {% else %}
       <p>No items are currently being sold.</p>
     {% endif %}
@@ -381,6 +382,7 @@
           </tbody>
         </table>
       </div>
+      {% with pagination = sold_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
     {% else %}
       <p>No completed sales yet.</p>
     {% endif %}

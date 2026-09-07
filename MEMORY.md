@@ -369,3 +369,7 @@
   API response amounts and stored observations never receive a second multiplier.
 
 - Sales Activity opens Filter Items by default; users can still collapse the panel.
+- Every paginated table has bottom navigation: Item Search, Recipes, Price Review,
+  Currently Selling, and Sold History. Both Sales Activity tables repeat their page
+  number and Previous/Next controls above and below, preserving filters, sorting,
+  and the other table's page.

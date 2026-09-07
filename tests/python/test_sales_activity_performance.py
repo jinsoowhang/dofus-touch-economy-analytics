@@ -74,6 +74,14 @@ def test_activity_pages_preserve_full_totals_and_sort_before_slicing(rendered, a
     assert second.text.count('class="active-sale-checkbox"') == 50
     assert "Bulk selection applies to this page only." in second.text
     assert "101–111 of 111" in second.text
+    active_section = second.text.split('id="currently-selling"', maxsplit=1)[1].split(
+        'id="sold-history"', maxsplit=1
+    )[0]
+    assert active_section.count('aria-label="Currently Selling pages"') == 2
+    footer = active_section.split("</table>", maxsplit=1)[1]
+    assert "Page 2 of 3" in footer
+    assert ">Previous</a>" in footer
+    assert ">Next</a>" in footer
     for column in context["active_sort_columns"]:
         params = parse_qs(urlsplit(column["url"]).query)
         assert "active_page" not in params
