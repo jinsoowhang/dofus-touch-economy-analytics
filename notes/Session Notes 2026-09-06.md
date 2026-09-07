@@ -207,3 +207,11 @@
   dbt debug/parse/seed/build with all 126 nodes passing, SQL lint, and public-file
   policy. `git diff --check` passed. Only scoped source, migration, tests, and docs
   are in Git status; the operational database, backup, and migration report are ignored.
+
+## Expand Sales Activity filters by default
+
+- Added `open` to Sales Activity's Filter Items disclosure as requested; users can
+  still collapse it. Updated the existing rendered-page assertions for its default
+  state. The two scoped Sales page/filter tests, Python lint/formatting, and
+  `git diff --check` passed. The full script was not repeated for this template-only
+  disclosure default after the preceding complete verification. No data changed.

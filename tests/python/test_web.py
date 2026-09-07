@@ -84,7 +84,7 @@ def test_item_search_has_active_item_navigation(client) -> None:
     assert 'href="/recipes"' in response.text
 
 
-def test_sales_page_has_active_tab_and_alphabetical_item_choices(
+def test_sales_page_has_active_tab_without_add_listing_form(
     client, session_factory, catalog_item
 ) -> None:
     with session_factory() as session:
@@ -111,8 +111,8 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert ">Out of Stock Items</a>" in response.text
     assert "Currently Selling" in response.text
     assert "Sold History" in response.text
-    assert "Alpha Item — Hat" in response.text
-    assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
+    assert "Add an Item to Sell" not in response.text
+    assert 'class="sales-form"' not in response.text
 
 
 def test_insights_page_synthesizes_sales_and_sits_in_data_menu(
@@ -162,7 +162,7 @@ def test_insights_page_synthesizes_sales_and_sits_in_data_menu(
     assert '<table class="insights-category-table" data-sortable-table>' in response.text
 
 
-def test_sales_category_filter_marks_item_options_and_loads_local_script(
+def test_sales_category_filter_and_local_script(
     client,
     session_factory,
 ) -> None:
@@ -189,17 +189,11 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     script = client.get("/static/sales.js")
 
     assert response.status_code == 200
-    assert '<label for="sale-category">Category (Optional)</label>' in response.text
+    assert '<select name="category">' in response.text
     assert 'value="ring"' in response.text
-    assert 'data-category="ring"' in response.text
-    assert 'data-category="hat"' in response.text
-    assert '<script src="/static/sales.js?v=20260905-pagination" defer></script>' in response.text
+    assert 'value="hat"' in response.text
+    assert '<script src="/static/sales.js?v=20260906-activity" defer></script>' in response.text
     assert script.status_code == 200
-    assert 'hx-get="/sales/item-choices"' in response.text
-    assert 'hx-trigger="input changed delay:250ms, search"' in response.text
-    assert "updateSalePriceSuggestion(true)" in script.text
-    assert "salePriceInput.value = suggestedPrice" in script.text
-    assert "No completed sales for this item yet." in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert 'activeSalesSelectAll.addEventListener("change"' in script.text
     assert "window.sessionStorage.setItem(salesScrollStorageKey" in script.text
@@ -241,7 +235,7 @@ def test_sales_item_choice_suggests_median_completed_sale_price(
         )
         session.commit()
 
-    response = client.get("/sales")
+    response = client.get("/sales/item-choices")
 
     assert response.status_code == 200
     assert f'value="{catalog_item.uuid}"' in response.text
@@ -348,12 +342,12 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert ">Duplicate</button>" not in active_page.text
     assert ">Mark sold</button>" not in active_page.text
     assert active_page.text.count('class="collapsible-section" open') == 4
-    assert active_page.text.index("Add an Item to Sell") < active_page.text.index("Filter Items")
+    assert "Add an Item to Sell" not in active_page.text
     assert active_page.text.index("Filter Items") < active_page.text.index("Currently Selling")
     assert "Filter Sales" not in active_page.text
     filter_summary = active_page.text.split("<h2>Filter Items</h2>", maxsplit=1)[0]
     assert filter_summary.rsplit("<details", maxsplit=1)[1].startswith(
-        ' class="collapsible-section">'
+        ' class="collapsible-section" open>'
     )
     assert '<button type="submit">Update</button>' not in active_page.text
     assert 'data-initial-value="50,000"' in active_page.text
@@ -420,9 +414,7 @@ def test_sales_page_requires_an_asking_price(client, catalog_item) -> None:
 
     assert response.status_code == 422
     assert "Input should be a valid integer" in response.text
-    assert '<label for="sale-asking-price">Sale Price</label>' in response.text
-    assert 'name="asking_price"' in response.text
-    assert "required" in response.text
+    assert 'id="sale-asking-price"' not in response.text
 
 
 def test_recorded_item_price_does_not_appear_as_an_active_sale(client, catalog_item) -> None:

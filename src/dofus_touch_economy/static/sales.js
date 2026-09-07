@@ -52,7 +52,6 @@ const removeCompletedRecipeCalculatorSales = () => {
 
 removeCompletedRecipeCalculatorSales();
 
-const salePriceInput = document.querySelector("#sale-asking-price");
 const chartSeriesToggles = Array.from(
   document.querySelectorAll(".chart-series-toggle"),
 );
@@ -75,79 +74,6 @@ if (chartSeriesToggles.length > 0) {
   }
   updateChartSeriesVisibility();
 }
-
-const initializeSaleItemPicker = () => {
-  const itemSelect = document.querySelector("#sale-item");
-  const salePriceSuggestion = document.querySelector("#sale-price-suggestion");
-  if (!itemSelect || !salePriceSuggestion) {
-    return;
-  }
-  const updateSalePriceSuggestion = (prefillPrice) => {
-    const selectedItem = itemSelect.selectedOptions[0];
-    salePriceSuggestion.hidden = !itemSelect.value;
-    if (!itemSelect.value) {
-      salePriceSuggestion.textContent = "";
-      return;
-    }
-    const suggestedPrice = selectedItem.dataset.suggestedPrice || "";
-    const soldCount = Number(selectedItem.dataset.soldCount || 0);
-    const saleLabel = soldCount === 1 ? "sale" : "sales";
-    salePriceSuggestion.textContent = suggestedPrice
-      ? `Suggested Price: ${suggestedPrice} · Median of ${soldCount} completed ${saleLabel}.`
-      : "No completed sales for this item yet.";
-    if (prefillPrice && salePriceInput) {
-      salePriceInput.value = suggestedPrice;
-    }
-  };
-  itemSelect.addEventListener("change", () => updateSalePriceSuggestion(true));
-  updateSalePriceSuggestion(false);
-};
-
-initializeSaleItemPicker();
-
-// Clear a stale selection immediately, including during the search debounce.
-for (const control of document.querySelectorAll("#sale-item-query, #sale-category")) {
-  control.addEventListener(control.id === "sale-category" ? "change" : "input", () => {
-    document.querySelector("#sale-item").value = "";
-    document.querySelector("#sale-item").disabled = true;
-    document.querySelector(".sales-form button[type=submit]").disabled = true;
-    document.querySelector("#sale-price-suggestion").hidden = true;
-    document.querySelector("#sale-item-error").hidden = true;
-  });
-}
-document.body.addEventListener("htmx:beforeRequest", (event) => {
-  if (event.detail.target?.id === "sale-item-results") {
-    document.querySelector("#sale-item").disabled = true;
-    document.querySelector(".sales-form button[type=submit]").disabled = true;
-  }
-});
-const isCurrentItemSearch = (event) => {
-  const parameters = event.detail.requestConfig.parameters;
-  return parameters.q === document.querySelector("#sale-item-query").value
-    && parameters.category === document.querySelector("#sale-category").value;
-};
-document.body.addEventListener("htmx:beforeSwap", (event) => {
-  if (event.detail.target?.id === "sale-item-results" && !isCurrentItemSearch(event)) {
-    event.detail.shouldSwap = false;
-  }
-});
-document.querySelector(".sales-form")?.addEventListener("submit", (event) => {
-  if (document.querySelector("#sale-item").disabled) {
-    event.preventDefault();
-  }
-});
-document.body.addEventListener("htmx:afterRequest", (event) => {
-  if (event.detail.target?.id === "sale-item-results" && isCurrentItemSearch(event)) {
-    document.querySelector("#sale-item").disabled = false;
-    document.querySelector(".sales-form button[type=submit]").disabled = false;
-    document.querySelector("#sale-item-error").hidden = !event.detail.failed;
-  }
-});
-document.body.addEventListener("htmx:afterSwap", (event) => {
-  if (event.detail.target?.id === "sale-item-results") {
-    initializeSaleItemPicker();
-  }
-});
 
 const activeSalesBulkForm = document.querySelector("#active-sales-bulk-form");
 const activeSalesSelectAll = document.querySelector("#select-all-active-sales");

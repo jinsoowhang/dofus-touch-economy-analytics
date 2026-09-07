@@ -13,42 +13,6 @@
   {% endif %}
 
   <details class="collapsible-section" open>
-    <summary><h2>Add an Item to Sell</h2></summary>
-    <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
-      <label for="sale-category">Category (Optional)</label>
-      <select id="sale-category" name="category"
-        hx-get="/sales/item-choices" hx-trigger="change" hx-target="#sale-item-results"
-        hx-include="#sale-item-query" hx-sync="closest form:replace"
-        aria-controls="sale-item-results">
-        <option value="">All categories</option>
-        {% for category in category_choices %}
-          <option
-            value="{{ category.key }}"
-            {% if form_values.get('category') == category.key %}selected{% endif %}
-          >{{ category.label }}</option>
-        {% endfor %}
-      </select>
-      <label for="sale-item-query">Search items</label>
-      <input id="sale-item-query" name="q" type="search" maxlength="200"
-        value="{{ form_values.get('q', '') }}" placeholder="Type an item name…"
-        hx-get="/sales/item-choices" hx-trigger="input changed delay:250ms, search"
-        hx-target="#sale-item-results" hx-include="#sale-category"
-        hx-sync="closest form:replace" aria-controls="sale-item-results">
-      <div id="sale-item-results">{% include "partials/sale_item_choices.html" %}</div>
-      <p id="sale-item-error" role="alert" hidden>Item search failed. Change the search to try again.</p>
-      <label for="sale-asking-price">Sale Price</label>
-      <input
-        id="sale-asking-price"
-        name="asking_price"
-        inputmode="numeric"
-        value="{{ form_values.get('asking_price', '') }}"
-        required
-      >
-      <button type="submit">Add listing</button>
-    </form>
-  </details>
-
-  <details class="collapsible-section">
     <summary>
       <span class="section-summary">
         <h2>Filter Items</h2>
@@ -552,4 +516,4 @@
     {% endif %}
   </details>
 {% endblock %}
-{% block scripts %}<script src="/static/sales.js?v=20260905-pagination" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/sales.js?v=20260906-activity" defer></script>{% endblock %}

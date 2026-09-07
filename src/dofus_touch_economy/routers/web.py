@@ -572,17 +572,6 @@ def _sales_context(
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    form_values = form_values or {}
-    try:
-        selected_uuid = UUID(form_values["item_uuid"]) if form_values.get("item_uuid") else None
-    except ValueError:
-        selected_uuid = None
-    item_choices = service.item_choices(
-        form_values.get("q", ""),
-        category=form_values.get("category", ""),
-        limit=SALE_ITEM_CHOICE_LIMIT,
-        selected_uuid=selected_uuid,
-    )
     listing_filters = filter_state.listing_filters()
     show_active = filter_state.status in ("all", "active")
     show_sold = filter_state.status in ("all", "sold")
@@ -632,7 +621,6 @@ def _sales_context(
         filter_item_value = service.item_name(filter_state.item_uuid) or filter_item_value
     return {
         "active_tab": "sales",
-        "item_choices": item_choices,
         "category_choices": [
             {"key": key, "label": label}
             for key, label in sorted(

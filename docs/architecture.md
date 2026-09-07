@@ -109,10 +109,10 @@ navigation does not imply task completion. Midnight and stale-page checks refres
 the routine, and cross-tab storage events synchronize completion. No UI telemetry
 or operational write is introduced by the checklist.
 
-Sales Activity searches item names through a bounded HTMX fragment (25 choices,
-250 ms debounce) and paginates active and sold tables independently at 50 rows.
-The native item selector retains keyboard support and completed-sale median price
-suggestions. Search clears stale selections and ignores superseded responses.
+Sales Activity focuses on managing existing listings; the Add an Item to Sell form
+and its picker queries/client handlers are removed. Recipe Calculator listing creation
+and existing write endpoints remain available. Active and sold tables paginate
+independently at 50 rows.
 Full matching counts, asking-price totals, and cost/profit sorting are computed
 before pagination; the daily chart always uses unfiltered history. Bulk selection
 is explicitly limited to the current page. A request materializes sold history

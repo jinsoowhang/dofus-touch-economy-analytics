@@ -146,7 +146,7 @@ def test_activity_reads_sold_history_only_once(rendered, activity_history):
     assert len(calls) == 1
 
 
-def test_item_picker_bounds_search_preserves_median_and_validation_selection(
+def test_item_choices_remain_bounded_and_activity_skips_picker_queries(
     rendered,
     session_factory,
     catalog_item,
@@ -177,8 +177,10 @@ def test_item_picker_bounds_search_preserves_median_and_validation_selection(
         )
         session.commit()
     initial = rendered("GET", "/sales")
-    assert len(initial.context["item_choices"]) == 25
-    assert catalog_item.uuid not in [item.uuid for item in initial.context["item_choices"]]
+    assert "item_choices" not in initial.context
+    assert "Add an Item to Sell" not in initial.text
+    bounded = rendered("GET", "/sales/item-choices")
+    assert len(bounded.context["item_choices"]) == 25
     choices = rendered("GET", "/sales/item-choices", params={"q": "synthetic", "category": "ore"})
     assert choices.status_code == 200
     assert [item.uuid for item in choices.context["item_choices"]] == [catalog_item.uuid]
@@ -200,11 +202,9 @@ def test_item_picker_bounds_search_preserves_median_and_validation_selection(
     assert invalid.status_code == 422
     assert invalid.context["form_values"]["q"] == "synthetic"
     assert invalid.context["form_values"]["asking_price"] == "oops"
-    assert "selected" in invalid.text.split(f'value="{catalog_item.uuid}"')[1].split("</option>")[0]
-    # Also preserve a submitted UUID outside the initial page when no search is submitted.
     outside = rendered(
         "POST", "/sales", data={"item_uuid": str(catalog_item.uuid), "asking_price": "0"}
     )
     assert outside.status_code == 422
-    assert catalog_item.uuid in [item.uuid for item in outside.context["item_choices"]]
+    assert "item_choices" not in outside.context
     assert rendered("GET", "/sales/item-choices", params={"q": "x" * 201}).status_code == 422
