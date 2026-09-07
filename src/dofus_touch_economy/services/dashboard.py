@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.schemas import SaleListingResponse
 from dofus_touch_economy.services.sales import SalesService
 
@@ -45,6 +46,7 @@ class DashboardReport:
     price_review_count: int
     last_sold_at: datetime | None
     profit_items: tuple[DashboardItem, ...]
+    categories: tuple[str, ...]
 
 
 class DashboardService:
@@ -60,7 +62,9 @@ class DashboardService:
         self._display_timezone = display_timezone
         self._as_of = as_of or datetime.now(UTC)
 
-    def report(self, days: int = 30) -> DashboardReport:
+    def report(
+        self, days: int = 30, *, categories: tuple[str, ...] = (), item_query: str = ""
+    ) -> DashboardReport:
         if not 7 <= days <= 90:
             raise ValueError("dashboard period must be between 7 and 90 days")
         ended_on = self._as_of.astimezone(self._display_timezone).date()
@@ -73,6 +77,20 @@ class DashboardService:
             if listing.date_sold is not None and listing.date_sold <= self._as_of
         ]
         active = self._sales.active()
+        category_choices = tuple(
+            sorted({listing.category for listing in [*sold, *active] if listing.category})
+        )
+        normalized_categories = {normalize_item_name(category) for category in categories}
+        normalized_query = normalize_item_name(item_query) if item_query.strip() else ""
+
+        def matches(listing: SaleListingResponse) -> bool:
+            return (
+                not normalized_categories
+                or normalize_item_name(listing.category or "") in normalized_categories
+            ) and normalized_query in normalize_item_name(listing.display_name)
+
+        sold = [listing for listing in sold if matches(listing)]
+        active = [listing for listing in active if matches(listing)]
         by_date: dict[date, list[SaleListingResponse]] = defaultdict(list)
         for listing in sold:
             if listing.date_sold is not None:
@@ -124,6 +142,7 @@ class DashboardService:
             ),
             last_sold_at=max((listing.date_sold for listing in sold), default=None),
             profit_items=tuple(profit_items[:5]),
+            categories=category_choices,
         )
 
 

@@ -1974,16 +1974,31 @@ def dashboard_page(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     days: Annotated[int, Query(ge=7, le=90)] = 30,
+    category: Annotated[list[str] | None, Query()] = None,
+    q: Annotated[str, Query(max_length=200)] = "",
 ) -> HTMLResponse:
+    selected_categories = _normalized_filter_values(category)
     report = DashboardService(
         session, settings.market_context, display_timezone=PACIFIC_TIME
-    ).report(days)
+    ).report(days, categories=selected_categories, item_query=q)
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         context={
             "active_tab": "dashboard",
             "report": report,
+            "selected_categories": selected_categories,
+            "category_choices": sorted(set(report.categories) | set(selected_categories)),
+            "item_query": q,
+            "has_filters": bool(selected_categories or q.strip()),
+            "period_links": {
+                period: "/dashboard?"
+                + urlencode(
+                    {"days": period, "category": selected_categories, **({"q": q} if q else {})},
+                    doseq=True,
+                )
+                for period in (7, 30, 90)
+            },
             "charts": {
                 key: _dashboard_chart(report.daily, key)
                 for key in ("profit", "revenue", "sold_count")
@@ -2008,8 +2023,6 @@ def _dashboard_chart(daily: tuple[DashboardPeriod, ...], attribute: str) -> dict
         return round(18 + 172 * float((upper - value) / (upper - lower)), 2)
 
     points = []
-    segments = []
-    segment = []
     for index, (day, value) in enumerate(zip(daily, values, strict=True)):
         x = round(68 + index * 630 / (len(daily) - 1), 2)
         point = {
@@ -2017,25 +2030,40 @@ def _dashboard_chart(daily: tuple[DashboardPeriod, ...], attribute: str) -> dict
             "date": day.ended_on.isoformat(),
             "label": "Unknown" if value is None else f"{value:,.0f}",
             "y": None if value is None else y(value),
+            "coverage_label": (
+                f"Incomplete costs · {day.covered_count} of {day.sold_count} sales with known costs"
+                + (
+                    f" · Known profit subtotal: {day.profit:,.0f} kamas"
+                    if day.profit is not None
+                    else " · Profit unknown"
+                )
+                if attribute == "profit" and day.covered_count < day.sold_count
+                else ""
+            ),
         }
         points.append(point)
-        if value is None:
-            if segment:
-                segments.append(" ".join(segment))
-                segment = []
-        else:
-            segment.append(f"{x},{point['y']}")
-    if segment:
-        segments.append(" ".join(segment))
+    segments = []
+    partial_segments = []
+    for previous, point in zip(points[:-1], points[1:], strict=True):
+        if previous["y"] is None or point["y"] is None:
+            continue
+        target = (
+            partial_segments if previous["coverage_label"] or point["coverage_label"] else segments
+        )
+        target.append(f"{previous['x']},{previous['y']} {point['x']},{point['y']}")
     return {
         "points": points,
         "segments": segments,
+        "partial_segments": partial_segments,
         "ticks": [
             {"y": y(value), "label": f"{value:,}"} for value in range(lower, upper + 1, step)
         ],
         "labels": [points[index] for index in (0, len(points) // 2, len(points) - 1)],
         "zero_y": y(0),
         "bar_width": round(min(24, 450 / len(daily)), 2),
+        "incomplete_days": sum(day.covered_count < day.sold_count for day in daily)
+        if attribute == "profit"
+        else 0,
     }
 
 

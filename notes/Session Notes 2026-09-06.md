@@ -215,3 +215,69 @@
   state. The two scoped Sales page/filter tests, Python lint/formatting, and
   `git diff --check` passed. The full script was not repeated for this template-only
   disclosure default after the preceding complete verification. No data changed.
+
+## Sales Activity cleanup and dashboard decision context
+
+- Removed Add an Item to Sell from Sales Activity, its initial picker query, and
+  browser picker handlers. Existing creation endpoints and Recipe Calculator sales
+  remain available. Listing management, filters, pagination, bulk actions, chart
+  toggles, and price autosave remain intact.
+- Investigated the August 22 Daily Realized Profit dip using read-only operational
+  SQLite and the running UI. The negative amount was a known-profit subtotal for
+  five of 39 sales (12.8% cost coverage); 34 costs were unknown. It did not represent
+  the entire day's result. All five costs were reconstructed from historical
+  observations rather than stored sale-time snapshots. No source-value correction
+  was justified and no operational records were changed.
+- Daily Realized Profit now plots only days with complete cost coverage, plus zeros
+  for no recorded sales. Incomplete days have a gap and a separate outlined square
+  below the plot. Pointer, touch, or keyboard focus reveals the covered sale count
+  and known-profit subtotal. Complete losses remain below zero. Headline known
+  profit and the daily table retain partial subtotals; the table labels incomplete
+  days and explains why total revenue minus covered cost is not known profit.
+- Added Category multi-select and normalized item-name substring filters. Category
+  selections combine with OR, and the name query combines with AND. Filters apply
+  consistently to both comparison periods, daily charts, KPIs, top items, latest
+  sale, and current inventory across all dates. Time links preserve the query;
+  Clear filters retains the period. Choices remain available with no matches.
+- Added service and rendered-route regression coverage for incomplete negative
+  subtotals, full-cost losses, zero-sale days, filter combinations, current/prior
+  period consistency, inventory/reminders, query retention, and empty results.
+  Updated former add-form assertions. The full suite exposed an existing timing
+  dependency in a Sales snapshot test: its new observation was one second in the
+  future but expected to be current when reopening. Using the actual post-sale
+  observation time makes that test independent of machine speed.
+- Chromium checked coverage-marker focus, preserved complete losses, category/name
+  filters, period switching, reset, empty results, and Sales Activity. Layouts at
+  1440, 900, and 390 pixels had no horizontal page overflow or JavaScript errors.
+  All browser records were disposable synthetic fixtures on temporary port 8001.
+- A read-only TestClient against the operational database verified August 22 is
+  explicitly incomplete with 5 of 39 costs known and its original subtotal retained
+  in details. Filtered Dashboard and Sales Activity requests returned HTTP 200.
+- Final `./scripts/check.sh` passed: all 400 Python tests, Python lint/formatting,
+  compilation, dbt debug/parse/seed/build with 126 passing nodes, SQL lint, and
+  public-file policy. `git diff --check` passed. Stopped the temporary preview;
+  the existing web process remains under the user's control and needs a restart
+  to load these changes. Existing uncommitted Price Review work was preserved.
+
+## Restore the Daily Realized Profit line
+
+- The prior complete-cost-only rendering hid nearly every active day in the
+  current report, leaving disconnected line fragments. A read-only operational
+  check found 15 incomplete days and only two separate visible line segments.
+- Restored each day's known-profit subtotal to the plotted series, matching the
+  headline and daily table. Segments touching partial-cost days are dashed and
+  those points are hollow, with explicit coverage and subtotal readouts. Days with
+  entirely unknown profit still have gaps and separate markers; no-sale days stay
+  zero. No missing value is interpolated or treated as profit.
+- Removed the now-unused complete-profit property. Updated the legend and chart
+  explanation, and regression tests cover consecutive partial days, complete
+  losses, zero activity, and entirely unknown days without invented connections.
+- The operational 30-day report now renders all 30 available values and 29
+  connecting segments, including 16 clearly marked partial segments. No database
+  values were changed. Synthetic Chromium checks passed for chart focus/readouts,
+  losses, dashboard filters, and 1440/900/390-pixel layouts without JavaScript errors
+  or page overflow. The temporary preview was stopped; the existing user server
+  remains under user control and needs a restart for the changed Python code.
+- Final `./scripts/check.sh` passed: 422 Python tests, all 126 dbt nodes,
+  Python/SQL lint, formatting, compilation, and public-file policy.
+  `git diff --check` passed; operational data and preview artifacts remain ignored.

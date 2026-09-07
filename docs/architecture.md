@@ -166,9 +166,14 @@ items through the shared browser-local Recipe Calculator cart without adding lis
 Dashboard is a read-only Sales projection with known realized profit as its North
 Star. Its 7-, 30-, and 90-day controls end on today's Pacific calendar date and
 compare against the preceding equal-length period; today is explicitly partial.
-Daily profit, revenue, and sales-volume charts preserve calendar gaps, distinguish
-unknown profit from zero activity, and provide pointer/keyboard readouts plus a
-sortable data table. Margin uses only revenue from sales with known costs, and
+Category multi-select and item-name substring filters apply to both comparison
+periods, every chart/KPI, top items, and the current inventory snapshot; categories
+combine with OR and name matching with AND. Time links preserve these URL filters.
+Daily profit plots known subtotals consistently with the headline and daily table.
+Partial-cost days remain connected using dashed lines and hollow points with explicit
+coverage/subtotal readouts. Wholly unknown profit has a gap and a marker below the
+plot; no-sale days remain zero and losses remain negative. Revenue and volume
+include all matching sales. Margin uses only revenue from sales with known costs, and
 cost coverage accompanies profit. Current inventory is a separate all-date
 snapshot. These views use the operational SQLite services without hosted queries.
 

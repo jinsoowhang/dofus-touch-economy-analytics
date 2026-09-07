@@ -3104,3 +3104,43 @@ def test_dashboard_renders_metrics_periods_and_data_navigation(client):
         assert 'class="page-shell page-shell--wide"' in response.text
     for days in (0, 91, "invalid"):
         assert client.get("/dashboard", params={"days": days}).status_code == 422
+
+
+def test_dashboard_filters_persist_and_incomplete_costs_are_explicit(
+    client, session_factory, catalog_item
+):
+    now = datetime.now(UTC)
+    with session_factory() as session:
+        for cost in (200, None):
+            session.add(
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=100,
+                    recipe_cost_at_sale=cost,
+                    selling_started_at=now - timedelta(days=2),
+                    date_sold=now,
+                )
+            )
+        session.commit()
+    response = client.get(
+        "/dashboard",
+        params=[("days", "7"), ("category", "Ore"), ("category", "Hat"), ("q", "Synthetic")],
+    )
+    assert response.status_code == 200
+    assert 'name="category" value="Ore" checked' in response.text
+    assert 'name="q" maxlength="200" value="Synthetic"' in response.text
+    assert (
+        'href="/dashboard?days=30&amp;category=Ore&amp;category=Hat&amp;q=Synthetic"'
+        in response.text
+    )
+    assert 'href="/dashboard?days=7">Clear filters</a>' in response.text
+    assert "Incomplete costs · 1 of 2 sales with known costs" in response.text
+    assert "Known profit subtotal: -100 kamas" in response.text
+    assert "Daily Realized Profit: -100" not in response.text
+    assert "Incomplete costs · 1 of 2 sales</td>" in response.text
+    assert "dashboard-point--incomplete" in response.text
+    assert "Known Profit Subtotal" in response.text
+    empty = client.get("/dashboard?days=7&category=Hat&q=Synthetic")
+    assert "No sales match the current filters." in empty.text
+    assert client.get("/dashboard", params={"q": "x" * 201}).status_code == 422

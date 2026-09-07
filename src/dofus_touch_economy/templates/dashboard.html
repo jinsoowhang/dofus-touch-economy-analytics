@@ -23,21 +23,29 @@
         {% for segment in plot.segments %}
           <polyline class="dashboard-line dashboard-line--{{ key }}" points="{{ segment }}"></polyline>
         {% endfor %}
+        {% for segment in plot.partial_segments %}
+          <polyline class="dashboard-line dashboard-line--partial" points="{{ segment }}"></polyline>
+        {% endfor %}
       {% endif %}
       {% for point in plot.points %}
         {% if point.y is not none %}
-          {% set description = point.date ~ ' · ' ~ title ~ ': ' ~ point.label ~ ' ' ~ unit %}
+          {% set description = point.date ~ ' · ' ~ (point.coverage_label if point.coverage_label else title ~ ': ' ~ point.label ~ ' ' ~ unit) %}
           {% if bars %}
             <rect class="dashboard-bar" x="{{ point.x - plot.bar_width / 2 }}" y="{{ point.y }}" width="{{ plot.bar_width }}" height="{{ [plot.zero_y - point.y, 1] | max }}" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></rect>
           {% else %}
-            <circle class="dashboard-point dashboard-point--{{ key }}" cx="{{ point.x }}" cy="{{ point.y }}" r="3.5" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></circle>
+            <circle class="dashboard-point dashboard-point--{{ key }}{% if point.coverage_label %} dashboard-point--incomplete{% endif %}" cx="{{ point.x }}" cy="{{ point.y }}" r="3.5" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></circle>
           {% endif %}
+        {% endif %}
+        {% if point.coverage_label and point.y is none %}
+          {% set description = point.date ~ ' · ' ~ point.coverage_label %}
+          <rect class="dashboard-point dashboard-point--incomplete" x="{{ point.x - 3.5 }}" y="199" width="7" height="7" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></rect>
         {% endif %}
       {% endfor %}
       {% for point in plot.labels %}
         <text class="chart-axis-label" x="{{ point.x }}" y="218" text-anchor="{{ 'start' if loop.first else 'end' if loop.last else 'middle' }}">{{ point.date }}</text>
       {% endfor %}
     </svg>
+    {% if plot.incomplete_days %}<p class="dashboard-chart-legend"><span aria-hidden="true">□</span> Incomplete costs: {{ plot.incomplete_days }} {{ 'day' if plot.incomplete_days == 1 else 'days' }}. Hollow points and dashed lines show known profit with incomplete costs. Squares below the plot mean profit is unknown.</p>{% endif %}
     <p class="dashboard-chart-readout" aria-live="polite">Point to or focus a day to see its value.</p>
   </figure>
 {% endmacro %}
@@ -52,10 +60,25 @@
     </div>
     <nav class="dashboard-periods" aria-label="Dashboard period">
       {% for days in [7, 30, 90] %}
-        <a href="/dashboard?days={{ days }}"{% if report.days == days %} aria-current="page"{% endif %}>{{ days }} days</a>
+        <a href="{{ period_links[days] }}"{% if report.days == days %} aria-current="page"{% endif %}>{{ days }} days</a>
       {% endfor %}
     </nav>
   </div>
+  <form method="get" action="/dashboard" class="dashboard-filters" aria-label="Dashboard filters">
+    <input type="hidden" name="days" value="{{ report.days }}">
+    <label>Item name<input type="search" name="q" maxlength="200" value="{{ item_query }}" placeholder="Contains…"></label>
+    <details class="filter-multiselect">
+      <summary>Categories{% if selected_categories %} · {{ selected_categories | length }} selected{% else %} · All{% endif %}</summary>
+      <div class="filter-multiselect-options">
+        {% for category in category_choices %}
+          <label><input type="checkbox" name="category" value="{{ category }}"{% if category in selected_categories %} checked{% endif %}> {{ category }}</label>
+        {% else %}<p>No categories in recorded sales or inventory.</p>{% endfor %}
+      </div>
+    </details>
+    <button type="submit">Apply filters</button>
+    {% if has_filters %}<a href="/dashboard?days={{ report.days }}">Clear filters</a>{% endif %}
+  </form>
+  <p class="dashboard-note">{{ 'Filters apply' if has_filters else 'Item and category filters apply' }} to all metrics, charts, comparisons, and current inventory. {% if has_filters %}Showing matching items only.{% endif %}</p>
   <p class="dashboard-window">
     {{ report.current.started_on }} – {{ report.current.ended_on }} · Pacific Time · Today is partial.
     Compared with {{ report.previous.started_on }} – {{ report.previous.ended_on }}.
@@ -78,7 +101,7 @@
     </div>
     <div>
       {{ chart('profit', 'Daily Realized Profit', 'kamas') }}
-      <p class="dashboard-note">Unknown costs are excluded from profit. Gaps mean profit is unknown; zero means no recorded sales or break-even. Unrecorded fees are not deducted.</p>
+      <p class="dashboard-note">The line shows daily known profit, matching the headline and daily table. Hollow points and dashed lines indicate partial cost coverage; these subtotals are not the full day’s profit. Only days with no known profit create gaps. Zero means no recorded sales or break-even. Unrecorded fees are not deducted.</p>
     </div>
   </section>
 
@@ -110,7 +133,7 @@
   </section>
 
   {% if not report.current.sold_count %}
-    <p class="notification">No completed sales in this period. Choose a longer window or <a href="/sales">record a sale</a> to see activity.</p>
+    <p class="notification">No completed sales in this period.{% if has_filters %} No sales match the current filters.{% endif %} Adjust the filters, choose a longer window, or <a href="/sales">record a sale</a> to see activity.</p>
   {% endif %}
   <section class="dashboard-chart-grid" aria-label="Sales trends">
     {{ chart('revenue', 'Daily Revenue', 'kamas') }}
@@ -119,7 +142,7 @@
 
   <div class="dashboard-bottom-grid">
     <section class="dashboard-panel" aria-labelledby="inventory-heading">
-      <p class="dashboard-eyebrow">Current Snapshot · All Active Listings</p>
+      <p class="dashboard-eyebrow">Current Snapshot · {{ 'Matching' if has_filters else 'All' }} Active Listings</p>
       <h2 id="inventory-heading">Inventory to Convert</h2>
       <div class="dashboard-inventory">
         <div><strong>{{ amount(report.active_value) }}</strong><span>kamas listed</span></div>
@@ -150,13 +173,13 @@
 
   <details class="collapsible-section dashboard-daily-table">
     <summary>View Daily Metrics and Definitions</summary>
-    <p>All days use Pacific Time. Period comparisons use the preceding {{ report.days }} calendar days. Known cost, profit, and margin cover the same completed sales; missing costs remain excluded. Daily values below retain two decimal places.</p>
+    <p>All days use Pacific Time. Period comparisons use the preceding {{ report.days }} calendar days. Known cost, profit, and margin cover the same completed sales; missing costs remain excluded. Revenue includes all priced sales, so subtracting known cost from total revenue does not give known profit when coverage is incomplete. Daily values below retain two decimal places.</p>
     <div class="item-table-wrap">
       <table data-sortable-table>
         <thead><tr>
           <th data-sort-type="date">Date</th><th class="numeric" data-sort-type="number">Sales</th>
           <th class="numeric" data-sort-type="number">Revenue</th><th class="numeric" data-sort-type="number">Known Cost</th>
-          <th class="numeric" data-sort-type="number">Known Profit</th><th class="numeric" data-sort-type="number">Cost Coverage</th>
+          <th class="numeric" data-sort-type="number">Known Profit Subtotal</th><th class="numeric" data-sort-type="number">Cost Coverage</th><th>Daily Profit Status</th>
         </tr></thead>
         <tbody>{% for day in report.daily %}<tr>
           <td>{{ day.ended_on }}</td><td class="numeric">{{ day.sold_count }}</td>
@@ -164,6 +187,7 @@
           <td class="numeric">{{ "{:,.2f}".format(day.cost) if day.cost is not none else "—" }}</td>
           <td class="numeric">{{ "{:,.2f}".format(day.profit) if day.profit is not none else "—" }}</td>
           <td class="numeric">{{ "{:.1%}".format(day.coverage) if day.coverage is not none else "—" }}</td>
+          <td>{% if not day.sold_count %}No sales{% elif day.covered_count < day.sold_count %}Incomplete costs · {{ day.covered_count }} of {{ day.sold_count }} sales{% elif day.profit < 0 %}Complete · Loss{% else %}Complete{% endif %}</td>
         </tr>{% endfor %}</tbody>
       </table>
     </div>
