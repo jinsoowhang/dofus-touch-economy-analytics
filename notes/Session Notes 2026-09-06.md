@@ -379,3 +379,15 @@
   and the independent Currently Selling page. All 96 focused web, Sales Activity,
   and Price Review tests passed, as did Python lint/formatting and `git diff --check`.
   The full dbt check sequence was not repeated for this template-only addition.
+
+## Uniform Dashboard profit line
+
+- Daily Realized Profit now uses the same solid line and filled points for every
+  plotted day, including days with incomplete costs. Removed the dashed/hollow
+  legend, unused styles, and separate segment grouping, and refreshed the CSS URL.
+- Preserved daily known-profit values, coverage details in readouts, and gaps where
+  profit is wholly unknown. No cost or sales records changed.
+- Updated existing chart and rendered-page checks. All 104 focused Dashboard, web,
+  and static-asset tests passed, as did Python lint/formatting, public-file policy,
+  and `git diff --check`. The full dbt sequence was not repeated for this web chart
+  presentation change.

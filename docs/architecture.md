@@ -183,8 +183,8 @@ Category multi-select and item-name substring filters apply to both comparison
 periods, every chart/KPI, top items, and the current inventory snapshot; categories
 combine with OR and name matching with AND. Time links preserve these URL filters.
 Daily profit plots known subtotals consistently with the headline and daily table.
-Partial-cost days remain connected using dashed lines and hollow points with explicit
-coverage/subtotal readouts. Wholly unknown profit has a gap and a marker below the
+All plotted days use the same solid line and filled points regardless of cost coverage;
+coverage/subtotal details remain in readouts. Wholly unknown profit has a gap and a marker below the
 plot; no-sale days remain zero and losses remain negative. Revenue and volume
 include all matching sales. Margin uses only revenue from sales with known costs, and
 cost coverage accompanies profit. Current inventory is a separate all-date

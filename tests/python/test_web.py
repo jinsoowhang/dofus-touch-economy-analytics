@@ -3142,7 +3142,11 @@ def test_dashboard_filters_persist_and_incomplete_costs_are_explicit(
     assert "Known profit subtotal: -100 kamas" in response.text
     assert "Daily Realized Profit: -100" not in response.text
     assert "Incomplete costs · 1 of 2 sales</td>" in response.text
-    assert "dashboard-point--incomplete" in response.text
+    assert 'class="dashboard-line dashboard-line--profit"' in response.text
+    assert 'class="dashboard-point dashboard-point--profit"' in response.text
+    assert "dashboard-line--partial" not in response.text
+    assert "dashboard-point--incomplete" not in response.text
+    assert "Hollow points and dashed lines" not in response.text
     assert "Known Profit Subtotal" in response.text
     empty = client.get("/dashboard?days=7&category=Hat&q=Synthetic")
     assert "No sales match the current filters." in empty.text

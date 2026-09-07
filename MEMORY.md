@@ -345,9 +345,10 @@
   latest sale, and all-date active inventory. Time-window links retain the filters;
   clearing them retains the selected period. Choices come from sales and inventory.
 - Daily Realized Profit plots each day's known-profit subtotal, matching the headline
-  and daily table. Partial-cost days use hollow points and dashed connecting lines
-  with explicit cost coverage/subtotal readouts; consecutive partial days remain
-  connected. Only wholly unknown profit creates gaps and a marker below the plot.
+  and daily table. All plotted days use a uniform solid line and filled points,
+  including days with incomplete costs. Coverage/subtotal details remain in readouts;
+  consecutive partial days remain connected. Only wholly unknown profit creates
+  gaps and a marker below the plot.
   No-sale days remain zero and real losses remain negative. The August 22 value
   covers only 5 of 39 sales and must be labeled as a subtotal, not a full daily result.
 

@@ -2315,14 +2315,6 @@ th.numeric .client-sort-header {
   stroke: var(--warning);
   stroke-width: 2;
 }
-.dashboard-chart-legend {
-  color: var(--muted);
-  font-size: 0.75rem;
-  margin-block: 0.5rem 0;
-}
-.dashboard-chart-legend > span {
-  color: var(--warning);
-}
 @media (max-width: 720px) {
   .dashboard-filters {
     align-items: stretch;
@@ -2348,9 +2340,4 @@ th.numeric .client-sort-header {
 .calculator-selected-list,
 #calculator-results .item-table-wrap {
   position: relative;
-}
-
-.dashboard-line--partial {
-  stroke: var(--warning);
-  stroke-dasharray: 5 4;
 }

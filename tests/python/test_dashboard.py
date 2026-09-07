@@ -139,14 +139,12 @@ def test_daily_profit_chart_separates_incomplete_subtotals_from_complete_losses(
     assert report.current.profit == -450
     assert report.daily[-1].profit == -400
     assert chart["points"][-1]["y"] > chart["zero_y"]
-    assert len(chart["partial_segments"]) == 1
-    assert len(chart["segments"]) == 5
+    assert len(chart["segments"]) == 6
     assert "1 of 2 sales" in chart["points"][-1]["coverage_label"]
     assert "-400 kamas" in chart["points"][-1]["coverage_label"]
     assert chart["points"][-2]["y"] > chart["zero_y"]
     assert chart["points"][-2]["label"] == "-50"
     assert chart["points"][-3]["y"] == chart["zero_y"]
-    assert chart["incomplete_days"] == 1
     assert _dashboard_chart(report.daily, "revenue")["points"][-1]["label"] == "300"
 
 
@@ -216,8 +214,6 @@ def test_profit_line_connects_partial_days_but_never_invents_unknown_values(sess
     assert chart["points"][-1]["label"] == "20"
     assert chart["points"][-2]["label"] == "50"
     assert chart["points"][-3]["y"] is None
-    assert chart["incomplete_days"] == 3
-    assert len(chart["partial_segments"]) == 1
     left, right = chart["points"][-2:]
-    assert chart["partial_segments"] == [f"{left['x']},{left['y']} {right['x']},{right['y']}"]
-    assert len(chart["segments"]) == 3
+    assert chart["segments"][-1] == f"{left['x']},{left['y']} {right['x']},{right['y']}"
+    assert len(chart["segments"]) == 4

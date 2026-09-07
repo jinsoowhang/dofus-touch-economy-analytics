@@ -23,9 +23,6 @@
         {% for segment in plot.segments %}
           <polyline class="dashboard-line dashboard-line--{{ key }}" points="{{ segment }}"></polyline>
         {% endfor %}
-        {% for segment in plot.partial_segments %}
-          <polyline class="dashboard-line dashboard-line--partial" points="{{ segment }}"></polyline>
-        {% endfor %}
       {% endif %}
       {% for point in plot.points %}
         {% if point.y is not none %}
@@ -33,7 +30,7 @@
           {% if bars %}
             <rect class="dashboard-bar" x="{{ point.x - plot.bar_width / 2 }}" y="{{ point.y }}" width="{{ plot.bar_width }}" height="{{ [plot.zero_y - point.y, 1] | max }}" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></rect>
           {% else %}
-            <circle class="dashboard-point dashboard-point--{{ key }}{% if point.coverage_label %} dashboard-point--incomplete{% endif %}" cx="{{ point.x }}" cy="{{ point.y }}" r="3.5" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></circle>
+            <circle class="dashboard-point dashboard-point--{{ key }}" cx="{{ point.x }}" cy="{{ point.y }}" r="3.5" tabindex="0" role="img" aria-label="{{ description }}" data-chart-description="{{ description }}"><title>{{ description }}</title></circle>
           {% endif %}
         {% endif %}
         {% if point.coverage_label and point.y is none %}
@@ -45,7 +42,6 @@
         <text class="chart-axis-label" x="{{ point.x }}" y="218" text-anchor="{{ 'start' if loop.first else 'end' if loop.last else 'middle' }}">{{ point.date }}</text>
       {% endfor %}
     </svg>
-    {% if plot.incomplete_days %}<p class="dashboard-chart-legend"><span aria-hidden="true">□</span> Incomplete costs: {{ plot.incomplete_days }} {{ 'day' if plot.incomplete_days == 1 else 'days' }}. Hollow points and dashed lines show known profit with incomplete costs. Squares below the plot mean profit is unknown.</p>{% endif %}
     <p class="dashboard-chart-readout" aria-live="polite">Point to or focus a day to see its value.</p>
   </figure>
 {% endmacro %}
@@ -101,7 +97,7 @@
     </div>
     <div>
       {{ chart('profit', 'Daily Realized Profit', 'kamas') }}
-      <p class="dashboard-note">The line shows daily known profit, matching the headline and daily table. Hollow points and dashed lines indicate partial cost coverage; these subtotals are not the full day’s profit. Only days with no known profit create gaps. Zero means no recorded sales or break-even. Unrecorded fees are not deducted.</p>
+      <p class="dashboard-note">The line shows daily known profit, matching the headline and daily table. Days with no known profit create gaps. Zero means no recorded sales or break-even. Unrecorded fees are not deducted.</p>
     </div>
   </section>
 

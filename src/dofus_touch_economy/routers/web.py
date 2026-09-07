@@ -2058,27 +2058,19 @@ def _dashboard_chart(daily: tuple[DashboardPeriod, ...], attribute: str) -> dict
         }
         points.append(point)
     segments = []
-    partial_segments = []
     for previous, point in zip(points[:-1], points[1:], strict=True):
         if previous["y"] is None or point["y"] is None:
             continue
-        target = (
-            partial_segments if previous["coverage_label"] or point["coverage_label"] else segments
-        )
-        target.append(f"{previous['x']},{previous['y']} {point['x']},{point['y']}")
+        segments.append(f"{previous['x']},{previous['y']} {point['x']},{point['y']}")
     return {
         "points": points,
         "segments": segments,
-        "partial_segments": partial_segments,
         "ticks": [
             {"y": y(value), "label": f"{value:,}"} for value in range(lower, upper + 1, step)
         ],
         "labels": [points[index] for index in (0, len(points) // 2, len(points) - 1)],
         "zero_y": y(0),
         "bar_width": round(min(24, 450 / len(daily)), 2),
-        "incomplete_days": sum(day.covered_count < day.sold_count for day in daily)
-        if attribute == "profit"
-        else 0,
     }
 
 
