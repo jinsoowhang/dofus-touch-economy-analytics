@@ -2329,6 +2329,27 @@ th.numeric .client-sort-header {
   }
 }
 
+.price-entry {
+  display: inline-grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.price-entry > small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.price-entry-help {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.price-edit-form,
+.calculator-selected-list,
+#calculator-results .item-table-wrap {
+  position: relative;
+}
+
 .dashboard-line--partial {
   stroke: var(--warning);
   stroke-dasharray: 5 4;

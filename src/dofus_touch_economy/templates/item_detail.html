@@ -122,25 +122,26 @@
               <td class="numeric">
                 {% if ingredient.item_uuid %}
                   {% set is_edited_ingredient = recipe_form_values.get('ingredient_uuid') == ingredient.item_uuid|string %}
-                  {% set ingredient_price_value = recipe_form_values.get('unit_price') if is_edited_ingredient else ("{:,}".format(ingredient.current_price.unit_price) if ingredient.current_price else '') %}
+                  {% set ingredient_price_value = recipe_form_values.get('unit_price') if is_edited_ingredient else (("{:,}".format(ingredient.current_price.unit_price)) if ingredient.current_price else '') %}
                   <form
                     method="post"
                     action="/items/{{ detail.uuid }}/recipe-ingredients/{{ ingredient.item_uuid }}/price"
                     class="price-edit-form recipe-price-edit-form"
                   >
+                    <input type="hidden" name="price_unit" value="kamas">
                     <label class="visually-hidden" for="recipe-price-{{ ingredient.item_uuid }}">
                       Per Unit Price for {{ ingredient.display_name }}
                     </label>
-                    <input
+                    <span class="price-entry"><input aria-description="Per unit price in kamas: 77 means 77 kamas."
                       id="recipe-price-{{ ingredient.item_uuid }}"
                       name="unit_price"
                       inputmode="numeric"
                       value="{{ ingredient_price_value }}"
-                      data-initial-value="{{ '{:,}'.format(ingredient.current_price.unit_price) if ingredient.current_price else '' }}"
+                      data-initial-value="{{ ("{:,}".format(ingredient.current_price.unit_price)) if ingredient.current_price else '' }}"
                       placeholder="—"
                       title="Click to edit. Press Enter or leave the field to save."
                       required
-                    >
+                    ><small>kamas per unit</small></span>
                   </form>
                 {% else %}
                   —

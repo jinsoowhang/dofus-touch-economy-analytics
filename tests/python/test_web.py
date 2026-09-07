@@ -333,7 +333,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     active_page = client.get(created.headers["location"])
     assert "Sale listing has been added." in active_page.text
     assert catalog_item.display_name in active_page.text
-    assert 'value="50,000"' in active_page.text
+    assert 'value="50"' in active_page.text
     assert "1 active · Total Price: 50,000" in active_page.text
     assert f'aria-label="Duplicate sale row for {catalog_item.display_name}"' in active_page.text
     assert f'aria-label="Mark {catalog_item.display_name} as sold"' in active_page.text
@@ -350,7 +350,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
         ' class="collapsible-section" open>'
     )
     assert '<button type="submit">Update</button>' not in active_page.text
-    assert 'data-initial-value="50,000"' in active_page.text
+    assert 'data-initial-value="50"' in active_page.text
     assert "Press Enter or leave the field to save." in active_page.text
     assert "Lot quantity" not in active_page.text
     assert 'name="lot_quantity"' not in active_page.text
@@ -476,8 +476,8 @@ def test_sales_page_duplicates_and_reprices_a_listing(
     )
     page = client.get(repriced.headers["location"])
     assert "Sale price has been updated." in page.text
-    assert 'value="50,000"' in page.text
-    assert 'value="45,000"' in page.text
+    assert 'value="50"' in page.text
+    assert 'value="45"' in page.text
     assert "2 active" in page.text
 
 
@@ -771,7 +771,7 @@ def test_sales_filters_render_matching_status_and_persist_in_links(
     assert 'name="item_query" value="alpha"' in response.text
     assert '<option value="hat" selected>Hat</option>' in response.text
     assert '<option value="active" selected>Currently Selling</option>' in response.text
-    assert 'name="min_price" inputmode="numeric" value="100"' in response.text
+    assert 'name="min_price" inputmode="decimal" value="0.1"' in response.text
     assert 'name="date_from" type="date" value="2026-08-21"' in response.text
     assert '<details id="sold-history"' not in response.text
     active_section = response.text.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
@@ -1006,7 +1006,7 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
     assert 'name="profit"' not in response.text
     active_section, sold_section = response.text.split("<h2>Sold History</h2>")
     active_section = active_section.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
-    assert active_section.index('value="5,000"') < active_section.index('value="4,000"')
+    assert active_section.index('value="5"') < active_section.index('value="4"')
     assert active_section.count(">3,500</td>") == 2
     assert ">1,500</td>" in active_section
     assert ">500</td>" in active_section
@@ -1039,8 +1039,8 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
         params={"status": "active", "min_profit": "1000"},
     )
     active_section = filtered.text.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
-    assert 'value="5,000"' in active_section
-    assert 'value="4,000"' not in active_section
+    assert 'value="5"' in active_section
+    assert 'value="4"' not in active_section
 
 
 def test_recipes_page_filters_sorts_and_links_to_item_detail(
@@ -1523,7 +1523,7 @@ def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
     )
     updated_page = client.get(response.headers["location"])
     assert "Synthetic Widget price has been updated." in updated_page.text
-    assert 'value="4,000"' in updated_page.text
+    assert 'value="4"' in updated_page.text
     assert ">3,500</a>" in updated_page.text
     assert ">500</a>" in updated_page.text
 
@@ -1637,7 +1637,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Calculate Selected" in page.text
     assert "Cost Per Item" in page.text
     assert "Add Checked to Sales" not in page.text
-    assert "Sale Price Each" not in page.text
+    assert '<th class="numeric" data-sort-type="number">Sale Price Each</th>' not in page.text
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
     assert '"recipe_cost": "20"' in page.text
@@ -2006,7 +2006,10 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     )
 
     assert invalid_sales.status_code == 422
-    assert "Enter a positive whole-number sale price for Beta Ring." in invalid_sales.text
+    assert (
+        "Enter a positive sale price in thousands (77 = 77,000 kamas) for Beta Ring."
+        in invalid_sales.text
+    )
     assert invalid_sales.text.count('class="calculator-sale-checkbox"') == 2
     assert invalid_sales.text.count("checked") >= 4
     assert re.search(
@@ -3064,7 +3067,7 @@ def test_non_htmx_price_create_redirects_to_search_with_notification(client, cat
     search = client.get(response.headers["location"])
     assert search.status_code == 200
     assert f"{catalog_item.display_name} price has been updated." in search.text
-    assert "245,000" in search.text
+    assert 'value="245,000"' in search.text
     assert 'class="notification" role="status"' in search.text
 
 

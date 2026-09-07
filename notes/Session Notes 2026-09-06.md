@@ -153,12 +153,6 @@
   reports, backups, and credentials remain excluded. Publication uses a normal
   fast-forward push to `origin/main`.
 
-## Deterministic sale-cost test publication
-
-- Kept the sale-cost snapshot test's post-sale observation in the present rather
-  than one second in the future, so reopening sees it regardless of machine speed.
-  Isolated verification runs the Sales tests before this test-only commit.
-
 ## Snooze, fourteen-day review, and separate relist entry
 
 - The user requested an Action column with Snooze, a 14-day review threshold, and a
@@ -208,14 +202,6 @@
   policy. `git diff --check` passed. Only scoped source, migration, tests, and docs
   are in Git status; the operational database, backup, and migration report are ignored.
 
-## Expand Sales Activity filters by default
-
-- Added `open` to Sales Activity's Filter Items disclosure as requested; users can
-  still collapse it. Updated the existing rendered-page assertions for its default
-  state. The two scoped Sales page/filter tests, Python lint/formatting, and
-  `git diff --check` passed. The full script was not repeated for this template-only
-  disclosure default after the preceding complete verification. No data changed.
-
 ## Sales Activity cleanup and dashboard decision context
 
 - Removed Add an Item to Sell from Sales Activity, its initial picker query, and
@@ -259,6 +245,71 @@
   the existing web process remains under the user's control and needs a restart
   to load these changes. Existing uncommitted Price Review work was preserved.
 
+## Price entry in thousands of kamas
+
+- The user requested 77 to mean 77,000 in Listings Due for Review and throughout
+  the web UI. Added a visible ×1,000 kamas unit beside every price-entry field,
+  accessible unit descriptions, decimal keyboards, and page help with examples.
+  Existing values and unchanged-value baselines display in the same scale. Blank
+  Relist Price entry remains blank. Decimals support smaller prices (0.5 = 500;
+  0.001 = 1) without rounding existing prices or losing whole-kama precision.
+- Applied the convention to Price Review, Sales Activity, Item Search/detail,
+  Price Priorities, Recipes, Recipe Calculator ingredients and bulk Sale Price
+  Each, plus Sales minimum/maximum price filters. Read-only prices, history,
+  summaries, profit filters, stored values, and JSON API commands remain full kamas.
+- New HTML forms explicitly carry `price_unit=thousands`; shared web-boundary
+  conversion uses Decimal before the existing command validation. Up to three
+  decimal places are accepted, while fractions of a kama and malformed prices are
+  rejected without rounding. Unmarked legacy forms and hidden Apply suggestion
+  forms retain canonical full-kama values, preventing an accidental second scale.
+- Calculator live profit/projected-sales calculations expand entered prices once;
+  two crafts at 77 correctly produce 154,000 projected sales. Ingredient saves,
+  recalculation, selected-quantity handling, and atomic bulk listing creation use
+  canonical stored prices. Filter links preserve canonical query values while the
+  rendered price-filter fields retain the thousands scale.
+- Added conversion/validation, endpoint, relisting, ingredient, bulk calculator,
+  and filter regression tests. Updated price-prefill assertions while retaining
+  checks that observations, recipe costs, profits, and full-kama legacy writes
+  stay correct. All 420 Python tests passed.
+- Browser verification used only a disposable synthetic SQLite preview on port
+  8001. Checked all price-entry surfaces, Enter/blur autosave, invalid-value recovery,
+  suggestions, relist removal, small ingredient prices, calculator live totals,
+  recalculation, and two 77,000-kama bulk listings. No JavaScript errors. Desktop
+  and mobile checks at 1440, 900, and 390 pixels passed. Scoped positioning keeps
+  hidden labels inside price editors/calculator table scroll containers, fixing
+  the small-screen overflow exposed by those checks.
+- Full `./scripts/check.sh` passed with 420 Python tests, all 126 dbt nodes,
+  compilation, Python/SQL lint, formatting, and public-file policy. After the final
+  CSS containment adjustment, browser checks and Python lint/formatting plus
+  `git diff --check` passed again. No operational database values or schema changed;
+  the existing user web server was left running and requires a restart to load
+  the Python changes. Earlier uncommitted work remains preserved.
+
+## Full-kama ingredient prices and craftable-item units
+
+- The user clarified that Per Unit Price must remain literal kamas and the
+  thousands shortcut is intended for expensive craftable items. Restored full
+  kama prefills, baselines, numeric keyboards, labels, and submissions for ingredient
+  prices in both item-detail recipes and Recipe Calculator. Entering 77 now saves
+  77 kamas in either ingredient editor, including craftable intermediate ingredients.
+- Item Search/detail and Price Priorities choose the price-entry unit by recipe
+  membership: craftable output prices use thousands; other items use full kamas.
+  Search and priority views add one bulk recipe-membership query for displayed
+  rows. Field labels and page help explain both units. Price Review, Sales prices,
+  Recipes, and calculator Sale Price Each retain the thousands shortcut.
+- Kept explicit HTML unit markers, canonical persistence/API amounts, and support
+  for previously rendered marked forms. No stored prices were reinterpreted or
+  changed. Updated prefill assertions and added mixed-page unit/save checks covering
+  raw materials, craftable outputs, priority items, and literal calculator units.
+- Chromium verified Item Search raw-material edits, craftable item edits, both
+  ingredient editors, calculator profit/revenue calculations, and two 77,000-kama
+  bulk listings using a disposable synthetic preview. No JavaScript errors or page
+  overflow at 1440/390 pixels. Stopped the temporary port-8001 preview; the user's
+  existing web process is unchanged and requires a restart for the Python changes.
+- Final `./scripts/check.sh` passed: 421 Python tests, all 126 dbt nodes,
+  Python lint/formatting, compilation, SQL lint, and public-file policy.
+  `git diff --check` passed; private databases and generated artifacts remain ignored.
+
 ## Restore the Daily Realized Profit line
 
 - The prior complete-cost-only rendering hid nearly every active day in the
@@ -281,3 +332,28 @@
 - Final `./scripts/check.sh` passed: 422 Python tests, all 126 dbt nodes,
   Python/SQL lint, formatting, compilation, and public-file policy.
   `git diff --check` passed; operational data and preview artifacts remain ignored.
+
+## Expand Sales Activity filters by default
+
+- Added `open` to Sales Activity's Filter Items disclosure as requested; users can
+  still collapse it. Updated the existing rendered-page assertions for its default
+  state. The two scoped Sales page/filter tests, Python lint/formatting, and
+  `git diff --check` passed. The full script was not repeated for this template-only
+  disclosure default after the preceding complete verification. No data changed.
+
+## Deterministic sale-cost test publication
+
+- Kept the sale-cost snapshot test's post-sale observation in the present rather
+  than one second in the future, so reopening sees it regardless of machine speed.
+  Isolated verification runs the Sales tests before this test-only commit.
+
+## Remote publication verification
+
+- Prepared the pending changes as five focused commits covering the timing test,
+  Price Review, Sales Activity, Dashboard, and price-entry units.
+- Re-ran `./scripts/check.sh` against the complete final implementation: 422 Python
+  tests passed, all 126 dbt build/test nodes passed, and lint, formatting, SQL lint,
+  compilation, and the public-file policy passed. Each intermediate implementation
+  also received isolated lint, formatting, and relevant Python test checks.
+- Checked staged changes for whitespace errors and kept operational databases,
+  raw exports, generated artifacts, and local verification logs out of Git.

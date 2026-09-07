@@ -2,6 +2,7 @@
 {% block title %}Recipe Calculator · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Recipe Calculator</h1>
+  <p class="price-entry-help">Sale Price Each uses <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>. Ingredient Per Unit Price uses <strong>full kamas</strong>: 77 = 77 kamas.</p>
   <p class="page-description">Select the items and quantities you plan to craft to build one combined ingredient shopping list.</p>
 
   {% if notification %}
@@ -180,19 +181,20 @@
                         class="price-edit-form calculator-ingredient-price-form"
                         data-item-uuid="{{ ingredient.item_uuid }}"
                       >
+                        <input type="hidden" name="price_unit" value="kamas">
                         <label class="visually-hidden" for="calculator-ingredient-price-{{ ingredient.crafted_item_uuid }}-{{ ingredient.item_uuid }}">
                           Current Unit Price for {{ ingredient.display_name }}
                         </label>
-                        <input
+                        <span class="price-entry"><input aria-description="Per unit price in kamas: 77 means 77 kamas."
                           id="calculator-ingredient-price-{{ ingredient.crafted_item_uuid }}-{{ ingredient.item_uuid }}"
                           name="unit_price"
                           inputmode="numeric"
-                          value="{{ '{:,}'.format(ingredient.unit_price) if ingredient.unit_price is not none else '' }}"
-                          data-initial-value="{{ '{:,}'.format(ingredient.unit_price) if ingredient.unit_price is not none else '' }}"
+                          value="{{ ("{:,}".format(ingredient.unit_price)) if ingredient.unit_price is not none else '' }}"
+                          data-initial-value="{{ ("{:,}".format(ingredient.unit_price)) if ingredient.unit_price is not none else '' }}"
                           placeholder="—"
                           title="Click to edit. Press Enter or leave the field to save and recalculate."
                           required
-                        >
+                        ><small>kamas per unit</small></span>
                         <small class="calculator-price-error" role="alert" hidden></small>
                       </form>
                     {% else %}
@@ -217,6 +219,7 @@
       <details class="calculator-selected-items" open>
         <summary>Selected craft breakdown</summary>
         <form method="post" action="/recipe-calculator/sales" class="calculator-sales-form">
+          <input type="hidden" name="price_unit" value="thousands">
           <p class="calculator-sale-help">
             Check the crafts you want to list. Each craft quantity becomes that many
             separate listings at the Sale Price Each. Total Estimated Profit is Sale
@@ -324,14 +327,14 @@
                     </td>
                     <td class="numeric">
                       <label class="visually-hidden" for="calculator-sale-price-{{ item.item_uuid }}">Sale price for each {{ item.display_name }}</label>
-                      <input
+                      <span class="price-entry"><input data-price-thousands aria-description="In thousands of kamas: 77 means 77,000 kamas; 0.5 means 500."
                         id="calculator-sale-price-{{ item.item_uuid }}"
                         class="calculator-sale-price"
                         name="sale_price_{{ item.item_uuid }}"
-                        inputmode="numeric"
-                        value="{{ entered_sale_price if entered_sale_price is not none else ('{:,}'.format(default_sale_price) if default_sale_price is not none else '') }}"
+                        inputmode="decimal"
+                        value="{{ entered_sale_price if entered_sale_price is not none else ((default_sale_price | price_thousands) if default_sale_price is not none else '') }}"
                         placeholder="—"
-                      >
+                      ><small>×1,000 kamas</small></span>
                     </td>
                     <td class="numeric">{{ "{:,}".format(item.recipe_unit_cost) if item.recipe_unit_cost is not none else "—" }}</td>
                     <td
@@ -368,4 +371,4 @@
     </section>
   {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/recipe-calculator.js" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/recipe-calculator.js?v=20260906-thousands" defer></script>{% endblock %}

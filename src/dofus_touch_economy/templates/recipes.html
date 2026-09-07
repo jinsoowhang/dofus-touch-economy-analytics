@@ -2,6 +2,7 @@
 {% block title %}Recipes · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Recipes</h1>
+  <p class="price-entry-help">Enter prices in <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>; 0.5 = 500 kamas. Totals and history show full kamas.</p>
   <p class="page-description">Filter craftable items, compare recipe economics, and add your choices to the Recipe Calculator.</p>
   <p>Market: {{ market_context }}</p>
   {% if notification %}
@@ -200,25 +201,26 @@
                 </td>
                 <td class="numeric">
                   {% set is_edited_price = price_item_uuid == recipe.item_uuid %}
-                  {% set current_price_value = price_form_value if is_edited_price else ("{:,}".format(recipe.current_price) if recipe.current_price is not none else "") %}
+                  {% set current_price_value = price_form_value if is_edited_price else ((recipe.current_price | price_thousands) if recipe.current_price is not none else "") %}
                   <form
                     method="post"
                     action="/recipes/{{ recipe.item_uuid }}/price?{{ recipe_view_query }}"
                     class="price-edit-form recipe-current-price-form"
                   >
+                    <input type="hidden" name="price_unit" value="thousands">
                     <label class="visually-hidden" for="recipe-current-price-{{ recipe.item_uuid }}">
                       Current Price for {{ recipe.display_name }}
                     </label>
-                    <input
+                    <span class="price-entry"><input data-price-thousands aria-description="In thousands of kamas: 77 means 77,000 kamas; 0.5 means 500."
                       id="recipe-current-price-{{ recipe.item_uuid }}"
                       name="current_price"
-                      inputmode="numeric"
+                      inputmode="decimal"
                       value="{{ current_price_value }}"
-                      data-initial-value="{{ '{:,}'.format(recipe.current_price) if recipe.current_price is not none else '' }}"
+                      data-initial-value="{{ (recipe.current_price | price_thousands) if recipe.current_price is not none else '' }}"
                       placeholder="—"
                       title="Click to edit. Press Enter or leave the field to save."
                       required
-                    >
+                    ><small>×1,000 kamas</small></span>
                   </form>
                 </td>
                 <td class="numeric"><a class="item-cell-link" href="{{ item_url }}" tabindex="-1">{{ "{:,}".format(recipe.recipe_cost) if recipe.recipe_cost is not none else "—" }}</a></td>

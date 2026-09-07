@@ -461,7 +461,7 @@ def test_snooze_action_and_blank_relist_field_preserve_prices_and_sort_state(
     assert "<th>Action</th>" in response.text
     assert '<td class="numeric">119,000</td>' in response.text
     assert (
-        f'id="review-price-{old_uuid}" name="asking_price" inputmode="numeric" '
+        f'id="review-price-{old_uuid}" name="asking_price" inputmode="decimal" '
         'value="" data-initial-value=""' in response.text
     )
     assert f'for="review-price-{old_uuid}">Relist Price for' in response.text

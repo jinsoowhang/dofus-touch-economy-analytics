@@ -2,6 +2,7 @@
 {% block title %}Sales Activity · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Sales Activity</h1>
+  <p class="price-entry-help">Enter prices in <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>; 0.5 = 500 kamas. Totals and history show full kamas.</p>
   <p class="page-description">Track active listings, record completed sales, and review sales performance over time.</p>
   {% if notification %}
     <p class="notification" role="status">{{ notification }}</p>
@@ -20,6 +21,7 @@
       </span>
     </summary>
     <form method="get" action="/sales" class="sales-filter-form">
+      <input type="hidden" name="price_unit" value="thousands">
       <input type="hidden" name="active_sort" value="{{ sort_state.active_sort }}">
       <input type="hidden" name="active_direction" value="{{ sort_state.active_direction }}">
       <input type="hidden" name="sold_sort" value="{{ sort_state.sold_sort }}">
@@ -46,19 +48,19 @@
         </select>
       </label>
       <label>
-        Minimum price
-        <input name="min_price" inputmode="numeric" value="{{ filter_state.min_price if filter_state.min_price is not none else '' }}">
+        Minimum price (×1,000 kamas)
+        <input name="min_price" inputmode="decimal" value="{{ filter_state.min_price | price_thousands }}">
       </label>
       <label>
-        Maximum price
-        <input name="max_price" inputmode="numeric" value="{{ filter_state.max_price if filter_state.max_price is not none else '' }}">
+        Maximum price (×1,000 kamas)
+        <input name="max_price" inputmode="decimal" value="{{ filter_state.max_price | price_thousands }}">
       </label>
       <label>
-        Minimum profit
+        Minimum profit (kamas)
         <input name="min_profit" inputmode="decimal" value="{{ filter_state.min_profit if filter_state.min_profit is not none else '' }}">
       </label>
       <label>
-        Maximum profit
+        Maximum profit (kamas)
         <input name="max_profit" inputmode="decimal" value="{{ filter_state.max_profit if filter_state.max_profit is not none else '' }}">
       </label>
       <label>
@@ -178,18 +180,19 @@
                     class="price-edit-form"
                     data-preserve-scroll
                   >
+                    <input type="hidden" name="price_unit" value="thousands">
                     <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
                       Sale Price for {{ sale.display_name }}
                     </label>
-                    <input
+                    <span class="price-entry"><input data-price-thousands aria-description="In thousands of kamas: 77 means 77,000 kamas; 0.5 means 500."
                       id="sale-price-{{ sale.uuid }}"
                       name="asking_price"
-                      inputmode="numeric"
-                      value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
-                      data-initial-value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
+                      inputmode="decimal"
+                      value="{{ (sale.asking_price | price_thousands) if sale.asking_price is not none else '' }}"
+                      data-initial-value="{{ (sale.asking_price | price_thousands) if sale.asking_price is not none else '' }}"
                       title="Click to edit. Press Enter or leave the field to save."
                       required
-                    >
+                    ><small>×1,000 kamas</small></span>
                   </form>
                   {% if price_review %}
                     <div class="price-review-suggestion">

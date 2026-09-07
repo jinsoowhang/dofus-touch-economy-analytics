@@ -49,11 +49,10 @@ try {
 
 const parseCalculatorSalePrice = (value) => {
   const rawValue = value.trim();
-  if (!/^\+?\d+$/.test(rawValue) && !/^\+?\d{1,3}(?:,\d{3})+$/.test(rawValue)) {
-    return null;
-  }
-  const parsed = Number(rawValue.replaceAll(",", ""));
-  return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  if (!/^\+?(?:\d{1,15}|\d{1,3}(?:,\d{3}){1,4})(?:\.\d{1,3})?$/.test(rawValue)) return null;
+  const [whole, fraction = ""] = rawValue.replaceAll(",", "").split(".");
+  const parsed = Number(whole) * 1000 + Number(fraction.padEnd(3, "0"));
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
 const updateCalculatorEstimatedProfit = (input) => {

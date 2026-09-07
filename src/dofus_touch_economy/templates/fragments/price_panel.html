@@ -1,5 +1,7 @@
+{% set price_in_thousands = detail.recipe is not none %}
 <details id="price-panel" class="collapsible-section" open>
   <summary><h2>Current Price</h2></summary>
+  <p class="price-entry-help">{% if price_in_thousands %}Craftable item price in <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>.{% else %}Enter the price in <strong>full kamas</strong>: <strong>77 = 77 kamas</strong>.{% endif %} Ingredient Per Unit Price always uses full kamas.</p>
 
   {% if errors %}
     <div role="alert">
@@ -8,23 +10,24 @@
     </div>
   {% endif %}
 
-  {% set current_price_value = form_values.get('current_price', ("{:,}".format(detail.current_price.total_price) if detail.current_price else '')) %}
+  {% set current_price_value = form_values.get('current_price', (((detail.current_price.total_price | price_thousands) if price_in_thousands else "{:,}".format(detail.current_price.total_price)) if detail.current_price else '')) %}
   <form
     method="post"
     action="/items/{{ detail.uuid }}/price"
     class="price-edit-form item-current-price-form"
   >
+    <input type="hidden" name="price_unit" value="{{ 'thousands' if price_in_thousands else 'kamas' }}">
     <label class="visually-hidden" for="item-current-price">Current Price for {{ detail.display_name }}</label>
-    <input
+    <span class="price-entry"><input aria-description="{{ 'In thousands of kamas: 77 means 77,000 kamas.' if price_in_thousands else 'In full kamas: 77 means 77 kamas.' }}"
       id="item-current-price"
       name="current_price"
-      inputmode="numeric"
+      inputmode="{{ 'decimal' if price_in_thousands else 'numeric' }}"
       value="{{ current_price_value }}"
-      data-initial-value="{{ '{:,}'.format(detail.current_price.total_price) if detail.current_price else '' }}"
+      data-initial-value="{{ ((detail.current_price.total_price | price_thousands) if price_in_thousands else "{:,}".format(detail.current_price.total_price)) if detail.current_price else '' }}"
       placeholder="—"
       title="Click to edit. Press Enter or leave the field to save."
       required
-    >
+    ><small>{{ '×1,000 kamas' if price_in_thousands else 'kamas' }}</small></span>
   </form>
 
   <h3>Price History</h3>

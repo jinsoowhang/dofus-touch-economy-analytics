@@ -2,6 +2,7 @@
 {% block title %}Price Review · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Price Review</h1>
+  <p class="price-entry-help">Enter prices in <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>; 0.5 = 500 kamas. Totals and history show full kamas.</p>
   <p class="page-description">Review active listings that have gone at least {{ review_days }} Pacific calendar days since listing or their latest relist, and compare prices and estimated profit before repricing.</p>
   <p class="section-help">Each row is one listing. Enter a new Relist Price and press Enter or leave the field to save. Saving records the relisted date and removes that listing for {{ review_days }} days. Snooze hides a listing for {{ snooze_days }} days without changing its price or relisted date.</p>
   {% if updated %}
@@ -49,8 +50,9 @@
                 <td class="numeric">{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '—' }}</td>
                 <td>
                   <form method="post" action="/sales/price-review/{{ sale.uuid }}/price?{{ review_query }}" class="price-edit-form" data-preserve-scroll>
+                    <input type="hidden" name="price_unit" value="thousands">
                     <label class="visually-hidden" for="review-price-{{ sale.uuid }}">Relist Price for {{ sale.display_name }}</label>
-                    <input id="review-price-{{ sale.uuid }}" name="asking_price" inputmode="numeric" value="{{ price_value if edited_uuid == sale.uuid else '' }}" data-initial-value="" title="Enter a relist price. Press Enter or leave the field to save." required{% if edited_uuid == sale.uuid and errors %} aria-invalid="true"{% endif %}>
+                    <span class="price-entry"><input data-price-thousands aria-description="In thousands of kamas: 77 means 77,000 kamas; 0.5 means 500." id="review-price-{{ sale.uuid }}" name="asking_price" inputmode="decimal" value="{{ price_value if edited_uuid == sale.uuid else '' }}" data-initial-value="" title="Enter a relist price. Press Enter or leave the field to save." required{% if edited_uuid == sale.uuid and errors %} aria-invalid="true"{% endif %}><small>×1,000 kamas</small></span>
                     <noscript><button type="submit">Save price</button></noscript>
                   </form>
                 </td>

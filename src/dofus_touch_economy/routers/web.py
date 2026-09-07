@@ -69,6 +69,7 @@ from dofus_touch_economy.services.sales import (
     SaleSortField,
     SalesService,
 )
+from dofus_touch_economy.web_prices import price_command_values, price_thousands
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
@@ -87,6 +88,7 @@ def _pacific_time(value: datetime) -> datetime:
 
 
 templates.env.filters["pacific_time"] = _pacific_time
+templates.env.filters["price_thousands"] = price_thousands
 templates.env.filters["default_recipe_calculator_quantity"] = default_recipe_calculator_quantity
 
 
@@ -264,19 +266,23 @@ def _sales_filter_state(
     status: Annotated[SalesStatusFilter, Query()] = "all",
     min_price: Annotated[str, Query(max_length=50)] = "",
     max_price: Annotated[str, Query(max_length=50)] = "",
+    price_unit: Annotated[Literal["kamas", "thousands"], Query()] = "kamas",
     min_profit: Annotated[str, Query(max_length=50)] = "",
     max_profit: Annotated[str, Query(max_length=50)] = "",
     date_from: Annotated[str, Query(max_length=10)] = "",
     date_to: Annotated[str, Query(max_length=10)] = "",
 ) -> SalesFilterState:
     errors: list[str] = []
+    prices = price_command_values(
+        {"price_unit": price_unit}, {"min_price": min_price, "max_price": max_price}
+    )
     return SalesFilterState(
         item_uuid=item_uuid,
         item_query=item_query.strip(),
         category=category.strip(),
         status=status,
-        min_price=_optional_integer_filter(min_price, "Minimum price", errors),
-        max_price=_optional_integer_filter(max_price, "Maximum price", errors),
+        min_price=_optional_integer_filter(prices["min_price"], "Minimum price", errors),
+        max_price=_optional_integer_filter(prices["max_price"], "Maximum price", errors),
         min_profit=_optional_decimal_filter(min_profit, "Minimum profit", errors),
         max_profit=_optional_decimal_filter(max_profit, "Maximum profit", errors),
         date_from=_optional_date_filter(date_from, "From date", errors),
@@ -465,6 +471,7 @@ def _search_context(
         "category_filters": category_filters,
         "category_choices": category_choices,
         "items": items,
+        "craftable_item_uuids": catalog.craftable_item_uuids([item.uuid for item in items]),
         "item_filtered_count": len(matching_items),
         "item_page": resolved_page,
         "item_page_count": page_count,
@@ -504,11 +511,15 @@ def _price_priorities_context(
     price_item_uuid: UUID | None = None,
     price_form_value: str = "",
 ) -> dict[str, object]:
+    report = RecipeCatalogService(session, market_context).price_priorities(
+        limit=PRICE_PRIORITY_LIMIT
+    )
     return {
         "active_tab": "price_priorities",
         "market_context": market_context,
-        "report": RecipeCatalogService(session, market_context).price_priorities(
-            limit=PRICE_PRIORITY_LIMIT
+        "report": report,
+        "craftable_item_uuids": CatalogService(session, market_context).craftable_item_uuids(
+            [item.item_uuid for item in report.items]
         ),
         "notification": notification,
         "price_errors": price_errors or [],
@@ -1248,13 +1259,19 @@ def _parse_recipe_calculator_sales(
             continue
         try:
             command = SaleListingCreate.model_validate(
-                {
-                    "item_uuid": item_uuid,
-                    "asking_price": sale_prices.get(item_uuid, ""),
-                }
+                price_command_values(
+                    form,
+                    {
+                        "item_uuid": item_uuid,
+                        "asking_price": sale_prices.get(item_uuid, ""),
+                    },
+                )
             )
         except ValidationError:
-            errors.append(f"Enter a positive whole-number sale price for {choice.display_name}.")
+            errors.append(
+                "Enter a positive sale price in thousands (77 = 77,000 kamas) "
+                f"for {choice.display_name}."
+            )
             continue
         commands.extend(command for _ in range(quantity))
     return commands, selected_item_uuids, sale_prices, errors
@@ -1518,7 +1535,7 @@ async def update_recipe_calculator_ingredient_price(
     form = await request.form()
     values = _form_values(form, ("unit_price",))
     try:
-        command = RecipeIngredientPriceUpdate.model_validate(values)
+        command = RecipeIngredientPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return JSONResponse(
             {"errors": _validation_messages(error)},
@@ -1602,7 +1619,7 @@ async def update_recipe_item_current_price(
     form = await request.form()
     values = _form_values(form, ("current_price",))
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -1830,10 +1847,11 @@ async def update_price_review_listing(
     direction: SaleSortDirection = "asc",
     page: Annotated[int, Query(ge=1)] = 1,
 ) -> HTMLResponse | RedirectResponse:
-    values = _form_values(await request.form(), ("asking_price",))
+    form = await request.form()
+    values = _form_values(form, ("asking_price",))
     service = SalesService(session, settings.market_context)
     try:
-        command = SalePriceUpdate.model_validate(values)
+        command = SalePriceUpdate.model_validate(price_command_values(form, values))
         service.update_price(listing_uuid, command)
     except ValidationError as error:
         errors, status = _validation_messages(error), 422
@@ -2124,7 +2142,7 @@ async def start_sale(
     values = _form_values(form, ("q", "category", "item_uuid", "asking_price"))
     service = SalesService(session, settings.market_context)
     try:
-        command = SaleListingCreate.model_validate(values)
+        command = SaleListingCreate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2330,7 +2348,7 @@ async def update_sale_price(
     values = _form_values(form, ("asking_price",))
     service = SalesService(session, settings.market_context)
     try:
-        command = SalePriceUpdate.model_validate(values)
+        command = SalePriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2537,7 +2555,7 @@ async def update_item_search_current_price(
     values = _form_values(form, ("current_price",))
     catalog = CatalogService(session, settings.market_context)
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2639,7 +2657,7 @@ async def update_price_priority_item(
     form = await request.form()
     values = _form_values(form, ("current_price",))
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2824,7 +2842,7 @@ async def update_item_current_price(
     form = await request.form()
     values = _form_values(form, ("current_price",))
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2888,7 +2906,7 @@ async def update_recipe_ingredient_price(
     form = await request.form()
     values = _form_values(form, ("unit_price",))
     try:
-        command = RecipeIngredientPriceUpdate.model_validate(values)
+        command = RecipeIngredientPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2939,7 +2957,7 @@ async def record_price(
     except ItemNotFound:
         return _error_response(request, "Item not found", 404)
     try:
-        command = PriceObservationCreate.model_validate(values)
+        command = PriceObservationCreate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return _mutation_response(
             request,

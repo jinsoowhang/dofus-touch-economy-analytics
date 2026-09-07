@@ -13,6 +13,18 @@ class CatalogRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def craftable_item_uuids(self, item_uuids: Collection[UUID]) -> set[UUID]:
+        if not item_uuids:
+            return set()
+        return set(
+            self._session.scalars(
+                select(Item.uuid)
+                .join(Recipe, Recipe.crafted_item_id == Item.id)
+                .where(Item.uuid.in_(item_uuids), active_catalog_item_clause(Item))
+                .distinct()
+            )
+        )
+
     def search(
         self,
         query: str,

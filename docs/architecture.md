@@ -109,6 +109,17 @@ navigation does not imply task completion. Midnight and stale-page checks refres
 the routine, and cross-tab storage events synchronize completion. No UI telemetry
 or operational write is introduced by the checklist.
 
+Craftable-item price entry uses thousands of kamas with explicit labels and examples.
+Ingredient Per Unit Price always uses full kamas, including craftable intermediates.
+Mixed Item Search/detail and Price Priorities views choose units by recipe membership;
+search and priority pages use one bulk lookup for their displayed items. Templates
+format prefills and unchanged-value baselines in the field's unit. Explicitly marked
+thousands forms convert back to whole kamas with exact Decimal arithmetic at the web
+boundary; full-kama forms pass through unchanged. Calculator Sale Price Each and its
+live revenue estimates retain the thousands scale. Read-only amounts, storage, API
+commands, and unmarked suggestions remain canonical kamas. Sales price-filter
+submissions convert once and navigation links retain canonical query amounts.
+
 Sales Activity focuses on managing existing listings; the Add an Item to Sell form
 and its picker queries/client handlers are removed. Recipe Calculator listing creation
 and existing write endpoints remain available. Active and sold tables paginate
