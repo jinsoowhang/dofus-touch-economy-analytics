@@ -19,15 +19,17 @@ from dofus_touch_economy.services.sales import SalesService
 DEFAULT_SALES_QUERY = "active_sort=started&active_direction=desc&sold_sort=sold&sold_direction=desc"
 
 
-def test_root_redirects_to_items(client) -> None:
+def test_root_renders_home(client) -> None:
     response = client.get("/", follow_redirects=False)
 
-    assert response.status_code == 307
-    assert response.headers["location"] == "/items"
+    assert response.status_code == 200
+    assert "Your daily routine" in response.text
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_main_pages_include_one_line_descriptions(client) -> None:
     expected_descriptions = {
+        "/": "Record sales, replenish stock, and decide what to craft next.",
         "/items": "Search the catalog, edit current prices, compare weights",
         "/price-priorities": "Add the missing prices that unlock the most complete recipe",
         "/recipes": "Filter craftable items, compare recipe economics",

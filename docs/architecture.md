@@ -77,7 +77,7 @@ remains disabled until its private layout gate is met.
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
-The shared page layout exposes Item, Sales, and Data as top-level navigation.
+The shared page layout exposes Home, Item, Sales, and Data as top-level navigation.
 Data contains BigQuery Sync, Dashboard, and Insights. Menus open by click or keyboard and close
 when another menu opens, focus leaves, or Escape is pressed.
 Item opens an accessible submenu for Item Search,
@@ -99,6 +99,15 @@ All data-bearing tables expose sortable data headers. Paginated Item Search, Rec
 and Sales tables sort on the server while detail, calculator, out-of-stock, and daily
 summary tables use one local typed sorter. Selection and action-only columns remain
 controls rather than misleading sort targets.
+
+Home (`/`) is the default landing page. Five aggregate SQLite reads provide live
+sales/inventory context without loading recipe economics or the full Dashboard.
+The daily checklist follows Sales Activity, Out of Stock Items, Profit Opportunities,
+and the 7-day Dashboard, with Price Priorities added on Mondays and relisting on
+Fridays. Checkmarks are manual browser-local state for the current Pacific date;
+navigation does not imply task completion. Midnight and stale-page checks refresh
+the routine, and cross-tab storage events synchronize completion. No UI telemetry
+or operational write is introduced by the checklist.
 
 Sales Activity searches item names through a bounded HTMX fragment (25 choices,
 250 ms debounce) and paginates active and sold tables independently at 50 rows.

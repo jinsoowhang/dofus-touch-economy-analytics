@@ -2041,3 +2041,257 @@ th.numeric .client-sort-header {
 .sales-table-wrap {
   position: relative;
 }
+
+.home-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-block: 1.5rem;
+}
+
+.home-heading h1 {
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  line-height: 1.2;
+  margin-block: 0.4rem 1rem;
+}
+
+.home-heading > a {
+  flex-shrink: 0;
+}
+
+.home-heading > a,
+.home-next > a {
+  border: 1px solid var(--accent);
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 0.8rem;
+  text-decoration: none;
+}
+
+.home-eyebrow {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.home-snapshot {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-block-end: 1.5rem;
+}
+
+.home-snapshot > a {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  text-decoration: none;
+}
+
+.home-snapshot > a:hover {
+  border-color: var(--accent);
+}
+
+.home-snapshot span,
+.home-snapshot small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.home-snapshot strong {
+  font-size: 1.8rem;
+  margin-block: 0.25rem;
+}
+
+.home-columns {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  margin-block-end: 2rem;
+}
+
+.home-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  padding: 1.25rem;
+}
+
+.home-panel h2 {
+  font-size: 1.15rem;
+  margin-block: 0 0.5rem;
+}
+
+.home-section-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.home-section-heading > span {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+#home-progress-bar {
+  accent-color: var(--accent);
+  height: 0.45rem;
+  width: 100%;
+}
+
+.home-checklist-help,
+.home-task p,
+.home-focus > p:not(.home-eyebrow) {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.home-tasks,
+.home-week {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-task {
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.8rem;
+  padding-block: 1.15rem;
+}
+
+.home-task input {
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 1.2rem;
+  margin: 0.2rem 0 0;
+  min-height: 0;
+  width: 1.2rem;
+}
+
+.home-task label {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.home-step {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-inline-end: 0.5rem;
+}
+
+.home-task p {
+  margin-block: 0.4rem;
+}
+
+.home-task a,
+.home-focus a {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.home-task.is-complete label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.home-next {
+  align-items: start;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+}
+
+.home-next > span {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.home-next [hidden] {
+  display: none;
+}
+
+.home-aside {
+  display: grid;
+  gap: 1rem;
+}
+
+.home-focus {
+  border-top: 0.25rem solid var(--accent);
+}
+
+.home-focus h2 {
+  margin-block-start: 0.65rem;
+}
+
+.home-week li {
+  align-items: center;
+  border-radius: 0.4rem;
+  display: grid;
+  font-size: 0.85rem;
+  gap: 0.5rem;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  padding: 0.7rem 0.5rem;
+}
+
+.home-week time {
+  font-weight: 700;
+}
+
+.home-week small {
+  display: block;
+  font-weight: 400;
+}
+
+.home-week li > span {
+  color: var(--muted);
+}
+
+.home-week .is-today {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .home-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .home-snapshot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .site-tabs {
+    gap: 0;
+  }
+
+  .site-tab {
+    padding-inline: 0.45rem;
+  }
+
+  .home-panel {
+    padding: 1rem;
+  }
+}

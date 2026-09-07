@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% macro task_row(task, number) %}
+  <li class="home-task" data-task="{{ task.key }}">
+    <input type="checkbox" id="home-task-{{ task.key }}" data-task-key="{{ task.key }}" disabled>
+    <div>
+      <label for="home-task-{{ task.key }}"><span class="home-step">{{ number }}</span>{{ task.title }}</label>
+      <p>{{ task.description }}</p>
+      <a href="{{ task.url }}" data-task-link>{{ task.link_label }} <span aria-hidden="true">→</span></a>
+    </div>
+  </li>
+{% endmacro %}
+{% block title %}Home · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <div id="home" data-today="{{ report.today.isoformat() }}" data-next-day-at="{{ report.next_day_at.isoformat() }}">
+    <header class="home-heading">
+      <div>
+        <p class="home-eyebrow"><time datetime="{{ report.today.isoformat() }}">{{ report.today.strftime('%A, %B %-d') }}</time> · Pacific time</p>
+        <h1>Your daily routine</h1>
+        <p class="page-description">Record sales, replenish stock, and decide what to craft next.</p>
+      </div>
+      <a class="secondary-button" href="/recipe-calculator">Open Recipe Calculator</a>
+    </header>
+
+    <section class="home-snapshot" aria-label="Current sales and inventory">
+      <a href="/sales?status=sold"><span>Sales Today</span><strong>{{ '{:,}'.format(report.snapshot.sold_today) }}</strong><small>{{ '{:,}'.format(report.snapshot.revenue_today) }} kamas recorded{% if report.snapshot.unpriced_sold_today %} · {{ report.snapshot.unpriced_sold_today }} unpriced{% endif %}</small></a>
+      <a href="/sales?status=active"><span>Currently Selling</span><strong>{{ '{:,}'.format(report.snapshot.active_count) }}</strong><small>{{ '{:,}'.format(report.snapshot.active_value) }} kamas listed{% if report.snapshot.unpriced_active_count %} · {{ report.snapshot.unpriced_active_count }} unpriced{% endif %}</small></a>
+      <a href="/out-of-stock-items"><span>Out of Stock</span><strong>{{ '{:,}'.format(report.snapshot.out_of_stock_count) }}</strong><small>Items with past sales</small></a>
+      <a href="/sales/price-review"><span>Due for Relisting Review</span><strong>{{ '{:,}'.format(report.snapshot.price_review_count) }}</strong><small>7+ days since list or relist</small></a>
+    </section>
+
+    <div class="home-columns">
+      <section class="home-panel" aria-labelledby="daily-heading">
+        <div class="home-section-heading"><h2 id="daily-heading">Today's To-Do</h2><span id="home-progress" role="status" aria-live="polite">0 of {{ 5 if report.focus else 4 }} complete</span></div>
+        <progress id="home-progress-bar" value="0" max="{{ 5 if report.focus else 4 }}" aria-label="Today's tasks completed"></progress>
+        <p class="home-checklist-help">Check off each task when you're finished. Checkmarks stay in this browser and reset each Pacific day.</p>
+        <p id="home-storage-error" role="status" hidden>Checkmarks could not be saved. They will reset when you leave this page.</p>
+        <noscript><p>Enable JavaScript to save checkmarks. All task links work without it.</p></noscript>
+        <ol class="home-tasks">
+          {% for task in report.daily_tasks %}{{ task_row(task, loop.index) }}{% endfor %}
+          {% if report.focus %}
+            {{ task_row(report.focus, 5) }}
+          {% endif %}
+        </ol>
+        <div class="home-next">
+          <span id="home-next-label">Up next: {{ report.daily_tasks[0].title }}</span>
+          <a id="home-next-link" class="secondary-button" href="{{ report.daily_tasks[0].url }}">{{ report.daily_tasks[0].link_label }} →</a>
+        </div>
+      </section>
+
+      <aside class="home-aside">
+        <section class="home-panel home-focus" aria-labelledby="focus-heading">
+          <p class="home-eyebrow">{{ report.today.strftime('%A') }} focus</p>
+          <h2 id="focus-heading">{{ report.focus.title if report.focus else 'Keep the daily cycle moving' }}</h2>
+          <p>{{ report.focus.description if report.focus else 'Work through your four core tasks in order. Your next maintenance days are shown below.' }}</p>
+          {% if report.focus %}<a href="{{ report.focus.url }}">{{ report.focus.link_label }} →</a>{% endif %}
+        </section>
+        <section class="home-panel" aria-labelledby="week-heading">
+          <h2 id="week-heading">Your weekly rhythm</h2>
+          <p class="home-checklist-help">Daily routine every day. Two dedicated maintenance days.</p>
+          <ul class="home-week">
+            {% for day, focus in report.week %}
+              <li{% if day == report.today %} class="is-today" aria-current="date"{% endif %}>
+                <time datetime="{{ day.isoformat() }}">{{ day.strftime('%a') }}{% if day == report.today %}<small>Today</small>{% endif %}</time>
+                {% if focus %}<a href="{{ focus.url }}">{{ 'Price Priorities' if focus.key == 'price-priorities' else 'Relist older stock' }}</a>{% else %}<span>Daily routine</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+        <p class="home-checklist-help">{% if report.snapshot.last_sold_at %}Latest recorded sale: {{ (report.snapshot.last_sold_at | pacific_time).strftime('%b %-d, %Y') }}.{% else %}No sales recorded yet. Start by adding your active listings in Sales Activity.{% endif %} Figures reflect your recorded sales and listings; check your game notifications for new sales.</p>
+      </aside>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}<script src="/static/home.js?v=20260906-home" defer></script>{% endblock %}

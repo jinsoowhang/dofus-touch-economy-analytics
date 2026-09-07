@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Dofus Touch Economy{% endblock %}</title>
-    <link rel="stylesheet" href="/static/app.css?v=20260906-price-review">
+    <link rel="stylesheet" href="/static/app.css?v=20260906-home">
     <script src="/static/htmx.min.js" defer></script>
     <script src="/static/table-sort.js" defer></script>
     <script src="/static/site-navigation.js" defer></script>
@@ -12,8 +12,9 @@
   <body>
     <header class="site-header">
       <div class="site-header-inner">
-        <a href="/items" class="site-brand">Dofus Touch Economy</a>
+        <a href="/" class="site-brand">Dofus Touch Economy</a>
         <nav class="site-tabs" aria-label="Primary navigation">
+          <a href="/" class="site-tab{% if active_tab == 'home' %} is-active{% endif %}"{% if active_tab == 'home' %} aria-current="page"{% endif %}>Home</a>
           <details class="site-menu">
             <summary
               class="site-tab{% if active_tab in ['items', 'price_priorities', 'recipes', 'recipe_calculator'] %} is-active{% endif %}"

@@ -36,6 +36,7 @@ from dofus_touch_economy.services.catalog import (
     SortDirection,
 )
 from dofus_touch_economy.services.dashboard import DashboardPeriod, DashboardService
+from dofus_touch_economy.services.home import HomeService
 from dofus_touch_economy.services.insights import InsightsService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
@@ -1304,9 +1305,20 @@ def _mutation_response(
     )
 
 
-@router.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    return RedirectResponse(url="/items", status_code=307)
+@router.get("/", response_class=HTMLResponse, include_in_schema=False)
+def home_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        context={
+            "active_tab": "home",
+            "report": HomeService(session, display_timezone=PACIFIC_TIME).report(),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/recipes", response_class=HTMLResponse)

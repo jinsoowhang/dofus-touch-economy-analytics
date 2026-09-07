@@ -70,6 +70,46 @@
   and the public-file policy. `git diff --check` passed. Stopped the temporary
   preview after browser verification; its synthetic database was removed.
 
+## Default Home page and weekly routine
+
+- Replaced the root Item Search redirect with Home. Added an active Home link to
+  the shared navigation and pointed the brand at `/`.
+- Followed the user's daily order: mark what sold, craft out-of-stock items, craft
+  profitable opportunities, and check the Dashboard. The user chose Monday for
+  Price Priorities and Friday for relisting; those tasks join the respective day's
+  checklist. The sidebar shows the day's focus and all seven days of the week.
+- Reviewed only aggregate operational activity. The available sales history covers
+  every weekday, supporting a daily routine. The app has no persisted page-visit or
+  click history, so no claims about navigation habits or automatic completion were made.
+- Added live cards for today's sales and known revenue, active inventory and known
+  asking value, out-of-stock items, and listings due for review. Home uses five scalar
+  read queries, with UTC storage and Pacific day boundaries, rather than hydrating
+  full recipe or Dashboard projections. Future sales are excluded and unpriced rows
+  are counted explicitly. Data remains authoritative in existing operational services.
+- Manual checkboxes persist in this browser under one date-keyed localStorage record;
+  Up next and progress follow the remaining tasks. State survives refresh and Back,
+  synchronizes across tabs, and resets each Pacific day. A stale open/restored page
+  refreshes its schedule automatically; links do not complete tasks. Storage failures
+  retain usable in-memory checks and show why they cannot persist. Task links also
+  work without JavaScript.
+- Ten focused Home cases cover all weekdays, date/DST boundaries, counts, missing
+  prices, future sales, restocking transitions, read-only behavior, and a fixed small
+  query count. Updated root-route and page-description coverage. All 388 Python tests
+  passed in the full check sequence.
+- Chromium checked keyboard completion, reload/Back persistence, navigation without
+  completion, cross-tab updates, all-done behavior, stale-day refresh, previous-day
+  reset, malformed state, and denied storage. No JavaScript errors occurred. Light
+  and dark layouts fit 1440, 900, 390, and 320 pixels without page overflow.
+  Browser writes used a disposable synthetic preview on port 8001.
+- No schema or dependency changed. The user's operational records and web process
+  were not changed. Restart the existing `uv run dofus-web` process to load Home.
+- `./scripts/check.sh` passed: lint/formatting, 388 Python tests, compilation, dbt
+  debug/parse/seed/build with 126 passing nodes, SQL lint, and public-file policy.
+  Final CTA styling received focused desktop/mobile browser checks after the suite.
+  `git diff --check` passed. An operational Home GET returned HTTP 200 with a
+  7.0 ms warm median through the test client and approximately 9.7 KB decoded HTML
+  in this local sample. Stopped the temporary preview and removed its synthetic data.
+
 ## Round Price Review suggestions
 
 - The user requested thousand-rounded suggestions, such as 113,050 to 113,000.
@@ -97,3 +137,18 @@
   policy, and `git diff --check`. A disposable synthetic app verified case-insensitive
   alphabetical ordering, save-form sort state, and explicit age sorting. The full
   check script was not repeated for this default-only change. No operational data changed.
+
+## Remote publication
+
+- The user requested a push. Local `main` and `origin/main` began at the same
+  commit. Separated sales-reconciliation notes, the complete Price Review feature
+  (including rounded suggestions and alphabetical defaults), and Home into three
+  logical commits, preserving the final working content.
+- Exported the staged Price Review tree to an isolated temporary directory: all
+  119 focused Sales/Price Review/web tests and Python lint/formatting passed before
+  committing it. The final combined `./scripts/check.sh` passed with 395 Python
+  tests, 126 dbt nodes, SQL lint, compilation, and the public-file policy.
+- Staged only the reviewed source, tests, architecture, and project notes. Checked
+  working and staged whitespace. Private operational databases, screenshots,
+  reports, backups, and credentials remain excluded. Publication uses a normal
+  fast-forward push to `origin/main`.
