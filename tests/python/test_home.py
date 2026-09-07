@@ -90,13 +90,13 @@ def test_home_snapshot_counts_known_revenue_inventory_and_pacific_review_days(
                 item_id=catalog_item.id,
                 lot_quantity=1,
                 asking_price=1,
-                selling_started_at=datetime(2026, 3, 8, 23, 59, tzinfo=PACIFIC).astimezone(UTC),
+                selling_started_at=datetime(2026, 3, 1, 23, 59, tzinfo=PACIFIC).astimezone(UTC),
             ),
             SaleListing(
                 item_id=catalog_item.id,
                 lot_quantity=1,
                 asking_price=600,
-                selling_started_at=datetime(2026, 3, 9, 0, 1, tzinfo=PACIFIC).astimezone(UTC),
+                selling_started_at=datetime(2026, 3, 2, 0, 1, tzinfo=PACIFIC).astimezone(UTC),
             ),
             SaleListing(
                 item_id=catalog_item.id,

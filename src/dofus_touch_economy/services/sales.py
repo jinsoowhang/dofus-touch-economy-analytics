@@ -1,7 +1,7 @@
 from bisect import bisect_right
 from collections import defaultdict
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime, tzinfo
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -39,7 +39,8 @@ SaleSortField = Literal[
     "sold",
 ]
 SaleSortDirection = Literal["asc", "desc"]
-ACTIVE_PRICE_REVIEW_DAYS = 7
+ACTIVE_PRICE_REVIEW_DAYS = 14
+PRICE_REVIEW_SNOOZE_DAYS = 7
 ACTIVE_PRICE_MARKDOWN_PERCENT = 5
 PriceReviewSortField = Literal[
     "name", "age", "price", "cost", "profit", "suggested", "started", "relisted"
@@ -253,7 +254,10 @@ class SalesService:
         for listing in self.active(sort_field="started", sort_direction="asc"):
             started = listing.relisted_at or listing.selling_started_at
             age_days = (review_date - started.astimezone(display_timezone).date()).days
-            if age_days >= ACTIVE_PRICE_REVIEW_DAYS:
+            if age_days >= ACTIVE_PRICE_REVIEW_DAYS and (
+                listing.price_review_snoozed_until is None
+                or listing.price_review_snoozed_until <= _as_utc(as_of)
+            ):
                 due.append((listing, age_days))
         if not due:
             return []
@@ -311,6 +315,32 @@ class SalesService:
         missing = [row for row in rows if sort_value(row) is None]
         return sorted(present, key=sort_value, reverse=sort_direction == "desc") + missing
 
+    def snooze_price_review(
+        self, listing_uuid: UUID, *, as_of: datetime, display_timezone: tzinfo
+    ) -> datetime:
+        listing = self._sales.get_by_uuid(listing_uuid)
+        if listing is None or self._catalog.get_by_uuid(listing.item.uuid) is None:
+            raise SaleListingNotFound(str(listing_uuid))
+        response = _response(listing, None)
+        now = _as_utc(as_of)
+        started = response.relisted_at or response.selling_started_at
+        age = (
+            now.astimezone(display_timezone).date() - started.astimezone(display_timezone).date()
+        ).days
+        if response.date_sold is not None or age < ACTIVE_PRICE_REVIEW_DAYS:
+            raise SaleListingConflict("Only listings due for price review can be snoozed.")
+        until = now + timedelta(days=PRICE_REVIEW_SNOOZE_DAYS)
+        if not self._sales.snooze_price_review(
+            listing_uuid,
+            until=until,
+            as_of=now,
+            expected_price_observation_id=listing.price_observation_id,
+        ):
+            self._session.rollback()
+            raise SaleListingConflict("The listing was changed or is already snoozed.")
+        self._session.commit()
+        return until
+
     def active_price_reviews(
         self,
         listings: list[SaleListingResponse],
@@ -337,6 +367,11 @@ class SalesService:
         review_date = _as_utc(as_of).astimezone(display_timezone).date()
         reviews: dict[UUID, ActivePriceReview] = {}
         for listing in listings:
+            if (
+                listing.price_review_snoozed_until is not None
+                and listing.price_review_snoozed_until > _as_utc(as_of)
+            ):
+                continue
             if listing.asking_price is None or listing.asking_price <= 1:
                 continue
             review_started_at = listing.relisted_at or listing.selling_started_at
@@ -1120,6 +1155,11 @@ def _response(listing: SaleListing, recipe_cost: Decimal | None) -> SaleListingR
         selling_started_at=selling_started_at,
         relisted_at=relisted_at,
         date_sold=None if listing.date_sold is None else _as_utc(listing.date_sold),
+        price_review_snoozed_until=(
+            None
+            if listing.price_review_snoozed_until is None
+            else _as_utc(listing.price_review_snoozed_until)
+        ),
     )
 
 

@@ -3,9 +3,12 @@
 {% block content %}
   <h1>Price Review</h1>
   <p class="page-description">Review active listings that have gone at least {{ review_days }} Pacific calendar days since listing or their latest relist, and compare prices and estimated profit before repricing.</p>
-  <p class="section-help">Each row is one listing. Edit Sales Price and press Enter or leave the field to save. Saving records the relisted date and removes that listing from this page for {{ review_days }} days. Selling Since stays unchanged.</p>
+  <p class="section-help">Each row is one listing. Enter a new Relist Price and press Enter or leave the field to save. Saving records the relisted date and removes that listing for {{ review_days }} days. Snooze hides a listing for {{ snooze_days }} days without changing its price or relisted date.</p>
   {% if updated %}
     <p class="notification" role="status">Sales price updated and relisted date recorded. The listing will return when it is due for review again.</p>
+  {% endif %}
+  {% if snoozed %}
+    <p class="notification" role="status">Listing snoozed for {{ snooze_days }} days. Its price and relisted date are unchanged.</p>
   {% endif %}
   {% if errors %}
     <div class="validation-errors" role="alert">
@@ -28,8 +31,10 @@
             <tr>
               {% for column in columns %}
                 <th{% if column.numeric %} class="numeric"{% endif %} aria-sort="{{ column.aria_sort }}"><a class="sort-header" href="{{ column.url }}"><span>{{ column.label }}</span><span class="sort-arrow" aria-hidden="true">{{ column.arrow }}</span></a></th>
+                {% if loop.index == 3 %}<th>Relist Price</th>{% endif %}
               {% endfor %}
               <th>Details</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -38,14 +43,14 @@
               {% set suggestion = row.suggestion %}
               {% set selling_since = sale.selling_started_at | pacific_time %}
               {% set relisted = sale.relisted_at | pacific_time if sale.relisted_at else none %}
-              {% set original_price = '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' %}
               <tr data-listing-uuid="{{ sale.uuid }}">
                 <td><a href="/items/{{ sale.item_uuid }}" class="item-label">{% if sale.icon_url %}<img class="item-icon" src="{{ sale.icon_url }}" alt="" loading="lazy">{% endif %}<span>{{ sale.display_name }}</span></a></td>
                 <td class="numeric">{{ row.age_days }}</td>
+                <td class="numeric">{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '—' }}</td>
                 <td>
                   <form method="post" action="/sales/price-review/{{ sale.uuid }}/price?{{ review_query }}" class="price-edit-form" data-preserve-scroll>
-                    <label class="visually-hidden" for="review-price-{{ sale.uuid }}">Sales Price for {{ sale.display_name }}</label>
-                    <input id="review-price-{{ sale.uuid }}" name="asking_price" inputmode="numeric" value="{{ price_value if edited_uuid == sale.uuid else original_price }}" data-initial-value="{{ original_price }}" title="Press Enter or leave the field to save." required{% if edited_uuid == sale.uuid and errors %} aria-invalid="true"{% endif %}>
+                    <label class="visually-hidden" for="review-price-{{ sale.uuid }}">Relist Price for {{ sale.display_name }}</label>
+                    <input id="review-price-{{ sale.uuid }}" name="asking_price" inputmode="numeric" value="{{ price_value if edited_uuid == sale.uuid else '' }}" data-initial-value="" title="Enter a relist price. Press Enter or leave the field to save." required{% if edited_uuid == sale.uuid and errors %} aria-invalid="true"{% endif %}>
                     <noscript><button type="submit">Save price</button></noscript>
                   </form>
                 </td>
@@ -78,6 +83,11 @@
                       {% endif %}
                     </dl>
                   </details>
+                </td>
+                <td>
+                  <form method="post" action="/sales/price-review/{{ sale.uuid }}/snooze?{{ review_query }}" class="inline-form" data-preserve-scroll>
+                    <button type="submit" class="secondary-button" aria-label="Snooze {{ sale.display_name }} for {{ snooze_days }} days">Snooze {{ snooze_days }} days</button>
+                  </form>
                 </td>
               </tr>
             {% endfor %}

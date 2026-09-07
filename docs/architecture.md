@@ -122,15 +122,20 @@ its existing timestamp rules. Page payloads are bounded, while server calculatio
 and filtering still scale with full listing history.
 
 Price Review (`/sales/price-review`) projects active listings whose latest relist,
-or original listing date, is at least seven Pacific calendar days old. Each row
+or original listing date, is at least fourteen Pacific calendar days old. Each row
 retains listing identity; missing-price rows remain eligible. Server sorting and
 50-row pagination accompany full due counts and listed value. Price changes reuse
 the Sales service and append a linked price observation, preserving the original
 listing start while recording the relisted date. The updated listing leaves the
-queue until seven more days pass. Item-level observations do not reset this clock.
+queue until fourteen more days pass. Item-level observations do not reset this clock.
 Current recipe cost, estimated profit, suggestion profit, and observed item-price
-context support manual decisions; unknown cost remains explicit. No schema change
-or game-client action is involved.
+context support manual decisions; unknown cost remains explicit. Sales Price is
+read-only on this page; a separate blank Relist Price field accepts a new price.
+The Action column can snooze a due listing for exactly seven days. Alembic `0011`
+persists this deadline separately from listing and relist dates; snooze changes no
+price observations. Repricing clears it, and all review reminders and Home's count
+exclude unexpired snoozes. The raw snapshot contract carries the nullable snooze
+timestamp. No game-client action is involved.
 
 The Recipe Calculator is an operational projection over the latest recipe per
 crafted item and the latest valid ingredient prices. Resolved shopping-list prices

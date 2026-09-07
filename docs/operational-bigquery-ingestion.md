@@ -49,6 +49,9 @@ generic nullable listing/sale source and capture UUID fields carried by normaliz
 
 ## Safety and publication contract
 
+- Alembic `0011` adds the nullable `price_review_snoozed_until` timestamp to
+  `sale_listings` and its raw snapshot contract. The loader appends this nullable
+  field to existing BigQuery raw tables during the next explicit sync.
 - The exact SQLite schema must match the loader contract. Missing or unexpected
   columns stop the load instead of being guessed.
 - Existing BigQuery tables may gain a newly contracted nullable column in place.

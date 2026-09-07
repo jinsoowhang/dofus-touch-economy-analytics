@@ -281,6 +281,7 @@ class SaleListing(Base):
         index=True,
     )
     recipe_cost_at_sale: Mapped[Decimal | None] = mapped_column(Numeric(38, 9))
+    price_review_snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     listing_source: Mapped[str | None] = mapped_column(String(40), default="manual")
     listing_capture_uuid: Mapped[UUID | None] = mapped_column(Uuid)
     sale_source: Mapped[str | None] = mapped_column(String(40))

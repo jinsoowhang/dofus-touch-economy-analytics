@@ -252,7 +252,7 @@ def test_sales_item_choice_suggests_median_completed_sale_price(
     ) in response.text
 
 
-def test_currently_selling_surfaces_and_applies_week_old_price_review(
+def test_currently_selling_surfaces_and_applies_fortnight_old_price_review(
     client,
     session_factory,
     catalog_item,
@@ -263,7 +263,7 @@ def test_currently_selling_surfaces_and_applies_week_old_price_review(
             item_id=catalog_item.id,
             lot_quantity=1,
             asking_price=1_000,
-            selling_started_at=now - timedelta(days=8),
+            selling_started_at=now - timedelta(days=15),
         )
         session.add_all(
             [
@@ -291,8 +291,8 @@ def test_currently_selling_surfaces_and_applies_week_old_price_review(
 
     assert response.status_code == 200
     assert "1 due for price review" in response.text
-    assert "gone at least 7 days since listing or their latest relist" in response.text
-    assert "8 days listed · Suggested 750" in response.text
+    assert "gone at least 14 days since listing or their latest relist" in response.text
+    assert "15 days listed · Suggested 750" in response.text
     assert "Relisted Date" in response.text
     assert "Median of 2 completed sales" in response.text
     escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")

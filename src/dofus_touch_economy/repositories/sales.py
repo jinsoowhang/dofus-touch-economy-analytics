@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from dofus_touch_economy.models import SaleListing
@@ -134,7 +134,32 @@ class SalesRepository:
             .values(
                 asking_price=asking_price,
                 price_observation_id=price_observation_id,
+                price_review_snoozed_until=None,
             )
+        )
+        return result.rowcount == 1
+
+    def snooze_price_review(
+        self,
+        listing_uuid: UUID,
+        *,
+        until: datetime,
+        as_of: datetime,
+        expected_price_observation_id: int | None,
+    ) -> bool:
+        result = self._session.execute(
+            update(SaleListing)
+            .where(
+                SaleListing.uuid == listing_uuid,
+                SaleListing.date_sold.is_(None),
+                SaleListing.price_observation_id == expected_price_observation_id,
+                or_(
+                    SaleListing.price_review_snoozed_until.is_(None),
+                    SaleListing.price_review_snoozed_until <= as_of,
+                ),
+            )
+            .values(price_review_snoozed_until=until)
+            .execution_options(synchronize_session="fetch")
         )
         return result.rowcount == 1
 

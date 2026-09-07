@@ -25,7 +25,7 @@
       <a href="/sales?status=sold"><span>Sales Today</span><strong>{{ '{:,}'.format(report.snapshot.sold_today) }}</strong><small>{{ '{:,}'.format(report.snapshot.revenue_today) }} kamas recorded{% if report.snapshot.unpriced_sold_today %} · {{ report.snapshot.unpriced_sold_today }} unpriced{% endif %}</small></a>
       <a href="/sales?status=active"><span>Currently Selling</span><strong>{{ '{:,}'.format(report.snapshot.active_count) }}</strong><small>{{ '{:,}'.format(report.snapshot.active_value) }} kamas listed{% if report.snapshot.unpriced_active_count %} · {{ report.snapshot.unpriced_active_count }} unpriced{% endif %}</small></a>
       <a href="/out-of-stock-items"><span>Out of Stock</span><strong>{{ '{:,}'.format(report.snapshot.out_of_stock_count) }}</strong><small>Items with past sales</small></a>
-      <a href="/sales/price-review"><span>Due for Relisting Review</span><strong>{{ '{:,}'.format(report.snapshot.price_review_count) }}</strong><small>7+ days since list or relist</small></a>
+      <a href="/sales/price-review"><span>Due for Relisting Review</span><strong>{{ '{:,}'.format(report.snapshot.price_review_count) }}</strong><small>{{ report.review_days }}+ days since list or relist · snoozed listings excluded</small></a>
     </section>
 
     <div class="home-columns">

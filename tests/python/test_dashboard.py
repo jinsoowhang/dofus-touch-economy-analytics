@@ -65,7 +65,7 @@ def test_dashboard_periods_profit_coverage_and_current_inventory(session, catalo
     assert by_day[date(2026, 9, 5)].profit == -40
     assert report.active_count == 2
     assert report.active_value == 3_000
-    assert report.price_review_count == 1
+    assert report.price_review_count == 0
     assert report.last_sold_at == datetime(2026, 9, 6, 1, tzinfo=UTC)
     assert [item.profit for item in report.profit_items] == [20, -40]
     assert report.profit_items[0].covered_count == 1

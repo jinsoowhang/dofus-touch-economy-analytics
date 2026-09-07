@@ -49,6 +49,7 @@ WEEKLY_FOCUS = (
 @dataclass(frozen=True)
 class HomeReport:
     today: date
+    review_days: int
     next_day_at: datetime
     snapshot: HomeSnapshot
     daily_tasks: tuple[HomeTask, ...]
@@ -113,6 +114,7 @@ class HomeService:
         monday = today - timedelta(days=today.weekday())
         return HomeReport(
             today=today,
+            review_days=ACTIVE_PRICE_REVIEW_DAYS,
             next_day_at=datetime.combine(today + timedelta(days=1), time.min, self._timezone),
             snapshot=snapshot,
             daily_tasks=daily_tasks,

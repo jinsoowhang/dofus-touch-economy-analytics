@@ -58,6 +58,7 @@ from dofus_touch_economy.services.recipes import (
 from dofus_touch_economy.services.sales import (
     ACTIVE_PRICE_MARKDOWN_PERCENT,
     ACTIVE_PRICE_REVIEW_DAYS,
+    PRICE_REVIEW_SNOOZE_DAYS,
     DailySalesTotal,
     PriceReviewSortField,
     SaleItemNotFound,
@@ -1732,6 +1733,7 @@ def _price_review_context(
     edited_uuid: UUID | None = None,
     price_value: str = "",
     updated: bool = False,
+    snoozed: bool = False,
 ) -> dict[str, object]:
     rows = service.price_review_listings(
         as_of=datetime.now(UTC),
@@ -1782,6 +1784,8 @@ def _price_review_context(
         "edited_uuid": edited_uuid,
         "price_value": price_value,
         "updated": updated,
+        "snoozed": snoozed,
+        "snooze_days": PRICE_REVIEW_SNOOZE_DAYS,
         "pagination": {
             "label": "Price Review",
             "start": offset + 1 if rows else 0,
@@ -1810,6 +1814,7 @@ def price_review_page(
     direction: SaleSortDirection = "asc",
     page: Annotated[int, Query(ge=1)] = 1,
     updated: bool = False,
+    snoozed: bool = False,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
@@ -1820,6 +1825,7 @@ def price_review_page(
             direction=direction,
             page=page,
             updated=updated,
+            snoozed=snoozed,
         ),
     )
 
@@ -1864,6 +1870,56 @@ async def update_price_review_listing(
             errors=errors,
             edited_uuid=listing_uuid,
             price_value=values["asking_price"],
+        ),
+        status_code=status,
+    )
+
+
+@router.post(
+    "/sales/price-review/{listing_uuid}/snooze", response_class=HTMLResponse, response_model=None
+)
+def snooze_price_review_listing(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort: PriceReviewSortField = "name",
+    direction: SaleSortDirection = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> HTMLResponse | RedirectResponse:
+    service = SalesService(session, settings.market_context)
+    try:
+        service.snooze_price_review(
+            listing_uuid,
+            as_of=datetime.now(UTC),
+            display_timezone=PACIFIC_TIME,
+        )
+    except SaleListingNotFound:
+        errors, status = ["Sale listing not found."], 404
+    except SaleListingConflict as error:
+        errors, status = [str(error)], 409
+    else:
+        return RedirectResponse(
+            url="/sales/price-review?"
+            + urlencode(
+                {
+                    "sort": sort,
+                    "direction": direction,
+                    "page": page,
+                    "snoozed": "true",
+                }
+            ),
+            status_code=303,
+        )
+    return templates.TemplateResponse(
+        request,
+        "price_review.html",
+        context=_price_review_context(
+            service,
+            sort=sort,
+            direction=direction,
+            page=page,
+            errors=errors,
         ),
         status_code=status,
     )

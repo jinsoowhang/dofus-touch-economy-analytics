@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from dofus_touch_economy.catalog_scope import active_catalog_item_clause
@@ -68,6 +68,10 @@ class HomeRepository:
                 SaleListing.date_sold.is_(None),
                 active_catalog_item_clause(Item),
                 review_started_at < review_before,
+                or_(
+                    SaleListing.price_review_snoozed_until.is_(None),
+                    SaleListing.price_review_snoozed_until <= as_of,
+                ),
             )
         )
         return HomeSnapshot(

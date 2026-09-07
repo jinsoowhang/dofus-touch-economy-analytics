@@ -25,7 +25,7 @@ def _create_database(path: Path) -> None:
     Base.metadata.create_all(engine)
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
-        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0010')"))
+        connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0011')"))
     factory = create_session_factory(engine)
     with factory() as session:
         session.add(
@@ -53,7 +53,7 @@ def test_snapshot_is_complete_and_content_addressed(tmp_path: Path) -> None:
     second = extract_operational_snapshot(database_path)
 
     assert first.snapshot_id == second.snapshot_id
-    assert first.source_schema_version == "0010"
+    assert first.source_schema_version == "0011"
     assert tuple(first.row_counts) == tuple(table.name for table in OPERATIONAL_TABLES)
     assert first.row_counts["items"] == 1
     assert sum(first.row_counts.values()) == 1
@@ -99,6 +99,7 @@ def test_snapshot_includes_nullable_sale_time_recipe_cost_and_capture_lineage(
                 selling_started_at=datetime(2026, 8, 22, tzinfo=UTC),
                 date_sold=datetime(2026, 8, 23, tzinfo=UTC),
                 recipe_cost_at_sale=Decimal("12.5"),
+                price_review_snoozed_until=datetime(2026, 8, 25, tzinfo=UTC),
                 listing_source="slack_market_capture",
                 listing_capture_uuid=UUID("00000000-0000-0000-0000-000000000123"),
                 sale_source="slack_sold_capture",
@@ -112,6 +113,7 @@ def test_snapshot_includes_nullable_sale_time_recipe_cost_and_capture_lineage(
     sales = next(table for table in snapshot.tables if table.contract.name == "sale_listings")
 
     assert sales.rows[0]["recipe_cost_at_sale"] == 12.5
+    assert sales.rows[0]["price_review_snoozed_until"] == "2026-08-25T00:00:00Z"
     assert sales.rows[0]["listing_source"] == "slack_market_capture"
     assert sales.rows[0]["listing_capture_uuid"] == "00000000000000000000000000000123"
     assert sales.rows[0]["sale_source"] == "slack_sold_capture"
@@ -152,7 +154,7 @@ def test_bigquery_cli_dry_run_needs_no_credentials(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert "schema=0010" in output
+    assert "schema=0011" in output
     assert "items=1" in output
     assert "dry-run: no BigQuery changes made" in output
     assert "Synthetic Ore" not in output
@@ -282,7 +284,7 @@ def test_bigquery_loader_adds_new_nullable_columns_to_existing_tables(tmp_path: 
     assert client.rows[table_id][0]["touch_catalog_status"] == "verified"
 
 
-def test_bigquery_loader_appends_nullable_sale_lineage_columns(tmp_path: Path) -> None:
+def test_bigquery_loader_appends_nullable_sale_lineage_and_snooze_columns(tmp_path: Path) -> None:
     database_path = tmp_path / "application.sqlite3"
     _create_database(database_path)
     snapshot = extract_operational_snapshot(database_path)
@@ -291,6 +293,7 @@ def test_bigquery_loader_appends_nullable_sale_lineage_columns(tmp_path: Path) -
     loader = BigQuerySnapshotLoader("example-project", "US", client=client)
     table_id = "example-project.dofus_dev.raw_sale_listings"
     new_fields = {
+        "price_review_snoozed_until",
         "listing_source",
         "listing_capture_uuid",
         "sale_source",
@@ -309,7 +312,8 @@ def test_bigquery_loader_appends_nullable_sale_lineage_columns(tmp_path: Path) -
 
     assert result[0].loaded is True
     assert client.updated_tables == [table_id]
-    assert [field.name for field in client.tables[table_id].schema[-4:]] == [
+    assert [field.name for field in client.tables[table_id].schema[-5:]] == [
+        "price_review_snoozed_until",
         "listing_source",
         "listing_capture_uuid",
         "sale_source",

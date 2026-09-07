@@ -145,6 +145,7 @@ class SaleListingResponse(BaseModel):
     selling_started_at: datetime
     relisted_at: datetime | None
     date_sold: datetime | None
+    price_review_snoozed_until: datetime | None = None
 
 
 class ItemSummaryResponse(BaseModel):

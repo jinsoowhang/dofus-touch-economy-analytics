@@ -158,3 +158,52 @@
 - Kept the sale-cost snapshot test's post-sale observation in the present rather
   than one second in the future, so reopening sees it regardless of machine speed.
   Isolated verification runs the Sales tests before this test-only commit.
+
+## Snooze, fourteen-day review, and separate relist entry
+
+- The user requested an Action column with Snooze, a 14-day review threshold, and a
+  separate empty Relist Price column. Price Review now shows the recorded Sales
+  Price as read-only and accepts a new price in the blank Relist Price field.
+  Enter/blur saves retain the existing append-only observation and relisted-date
+  behavior, including deliberate relisting at the same price. Rounded suggestions,
+  alphabetical defaults, alternate sorting, and pagination remain available.
+- Changed the shared review threshold to 14 Pacific calendar days after listing or
+  latest relist. Snooze persists a separate nullable `price_review_snoozed_until`
+  timestamp and hides only that listing until exactly seven 24-hour days after the
+  click. Snooze never changes price, observations, listing start, or relist date.
+  Repricing clears it and starts a new 14-day review period. Home counts and shared
+  Activity, Dashboard, and Insights review reminders exclude unexpired snoozes.
+- Snooze validates that a listing is active, in the visible catalog, and due for
+  review. Guarded repository updates reject duplicate/stale snoozes and concurrent
+  price changes, with failed writes rolled back. The ORM update uses database-side
+  synchronization to avoid comparing naive SQLite timestamps with aware datetimes.
+- Added Alembic `0011` using a direct nullable column addition. Existing migration
+  tests verify upgrade/downgrade with dependent records and default-null snooze data.
+  Backed up the canonical operational database online, applied `0011`, and compared
+  every preexisting column in every application table with the backup: all values
+  were preserved, all snoozes initially null, integrity check OK, no foreign-key
+  violations. The ignored report records the backup and verification results at
+  `data/reports/price-review-snooze-migration-0011.json`.
+- The initial full suite caught the exporter's intentionally strict schema contract.
+  Added the nullable snooze timestamp to the raw snapshot contract and verified
+  timestamp serialization and additive BigQuery schema compatibility with a fake
+  client. A live operational snapshot dry run passed at schema `0011`; no BigQuery
+  write or hosted build was performed.
+- Updated boundary fixtures for 14 days and tested persistent snooze, exact expiry,
+  repeated snooze after expiry, duplicate submissions, active/young/sold/missing
+  listing errors, per-listing isolation, Home/reminder consistency, and clearing
+  snooze on relist. All 397 Python tests passed.
+- Chromium verified separate read-only Sales Price and blank Relist Price fields,
+  harmless focus/blur on an empty field, Snooze and refresh persistence, Home's due
+  count with unchanged inventory, same-price relisting, Enter/blur saves, validation
+  recovery, and Action visibility. No JavaScript errors; table scrolling stayed
+  contained at 1440, 900, and 390 pixels. All browser mutations used disposable
+  synthetic records on the temporary port-8001 preview.
+- Read-only operational Home, Price Review, Sales Activity, and Dashboard requests
+  all returned HTTP 200 after migration. Stopped the temporary preview and removed
+  its synthetic database. The user's running web process was left under their control;
+  restart `uv run dofus-web` to load the Python changes. No manual migration remains.
+- Final `./scripts/check.sh` passed: 397 Python tests, lint/formatting, compilation,
+  dbt debug/parse/seed/build with all 126 nodes passing, SQL lint, and public-file
+  policy. `git diff --check` passed. Only scoped source, migration, tests, and docs
+  are in Git status; the operational database, backup, and migration report are ignored.
