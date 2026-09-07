@@ -60,6 +60,12 @@ SQLite owns transactional application state:
 
 FastAPI reads and writes SQLite through repositories and services. Routers translate HTML or JSON only, and DuckDB receives no request-time writes. Alembic exclusively manages the operational schema. The default ignored database is `data/app/dofus_touch.sqlite3`.
 
+Item Price History groups observations by UTC observed day and total price within
+the item and market. Its delete action atomically audit-invalidates all valid
+observations in that displayed group, including duplicates outside the history
+page's limit. Other observation invalidation endpoints remain single-observation
+actions, and existing invalidation timestamps and reasons are preserved.
+
 The optional Slack Bolt Socket Mode worker is a separate local process with its own
 secret-bearing configuration. It persists allowlisted top-level message intake before
 acknowledgement, downloads private image bytes into ignored evidence storage, and asks

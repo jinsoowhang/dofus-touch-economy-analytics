@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -145,6 +145,30 @@ class PriceService:
         if observation is None:  # pragma: no cover - protected by the successful update
             raise ObservationNotFound(str(observation_uuid))
         return _observation_response(observation)
+
+    def invalidate_history_row(self, observation_uuid: UUID, reason: str) -> int:
+        """Invalidate the full UTC-day/price group represented by one visible row."""
+        stripped_reason = reason.strip()
+        if not stripped_reason:
+            raise ValueError("invalidation reason must not be blank")
+        observation = self._repository.get_by_uuid(observation_uuid, self._market_context)
+        if observation is None:
+            raise ObservationNotFound(str(observation_uuid))
+        day_start = _as_utc(observation.observed_at).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        count = self._repository.invalidate_daily_price_group(
+            observation,
+            day_start=day_start,
+            day_end=day_start + timedelta(days=1),
+            invalidated_at=datetime.now(UTC),
+            reason=stripped_reason,
+        )
+        if not count:
+            self._session.rollback()
+            raise ObservationConflict(str(observation_uuid))
+        self._session.commit()
+        return count
 
     def current_for_item(self, item_id: int) -> CurrentPriceResponse | None:
         observation = self._repository.latest_valid(item_id, self._market_context)

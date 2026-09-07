@@ -391,3 +391,31 @@
   and static-asset tests passed, as did Python lint/formatting, public-file policy,
   and `git diff --check`. The full dbt sequence was not repeated for this web chart
   presentation change.
+
+## Price History deletion with hidden duplicates
+
+- Diagnosed a visible price-history row backed by multiple identical observations:
+  deleting its representative merely exposed the next duplicate, making the action
+  appear ineffective. The user's earlier clicks had successfully invalidated two
+  underlying observations.
+- Added an atomic repository update and service command scoped to the displayed
+  item's market, UTC observed day, and total price. The HTML history-delete route
+  now invalidates the entire matching group without the history display limit;
+  existing audit reasons/timestamps and all other groups remain untouched. Generic
+  single-observation invalidation endpoints retain their original scope.
+- Added explanatory row-group help and a regression scenario with 30 duplicates,
+  neighboring UTC dates, another price/market, a previously invalidated observation,
+  and a repeated delete. All 103 focused web, pricing, and API tests passed.
+- Backed up the ignored operational SQLite database, then used the service to clear
+  the three remaining observations in the user's reported incorrect group. Verified
+  that only their invalidation fields changed, sale listings stayed unchanged, and
+  database integrity/foreign-key checks passed. A read-only live-page check confirmed
+  the incorrect history row was absent and the corrected price remained visible.
+  The private backup remains under `data/app/backups/`.
+- Final `./scripts/check.sh` passed: 423 Python tests, all 126 dbt build/test nodes,
+  Python and SQL lint, formatting, compilation, and public-file policy.
+  `git diff --check` passed; operational data and backup files remain ignored.
+- Prepared four focused publication commits for Price Priorities units, bottom
+  pagination, uniform Dashboard lines, and this history-deletion fix. Confirmed
+  the remote still matched the previous publication and rechecked staged whitespace
+  and public-file policy before pushing.

@@ -2802,7 +2802,7 @@ def delete_price_history_row(
         return _error_response(request, "Price history row not found", 404)
     notice = "price-history-deleted"
     try:
-        service.invalidate(observation_uuid, "Deleted from item price history")
+        service.invalidate_history_row(observation_uuid, "Deleted from item price history")
     except ObservationConflict:
         notice = "price-history-already-deleted"
     redirect_url = f"/items/{item_uuid}?notice={notice}#price-panel"

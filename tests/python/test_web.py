@@ -3050,6 +3050,66 @@ def test_price_history_is_a_table_with_confirmed_audit_safe_deletion(
     )
 
 
+def test_price_history_delete_removes_all_hidden_duplicates_only_in_its_group(
+    client, session_factory, catalog_item
+) -> None:
+    day = datetime(2026, 8, 22, tzinfo=UTC)
+    with session_factory() as session:
+        duplicates = [
+            PriceObservation(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                total_price=29000000,
+                observed_at=day + timedelta(minutes=offset),
+                market_context="Dodge",
+            )
+            for offset in range(30)
+        ]
+        untouched = [
+            PriceObservation(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                total_price=price,
+                observed_at=observed_at,
+                market_context=market,
+            )
+            for price, observed_at, market in [
+                (29000000, day - timedelta(microseconds=1), "Dodge"),
+                (29000000, day + timedelta(days=1), "Dodge"),
+                (29000, day, "Dodge"),
+                (29000000, day, "Other market"),
+            ]
+        ]
+        duplicates[0].invalidated_at = day + timedelta(hours=1)
+        duplicates[0].invalidation_reason = "Earlier correction"
+        session.add_all(duplicates + untouched)
+        session.commit()
+        target_uuid = duplicates[-1].uuid
+        duplicate_ids = {row.uuid for row in duplicates}
+
+    response = client.post(f"/price-observations/{target_uuid}/delete")
+    assert response.status_code == 200
+    assert "Price history row has been deleted." in response.text
+    history = response.text.split('class="price-history-table"', maxsplit=1)[1]
+    assert not re.search(r"2026-08-22</td>\s*<td[^>]*>29,000,000</td>", history)
+    with session_factory() as session:
+        observations = list(session.scalars(select(PriceObservation)))
+        assert len(observations) == 34
+        for observation in observations:
+            if observation.uuid in duplicate_ids:
+                assert observation.invalidated_at is not None
+                assert observation.total_price == 29000000
+                assert observation.invalidation_reason == (
+                    "Earlier correction"
+                    if observation.uuid == duplicates[0].uuid
+                    else "Deleted from item price history"
+                )
+            else:
+                assert observation.invalidated_at is None
+    repeated = client.post(f"/price-observations/{target_uuid}/delete")
+    assert "Price history row was already deleted." in repeated.text
+
+
 def test_non_htmx_price_create_redirects_to_search_with_notification(client, catalog_item) -> None:
     response = client.post(
         f"/items/{catalog_item.uuid}/price-observations",
