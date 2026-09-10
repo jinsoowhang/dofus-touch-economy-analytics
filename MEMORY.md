@@ -48,6 +48,9 @@
   sorting against the new column order. Sort restoration compares the saved
   direction with the server-provided active direction before toggling, so the
   default craft-name order is not accidentally reversed during a price reload.
+  Clicking Craftable Item after sorting another column restores each craft's
+  item-page recipe order as the tie-breaker, including when craft names sort
+  descending; it never inherits ingredient order from the previous column sort.
   Split rows for the same market ingredient use unique input identifiers while
   retaining the shared append-only price update.
 - Once at least two items are present in the Recipe Calculator craft cart, Suggested Similar Crafts recommends up to ten current recipes that are not already in the cart and share at least one exact ingredient. Matching uses canonical item identity for resolved ingredients and normalized source names for unresolved ingredients. Results rank by the percentage of the candidate recipe covered by the cart's combined ingredient set, then shared ingredient count and the number of cart recipes overlapped. Each compact row shows item, profession and level, shared-ingredient measures, current-listing count, completed-sale count, and Add. Recommendations refresh after cart additions, removals, and browser-local cart restoration, regardless of the rows' calculation-checkbox state.

@@ -30,3 +30,30 @@
   full check script was not run for this local data-only operation. Screenshots,
   operational data, scripts, reports, and backups remain outside tracked files.
 - Preserved the pre-existing MEMORY.md changes and September 7 session note.
+
+## Combined Shopping List craft sorting
+
+- Checked the live item page and calculator projection. Both initially render
+  ingredients by stored recipe position, with calculator crafts alphabetical.
+  Found that clicking Craftable Item after another column sort retained the
+  previous ingredient order within each craft.
+- Added an opt-in initial-row-order tie-breaker to the shared table sorter and
+  enabled it on the shopping list's Craftable Item header. Both craft-name sort
+  directions now preserve each craft's item-page ingredient order. Other columns
+  and tables retain their existing behavior. Versioned the shared script URL so
+  browsers load the corrected sorter.
+- Updated the existing rendered-header check. A Node interaction check reproduced
+  the failure against the original script and passed with the fix, covering cost
+  and ingredient-name sorts followed by craft-name ascending/descending sorts.
+- Compared 12 rendered shopping-list rows across two local crafts with their
+  item-page recipe tables: craft names are alphabetical and ingredient orders
+  match. No operational records were changed for this UI fix.
+- The complete `./scripts/check.sh` passed: Python lint/formatting, 423 Python
+  tests, package compilation, dbt debug/parse/seed/build (126 successful build
+  nodes including 108 data tests), SQL lint, and public-file policy. JavaScript
+  syntax and working-tree whitespace checks also passed.
+- The user requested publication. Prepared separate commits for the pending sales
+  reconciliation notes and this sorting fix, including its memory/session record.
+  Reused the successful full checks above because source code has not changed
+  since verification; rechecked whitespace and public-file policy before staging.
+  Operational databases, screenshots, reports, and backups remain ignored.
