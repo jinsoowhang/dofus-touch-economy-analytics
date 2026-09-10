@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-06
+**Last updated:** 2026-09-09
 
 ## Dofus Touch Economy Analytics
 
@@ -177,6 +177,19 @@
   price. Back up SQLite before mutation and write the confirmed batch atomically with
   recipe-cost snapshots calculated at the assigned sale timestamps. Never fabricate
   missing listings or guessed item identity.
+- The 2026-09-09 Downloads reconciliation recorded 51 exact-price active listings:
+  23 for September 8 and 28 for September 9. Filename dates override file save
+  dates; prior-day sales use 23:59:59 Pacific and same-day sales use screenshot
+  save times. Kido Rear Feather, Nelween Essence, and Dragomilk remain outside the
+  approved profession scope. Seven historical recipe costs remain unknown.
+  The ignored `data/reports/manual-screenshot-sales-2026-09-09.json` contains the
+  evidence hashes, committed listing IDs, backup, and verification; consult it
+  before replaying these screenshots.
+- The 2026-09-07 Downloads reconciliation marked 57 existing listings sold. Hairy
+  Cloak has two active catalog identities (Cloak and Ceremonial Cape), so its
+  notification remains pending explicit identity confirmation even though only
+  Ceremonial Cape has an active Sales listing. The private reconciliation report
+  is `data/reports/manual-screenshot-sales-2026-09-07.json`; consult it before replay.
 - A 2026-08-29 screenshot reconciliation completed three exact active matches for
   270,000 kamas. A fourth visible message, Minoskito Skin at 1,517 kamas, remained
   unchanged because the catalog item had no Sales listing; screenshot evidence does
