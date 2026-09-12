@@ -30,6 +30,7 @@ for (const table of document.querySelectorAll("table[data-sortable-table]")) {
   if (!body || headers.length === 0) {
     continue;
   }
+  const initialRowOrder = new Map(Array.from(body.rows, (row, index) => [row, index]));
 
   for (const [columnIndex, header] of headers.entries()) {
     if (header.hasAttribute("data-sort-disabled")) {
@@ -64,7 +65,9 @@ for (const table of document.querySelectorAll("table[data-sortable-table]")) {
       const direction = header.getAttribute("aria-sort") === "ascending" ? "descending" : "ascending";
       const rows = Array.from(body.rows).map((row, originalIndex) => ({
         row,
-        originalIndex,
+        originalIndex: header.dataset.sortTieOrder === "initial"
+          ? (initialRowOrder.get(row) ?? originalIndex)
+          : originalIndex,
         value: tableSortValue(row.cells[columnIndex], type),
       }));
       rows.sort((left, right) => {

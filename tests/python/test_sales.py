@@ -38,6 +38,7 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert listing.relisted_at is None
     assert listing.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
+    assert service.active_total_price() == 50_000
     current_price = PriceService(session, "Dodge").current_for_item(catalog_item.id)
     assert current_price is not None
     assert current_price.total_price == 50_000
@@ -47,12 +48,14 @@ def test_manual_sale_moves_from_active_to_sold_and_back(session, catalog_item) -
     assert sold.date_sold is not None
     assert sold.date_sold.tzinfo == UTC
     assert service.active() == []
+    assert service.active_total_price() == 0
     assert [sale.uuid for sale in service.sold()] == [listing.uuid]
 
     reopened = service.reopen(listing.uuid)
 
     assert reopened.date_sold is None
     assert [sale.uuid for sale in service.active()] == [listing.uuid]
+    assert service.active_total_price() == 50_000
     assert service.sold() == []
 
 
@@ -91,7 +94,8 @@ def test_completed_sale_profit_keeps_its_sale_time_recipe_cost(
         )
         assert stored_costs == [Decimal(3_500), Decimal(3_500)]
 
-        later_observed_at = datetime.now(UTC) + timedelta(seconds=1)
+        # The observation follows the sale but must already be current when reopening.
+        later_observed_at = datetime.now(UTC)
         prices = PriceService(session, "Dodge")
         prices.record(
             items["synthetic ore"].uuid,
@@ -737,7 +741,7 @@ def test_active_sales_sort_by_each_displayed_field(
     assert [result.display_name for result in results] == expected
 
 
-def test_active_price_reviews_flag_week_old_listings_and_suggest_markdowns(
+def test_active_price_reviews_flag_fortnight_old_listings_and_suggest_markdowns(
     session,
     catalog_item,
 ) -> None:
@@ -759,19 +763,19 @@ def test_active_price_reviews_flag_week_old_listings_and_suggest_markdowns(
         item_id=catalog_item.id,
         lot_quantity=1,
         asking_price=1_000,
-        selling_started_at=datetime(2026, 8, 15, 12, tzinfo=UTC),
+        selling_started_at=datetime(2026, 8, 8, 12, tzinfo=UTC),
     )
     markdown_review_listing = SaleListing(
         item_id=no_history_item.id,
         lot_quantity=1,
         asking_price=200,
-        selling_started_at=datetime(2026, 8, 16, 12, tzinfo=UTC),
+        selling_started_at=datetime(2026, 8, 9, 12, tzinfo=UTC),
     )
     young_listing = SaleListing(
         item_id=young_item.id,
         lot_quantity=1,
         asking_price=300,
-        selling_started_at=datetime(2026, 8, 17, 12, tzinfo=UTC),
+        selling_started_at=datetime(2026, 8, 10, 12, tzinfo=UTC),
     )
     session.add_all(
         [
@@ -804,11 +808,11 @@ def test_active_price_reviews_flag_week_old_listings_and_suggest_markdowns(
     )
 
     assert set(reviews) == {median_review_listing.uuid, markdown_review_listing.uuid}
-    assert reviews[median_review_listing.uuid].age_days == 8
+    assert reviews[median_review_listing.uuid].age_days == 15
     assert reviews[median_review_listing.uuid].suggested_price == 750
     assert reviews[median_review_listing.uuid].suggestion_basis == "completed_sales_median"
     assert reviews[median_review_listing.uuid].completed_sale_count == 2
-    assert reviews[markdown_review_listing.uuid].age_days == 7
+    assert reviews[markdown_review_listing.uuid].age_days == 14
     assert reviews[markdown_review_listing.uuid].suggested_price == 190
     assert reviews[markdown_review_listing.uuid].suggestion_basis == "standard_markdown"
 
@@ -819,7 +823,7 @@ def test_repricing_resets_active_price_review_clock(session, catalog_item) -> No
         item_id=catalog_item.id,
         lot_quantity=1,
         asking_price=1_000,
-        selling_started_at=now - timedelta(days=8),
+        selling_started_at=now - timedelta(days=15),
     )
     session.add(listing)
     session.commit()

@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-09
 
 ## Dofus Touch Economy Analytics
 
@@ -30,7 +30,7 @@
 - Item identity uses whitespace-collapsed Unicode case-folded exact names. Cost identities also include normalized category; ambiguous recipe ingredients remain unresolved rather than being guessed.
 - A no-result search offers advisory close-name links and manual item creation. Similarity never establishes identity, exact duplicates are blocked, and each item records whether it was first created by import or manually.
 - Manual item names and entered category overrides are whitespace-normalized and title-cased at the start of each space-delimited word; apostrophes and other punctuation do not start a new capitalized word. When category is omitted, a reviewed final-word equipment suffix may infer it; explicit category input wins and arbitrary substrings never classify an item.
-- The shared page header exposes Item, Sales, Insights, and BigQuery Sync as top-level navigation. Item and Sales open click- and keyboard-controlled submenus whose links are alphabetized; the Sales activity destination is labeled Activity in the submenu and Sales Activity in the page title and H1. Only one submenu can remain open; opening the other closes it, and pointer or keyboard focus outside the menus plus Escape closes the active submenu. Incidental hover does not expose another menu. The active destination remains identified inside its submenu. A blank item query renders the full catalog in 100-row pages; typing filters it by normalized name, and the checkbox-style Category dropdown accepts multiple exact categories combined with OR while combining the category group with the name query using AND. Repeated category query parameters persist through HTMX searches, sorting, and pagination. Multi-value option panels open as compact, bounded overlays instead of expanding the form grid or inheriting full-size text-input geometry. Item Search headers sort by name, category, weight, current price, or observation date in either direction, with inactive headers starting descending, active filters preserved, and missing values kept last.
+- The shared page header exposes Home, Item, Sales, and Data as top-level navigation. Data contains BigQuery Sync, Dashboard, and Insights, with the Data tab active on any of those pages. Item, Sales, and Data open click- and keyboard-controlled submenus whose links are alphabetized; the Sales activity destination is labeled Activity in the submenu and Sales Activity in the page title and H1. Only one submenu can remain open; opening the other closes it, and pointer or keyboard focus outside the menus plus Escape closes the active submenu. Incidental hover does not expose another menu. The active destination remains identified inside its submenu. A blank item query renders the full catalog in 100-row pages; typing filters it by normalized name, and the checkbox-style Category dropdown accepts multiple exact categories combined with OR while combining the category group with the name query using AND. Repeated category query parameters persist through HTMX searches, sorting, and pagination. Multi-value option panels open as compact, bounded overlays instead of expanding the form grid or inheriting full-size text-input geometry. Item Search headers sort by name, category, weight, current price, or observation date in either direction, with inactive headers starting descending, active filters preserved, and missing values kept last.
 - Item icons are cached locally by UUID and shown in Item Search, item detail, recipes, and Sales. Fetching prefers the current Dofus Touch client data, then exact DofusDB and Dofus Wiki matches; reviewed legacy-name aliases cover outdated source spellings without fuzzy identity matching. The live catalog sync imports every unique exchangeable Dofus Touch item/category identity without deleting local rows or replacing existing UUIDs, prices, provenance, or history. It maps the official nonnegative integer `realWeight` field to nullable item weight in pods; zero remains valid, while unmatched or invalid weight remains null. It also corrects exact matched display-name casing and fills a missing display category when one unique exact official Dofus Touch identity exists. Existing catch-all `Resource` categories refine to a more specific exact current type, with unanimous exact DofusDB legacy matches as fallback; legacy `Cape` display categories refine to the current official `Cloak` type. Missing or conflicting matches remain unchanged. The original `identity_category` and source records stay unchanged so imports retain stable identity and raw provenance.
 - Every successful live catalog sync checks every local normalized name against all names in Ankama's current English Dofus Touch Items payload, including non-exchangeable items; reviewed legacy-name aliases count as their current official name. Nullable `touch_catalog_status`, check time, and exclusion reason persist the authoritative result. Verified and not-yet-checked items remain active; excluded items are hidden from search, detail, recipe/calculator, price, Sales, and icon-target surfaces, and recipes with any excluded resolved ingredient are hidden. Manual recreation of an excluded name is rejected, but source rows, recipes, observations, listings, and analytical snapshots retain the item for audit. The 2026-08-23 reconciliation checked all 11,400 local rows: 10,948 verified and 452 excluded. `Chouquish Belt` was corrected to official casing, and Violet Arrow Helmet plus Violet Arrow Cape are excluded.
 - The ignored `data/app/item_icons/` cache is independent of SQLite. Copying or
@@ -48,6 +48,9 @@
   sorting against the new column order. Sort restoration compares the saved
   direction with the server-provided active direction before toggling, so the
   default craft-name order is not accidentally reversed during a price reload.
+  Clicking Craftable Item after sorting another column restores each craft's
+  item-page recipe order as the tie-breaker, including when craft names sort
+  descending; it never inherits ingredient order from the previous column sort.
   Split rows for the same market ingredient use unique input identifiers while
   retaining the shared append-only price update.
 - Once at least two items are present in the Recipe Calculator craft cart, Suggested Similar Crafts recommends up to ten current recipes that are not already in the cart and share at least one exact ingredient. Matching uses canonical item identity for resolved ingredients and normalized source names for unresolved ingredients. Results rank by the percentage of the candidate recipe covered by the cart's combined ingredient set, then shared ingredient count and the number of cart recipes overlapped. Each compact row shows item, profession and level, shared-ingredient measures, current-listing count, completed-sale count, and Add. Recommendations refresh after cart additions, removals, and browser-local cart restoration, regardless of the rows' calculation-checkbox state.
@@ -56,11 +59,23 @@
 - Every primary page and item detail begins with a concise purpose statement beneath its H1; market context and item metadata remain separate factual lines.
 - Every data-bearing web table supports sorting on its primary displayed data columns. Paginated Item Search, Recipes, Currently Selling, and Sold History remain server-sorted; item recipe/history, Sales daily totals, Profit Opportunities, Best Sellers, Out of Stock, and Recipe Calculator tables use the shared typed client sorter. Selection, calculator, Action, and accessible per-row secondary-detail disclosures are intentionally not sortable.
 - Catalog rows show title-cased category labels, latest valid total price without a currency suffix, and date-only observation time for the active market. Prices are selected in one bulk window query, and every row cell opens item detail for append-only price entry rather than direct mutation.
-- Item detail presents one inline Current Price field that saves on Enter or blur and appends price history without creating a Sales listing. Visible history is a Date Observed/Price/Action table that keeps only the newest valid row for each unique UTC observed-day and total-price pair while retaining every underlying observation for audit; its confirmed X action audit-invalidates and hides the selected observation, restoring the previous valid Current Price when necessary without physically deleting financial history. The Recipe heading places the crafted item's Category between Profession and Required Level, and its explicitly labeled Add to Recipe Calculator action uses the shared browser-local cart. A nonpersistent Craft Quantity preview scales every recipe ingredient quantity, row total cost, and the total recipe cost from 1 through 1,000 without changing stored recipe or price state. Craft Quantity, cart status and action, and Open Recipe Calculator share one responsive control row. The quantity survives an ingredient-price save and redirect through one-use per-tab browser state, then is discarded so it never becomes durable recipe or cart state. Classic scripts co-loaded on item detail use script-specific top-level identifiers so browser lexical declarations cannot collide and prevent the cart handler from binding. Crafting Metrics use responsive Recipe Cost, Profit, and percentage ROI cards, with an explicit incomplete-cost state when ingredient prices are missing.
-- Each Sales row represents one item listing with an editable asking price, `selling_started_at`, and nullable `date_sold`; lot quantity is implicit and not part of the Sales workflow. New Sales entries require a positive price, and active price fields save on Enter or blur without a separate Update button. Entering or editing a Sales price appends a linked quantity-one price observation and makes it the item's current price while preserving history; Duplicate alone does not add redundant price history. Only explicit Sales actions create listings; item-page, recipe, and API price observations never enter Currently Selling. Selecting an item in the add form shows and prefills the integer median of that item's completed-sale prices with its sample count; active listings are excluded, missing history stays explicit, and the suggestion remains editable. Currently Selling derives read-only Cost from the latest recipe and current ingredient prices and derives estimated Profit as row price minus that cost. Marking sold atomically stores `date_sold` plus a nullable `recipe_cost_at_sale` using the recipe and ingredient observations available at that timestamp. Sold History derives fixed realized Profit as its recorded asking price minus that stored cost; later ingredient prices do not alter it. Legacy sold rows without a snapshot reconstruct cost only from known recipe structure and ingredient observations recorded no later than the sale timestamp, otherwise Cost at Sale and Profit at Sale remain missing. The Sold History return action clears both `date_sold` and the cost snapshot so the restored active row resumes current estimates. Active and sold cost/profit remain sortable and filterable. The Currently Selling summary displays both active count and summed asking price. Currently Selling preserves the original Selling Since date and derives a sortable nullable Relisted Date from the listing's latest linked price observation when that observation occurred after listing creation. Manual repricing and Apply suggestion share this append-only relist behavior. A manual price-review suggestion appears only after at least seven Pacific calendar days from the latest relist, or from Selling Since when the listing has never been repriced; the lower of a 5% markdown or the item's all-time completed-sale median is shown with its basis and completed-sale count. Applying an adjustment resets that review clock, and a later prompt labels age as days since relist. No price changes automatically; Apply suggestion preserves the current Sales view and scroll position. Duplicate/mark-sold actions use accessible icons. Currently Selling row actions save and restore the exact scroll offset across their full-page refresh, with a section anchor as the no-storage fallback. Row checkboxes and a select-all control support atomic bulk Mark sold and Delete actions; bulk deletion requires confirmation, and a stale selection cannot partially mutate the batch. The add form can optionally filter items by category, and typed item matches move to the top of the dropdown. Active and sold tables sort independently by any displayed data field; inactive headers start descending, actions preserve both sort selections, and sort links return to the originating section anchor. The collapsed Sales **Filter Items** panel sits below the add form and combines normalized item-name substring, exact category, active/sold status, inclusive asking-price and computed-profit ranges, and inclusive activity-date ranges. Activity dates use `selling_started_at` for active rows and `date_sold` for sold rows in `America/Los_Angeles`; filters remain in URLs, sort links, and mutation redirects. Sales dates and chart totals are displayed and grouped in the same timezone. Sales Over Time ignores the table filters and always shows three completed-sale series: All Sales, All Cost, and All Profit. All Cost and All Profit include only completed Sales with known Cost at Sale; missing cost is never treated as zero. Stored timestamps remain UTC. Visible prices use comma grouping and comma-formatted price input is accepted. Page sections are title-cased and collapsible. Row deletion requires browser confirmation and does not delete linked price history.
+- Item detail presents one inline Current Price field that saves on Enter or blur and appends price history without creating a Sales listing. Visible history is a Date Observed/Price/Action table that keeps only the newest valid row for each unique UTC observed-day and total-price pair while retaining every underlying observation for audit; its confirmed X action atomically audit-invalidates every valid observation in the displayed item/market/UTC-day/total-price group, including duplicates outside the history limit. This removes the visible row and restores the previous valid Current Price when necessary without physically deleting financial history or overwriting earlier invalidation records. Single-observation API invalidation retains its original scope. The Recipe heading places the crafted item's Category between Profession and Required Level, and its explicitly labeled Add to Recipe Calculator action uses the shared browser-local cart. A nonpersistent Craft Quantity preview scales every recipe ingredient quantity, row total cost, and the total recipe cost from 1 through 1,000 without changing stored recipe or price state. Craft Quantity, cart status and action, and Open Recipe Calculator share one responsive control row. The quantity survives an ingredient-price save and redirect through one-use per-tab browser state, then is discarded so it never becomes durable recipe or cart state. Classic scripts co-loaded on item detail use script-specific top-level identifiers so browser lexical declarations cannot collide and prevent the cart handler from binding. Crafting Metrics use responsive Recipe Cost, Profit, and percentage ROI cards, with an explicit incomplete-cost state when ingredient prices are missing.
+- Each Sales row represents one item listing with an editable asking price, `selling_started_at`, and nullable `date_sold`; lot quantity is implicit and not part of the Sales workflow. New Sales entries require a positive price, and active price fields save on Enter or blur without a separate Update button. Entering or editing a Sales price appends a linked quantity-one price observation and makes it the item's current price while preserving history; Duplicate alone does not add redundant price history. Only explicit Sales actions create listings; item-page, recipe, and API price observations never enter Currently Selling. Sales Activity has no Add an Item to Sell form; Recipe Calculator and existing listing endpoints remain available. Currently Selling derives read-only Cost from the latest recipe and current ingredient prices and derives estimated Profit as row price minus that cost. Marking sold atomically stores `date_sold` plus a nullable `recipe_cost_at_sale` using the recipe and ingredient observations available at that timestamp. Sold History derives fixed realized Profit as its recorded asking price minus that stored cost; later ingredient prices do not alter it. Legacy sold rows without a snapshot reconstruct cost only from known recipe structure and ingredient observations recorded no later than the sale timestamp, otherwise Cost at Sale and Profit at Sale remain missing. The Sold History return action clears both `date_sold` and the cost snapshot so the restored active row resumes current estimates. Active and sold cost/profit remain sortable and filterable. The Currently Selling summary displays both active count and summed asking price. Currently Selling preserves the original Selling Since date and derives a sortable nullable Relisted Date from the listing's latest linked price observation when that observation occurred after listing creation. Manual repricing and Apply suggestion share this append-only relist behavior. A manual price-review suggestion appears only after at least fourteen Pacific calendar days from the latest relist, or from Selling Since when the listing has never been repriced; the lower of a 5% markdown or the item's all-time completed-sale median is shown with its basis and completed-sale count. Applying an adjustment resets that review clock, and a later prompt labels age as days since relist. No price changes automatically; Apply suggestion preserves the current Sales view and scroll position. Duplicate/mark-sold actions use accessible icons. Currently Selling row actions save and restore the exact scroll offset across their full-page refresh, with a section anchor as the no-storage fallback. Row checkboxes and a select-all control support atomic bulk Mark sold and Delete actions; bulk deletion requires confirmation, and a stale selection cannot partially mutate the batch. Active and sold tables each render 50 rows per page. Filters and cost/profit sorting precede pagination, counts and totals cover all matching rows, and the chart remains independent of table filters. Bulk selection applies only to the visible page. Mutations preserve page state; sorting resets only its own table page, and filter submissions reset both. Active and sold tables sort independently by any displayed data field; inactive headers start descending, actions preserve both sort selections, and sort links return to the originating section anchor. The expanded-by-default Sales **Filter Items** panel precedes the activity summaries and combines normalized item-name substring, exact category, active/sold status, inclusive asking-price and computed-profit ranges, and inclusive activity-date ranges. Activity dates use `selling_started_at` for active rows and `date_sold` for sold rows in `America/Los_Angeles`; filters remain in URLs, sort links, and mutation redirects. Sales dates and chart totals are displayed and grouped in the same timezone. Sales Over Time ignores the table filters and always shows three completed-sale series: All Sales, All Cost, and All Profit. All Cost and All Profit include only completed Sales with known Cost at Sale; missing cost is never treated as zero. Stored timestamps remain UTC. Read-only prices use comma grouping. Craftable-item price entries use thousands of kamas with explicit unit labels; ingredient Per Unit Price and non-craftable catalog items use literal full kamas. Page sections are title-cased and collapsible. Row deletion requires browser confirmation and does not delete linked price history.
 - Out of Stock Items groups completed Sales by catalog item and includes an item only when it has at least one sold listing and zero active listings. Each row shows category, sold count, a sortable Suggested Restock quantity, latest Pacific sale date and price, current price, current recipe cost, profit and ROI at the last sale price, and a shared Recipe Calculator cart action for craftable items. ROI is profit at the last sale price divided by current recipe cost and remains missing when profit or a nonzero recipe cost is unavailable. The default order is Profit at Last Sale Price descending with missing profit last. Suggested Restock averages each item's elapsed sales-active days from listing to sale, where a sales-active day is a distinct Pacific calendar date with at least one registered completed sale anywhere in the application. It suggests three items at an average of at most one active day, two above one through five active days, and one above five; calendar gaps with no registered sales do not slow the recommendation. Adding a craftable Restock Candidate to Recipe Calculator seeds its browser-local Craft Quantity with Suggested Restock instead of the shared cost-banded default, and an item already in the cart keeps its existing quantity until acted on. On Restock Candidates only, the `Added ✓` control remains enabled and clicking it removes the item from both cart membership and calculator selection before restoring `Add`; other shared cart surfaces retain their disabled added state. Its table restores normal cell padding because its read-only values do not use Item Search's full-cell links; this keeps Sold Count and Last Sold visually separate. Marking the last active listing sold makes the item eligible; adding or reopening any active listing removes it from the projection.
 - Profit Opportunities evaluates every latest recipe with a complete current crafted-item price and complete current ingredient prices; completed Sales history does not limit eligibility. It includes only positive current profit, shows at most the top 100, and ranks Improving recipes first, Newly Priced recipes second, and other Profitable Now recipes third. The prior baseline holds the current crafted-item price constant and uses each ingredient's immediately previous valid observation, so ROI change isolates ingredient-cost movement. Improving requires positive ROI change; Newly Priced means the prior recipe cost was incomplete. Every row has visible sortable Profession, Profession Level, and Currently Selling columns. Its URL-backed multi-profession filter defaults to Shoemaker, Jeweller, and Tailor; an explicitly empty selection means all professions. Its maximum profession-level filter defaults to 60 and accepts standard levels through 100. The zero-active-listing filter is enabled by default but can be explicitly cleared; availability, profession, and level filters are applied before summary counts and the 100-row limit. Primary decision measures remain sortable, secondary economics plus completed sale count live in accessible click/keyboard row details, and every row can be added to Recipe Calculator.
 - Best Sellers groups every catalog item with completed Sales history and defaults to sold-count ranking with recorded revenue as the tie-breaker. It reports average recorded sale price, average elapsed listing-to-sale days, latest Pacific sale date, active listing count, current price, current recipe cost, total known completed-sale profit, and estimated current ROI. Total Profit sums completed Sales whose stored Cost at Sale or historically reconstructed cost makes realized profit known. The summary's Top Profit ranks that aggregate and orders Most Units Sold, Top Profit, and Top Revenue beside one another. Historical metrics come only from completed listings; current ROI remains an estimate using the latest valid market and ingredient prices. Its Sales Performance table keeps Sold Count and the sortable Currently Selling count among the primary visible decision columns within a 64rem minimum width, while lesser metrics remain in accessible click/keyboard More disclosures instead of requiring a 105rem horizontal table. Craftable rows share the browser-local Recipe Calculator action.
+- Data > Dashboard uses known realized profit from completed Sales as its North
+  Star. The default 30-day window and 7-/90-day controls end on today's Pacific
+  date, compare with the preceding equal-length period, and explicitly include a
+  partial today. The page provides daily profit and revenue lines, sales-volume
+  bars, revenue/count/margin/time-to-sell KPIs, cost coverage, the all-date active
+  inventory value/count and price-review count, and the five highest known-profit
+  items in the selected period. Profit and margin use only sales with known costs;
+  unknown profit remains missing, no-sale days are zero, future timestamps are
+  excluded, and stale history does not shift the reporting window. Native SVG
+  points support pointer, touch, and keyboard readouts; a sortable daily table
+  supplies exact values. Calculations stay in the Sales-backed dashboard service
+  with no request-time warehouse writes or external chart dependencies.
 - Insights is a read-only stakeholder report that synthesizes the existing governed Sales and recipe services. Its executive KPIs, analyst readout, action queue, and category table cover completed-sales volume and revenue, average time to sell, active listed value, historical known profit, seven-Pacific-calendar-day momentum versus the prior seven days anchored on the latest recorded sale, repeat demand, revenue concentration, cost coverage, overdue price reviews, out-of-stock items, and complete current crafting opportunities. Category reporting case-folds labels and rolls `Cape` plus the official cosmetic `Ceremonial Cape` category into the broader `Cloak` family without changing catalog identity. Category Performance includes a sortable Profession column derived from the latest recipes of sold items; multiple distinct professions are alphabetized and comma-separated, while categories without a craftable sold item show an em dash. Missing prices or costs remain explicit, and the page makes no request-time DuckDB, BigQuery, or dbt calls.
 - Bulk-toolbar text buttons explicitly override compact row-icon geometry so Mark
   selected sold and Delete selected share the same height, padding, line height, and
@@ -70,6 +85,22 @@
   exclude listings for other catalog items, and link to the matching item/status
   filter on the Sales page.
 - For small application iterations, avoid broad README/design-document edits unless a public contract changes or the user asks; still maintain the required `MEMORY.md` and dated session note at session end.
+- Activity performance phase one was authorized and implemented on 2026-09-05:
+  bounded HTMX item search, independent 50-row table pages, one materialization of
+  completed Sales per request, current ingredient-price queries restricted to the
+  requested items, and latest-only current recipe loading. Historical recipe-cost
+  reconstruction remains unchanged. Local Chromium warm loads fell from about
+  2 seconds to 0.44–0.52 seconds; decoded HTML fell from 5.94 MB to 0.43 MB and
+  elements from 28,665 to 3,139. These are local samples with a changing live
+  dataset, not production percentiles. A disposable 7,660-row history kept HTML
+  bounded but took 0.79–0.83 seconds for warm server GETs because calculations and
+  Python filtering/sorting still process full history. Partial updates, historical
+  projection changes, and native-WSL storage remain follow-on options. See
+  `notes/Sales Activity Performance Research and Proposal 2026-09-05.md`.
+- When a manual `uv run dofus-web` launch reports port 8000 in use, inspect the
+  listener before changing anything. An agent-started background app may still
+  own the port; stop that identified instance when handing control back to the
+  user's terminal, then verify the loopback address can bind.
 - A later cost import may enrich a sole uncategorized manual item with its category while preserving the stable UUID, manual creation provenance, recipes, and price observations.
 - The application importer validates both file contracts before writes, is idempotent by dataset checksum, preserves accepted and rejected raw-row provenance locally, and reports how many unique cost prices were seeded.
 - Additive SQLite migrations for referenced tables should use supported direct `ALTER TABLE` operations rather than batch table rebuilds while foreign-key enforcement is active; populated upgrade tests must include dependent rows.
@@ -123,6 +154,17 @@
   controls, four-line chart, and daily table expose the same measures. Listed, All
   Sales, All Cost, and All Profit begin visible; each control hides its matching line
   and points immediately, while the final visible series cannot be unchecked.
+- Sales Over Time summary cards use exactly two four-column rows: Total Listed,
+  Total Sales, Total Cost, and Total Profit above Listed Today, Sold Today, Cost
+  Today, and Profit Today. The user explicitly requested the lower Listed metric
+  to sum asking prices across all currently active listings, regardless of listing
+  date, then requested the Today labels. The explanatory note states that Listed
+  Today is the active inventory total; the other three cards show today's Pacific
+  sales activity. Both rows ignore table filters. Days without sales show zero in
+  the three daily cards; completed sales with no known cost retain
+  missing cost/profit indicators. Small screens scroll each four-card row
+  horizontally instead of stacking. The scoped grid rule overrides the shared
+  mobile metric layout; the stylesheet URL is versioned to refresh cached styles.
 - Correct accidental duplicate active listings by backing up the operational
   database and deleting only the duplicate active rows. Do not mark data-entry
   duplicates as sold because that would corrupt sales history and analytics.
@@ -138,6 +180,19 @@
   price. Back up SQLite before mutation and write the confirmed batch atomically with
   recipe-cost snapshots calculated at the assigned sale timestamps. Never fabricate
   missing listings or guessed item identity.
+- The 2026-09-09 Downloads reconciliation recorded 51 exact-price active listings:
+  23 for September 8 and 28 for September 9. Filename dates override file save
+  dates; prior-day sales use 23:59:59 Pacific and same-day sales use screenshot
+  save times. Kido Rear Feather, Nelween Essence, and Dragomilk remain outside the
+  approved profession scope. Seven historical recipe costs remain unknown.
+  The ignored `data/reports/manual-screenshot-sales-2026-09-09.json` contains the
+  evidence hashes, committed listing IDs, backup, and verification; consult it
+  before replaying these screenshots.
+- The 2026-09-07 Downloads reconciliation marked 57 existing listings sold. Hairy
+  Cloak has two active catalog identities (Cloak and Ceremonial Cape), so its
+  notification remains pending explicit identity confirmation even though only
+  Ceremonial Cape has an active Sales listing. The private reconciliation report
+  is `data/reports/manual-screenshot-sales-2026-09-07.json`; consult it before replay.
 - A 2026-08-29 screenshot reconciliation completed three exact active matches for
   270,000 kamas. A fourth visible message, Minoskito Skin at 1,517 kamas, remained
   unchanged because the catalog item had no Sales listing; screenshot evidence does
@@ -231,3 +286,107 @@
   visual review threshold is independent of the existing 7-day Stale price status.
   In that table, Current price uses the normal theme text color while Stale price and
   Missing price retain the warning color.
+- On 2026-09-05, two Downloads screenshots atomically marked 34 exact active
+  listings sold using their Pacific save times. One screenshot-authoritative price
+  correction was applied and all 34 recipe costs were captured. Fifteen visible
+  occurrences remained outside the approved professions; the ambiguous Sapphire
+  name was left unresolved after verifying every exact candidate was out of scope.
+  The ignored reconciliation report retains the original plan and an
+  integrity-checked pre-write backup supports recovery.
+
+- On 2026-09-06, both Downloads screenshots atomically marked 26 exact active
+  listings sold using their Pacific save times. One screenshot-authoritative price
+  correction was applied; 25 sales have recipe-cost snapshots and one remains
+  unknown. Nine notifications were non-craftable or outside the approved
+  professions. An integrity-checked backup and reconciliation report remain ignored;
+  verification confirmed exactly the planned listing changes and one appended
+  price observation, with all other tables unchanged.
+
+- Sales > Price Review (`/sales/price-review`) shows one row per active listing
+  after fourteen Pacific calendar days since its latest relist, or its original
+  Selling Since date when never repriced. Missing-price and one-kama listings
+  remain eligible even without a markdown suggestion. Catalog-excluded items are
+  omitted. Item names sort A–Z by default; eight data columns sort on the server,
+  missing values stay last, and 50-row pages retain full due counts and listed value.
+- Price Review reuses the existing append-only Sales price update: Enter, blur,
+  or Apply suggestion records the relisted date, preserves Selling Since, and
+  removes only that listing until another fourteen days pass. Item-level price entry
+  does not reset listing age. Current recipe cost, estimated profit, and profit at
+  the suggested price support review; More shows latest observed item price/date,
+  category, completed-sale count, and suggestion basis. Missing costs remain unknown.
+  Sorting and page state survive saves, and failed saves retain the entered price.
+
+- Home now renders at `/` as the default UI page; the brand and Home navigation link
+  return there. Its ordered daily checklist follows the user's routine: mark sales,
+  craft out-of-stock items, craft Profit Opportunities, then review the 7-day Dashboard.
+  The user explicitly chose Monday Price Priorities and Friday relisting. Only the
+  matching weekly task joins that day's checklist; the whole week remains visible.
+- Home uses five read-only scalar queries for today's recorded sales/revenue, active
+  listings/value, previously sold items with no active listing, latest sale, and
+  listings due for the existing fourteen-Pacific-day price review. It avoids recipe-cost
+  reconstruction and loading full dashboard or recipe projections on the landing page.
+  Missing prices are counted explicitly and future-dated sales are excluded.
+- Home checklist completion is manual and browser-local (`dofus-home-checklist-v1`),
+  keyed to the Pacific calendar date, with progress and an Up next link. It persists
+  across refresh/navigation and synchronizes tabs. Stale-day pages reload at midnight
+  or on return; prior-day checks do not carry over. Links never mark tasks complete.
+  Storage failure leaves a usable in-memory checklist and shows a persistence message.
+- No UI visit/click telemetry exists in the application. A read-only review of the
+  available operational history found sales on every weekday, supporting the daily
+  routine without inferring completion or preferred weekly maintenance days from
+  import or batch timestamps. Home's contextual counts reflect operational records.
+- Price Review rounds suggestions of at least 1,000 kamas to the nearest thousand
+  (half-thousands round up), capped at the largest thousand below the current Sales
+  Price. Sub-1,000 suggestions retain their positive original amount. Display,
+  suggestion sorting, estimated suggestion profit, and Apply suggestion use the
+  same rounded value; manual prices and Sales Activity suggestions are unchanged.
+
+- Price Review has a read-only Sales Price column and a separate blank Relist Price
+  field. Enter or blur saves the entered price (including an intentional same-price
+  relist) and records the relisted date. Rounded Apply suggestion remains available.
+- Alembic `0011` adds nullable `sale_listings.price_review_snoozed_until`. Action >
+  Snooze 7 days hides only the selected due listing until exactly seven days after
+  the click, without changing price, price history, Selling Since, or Relisted Date.
+  Repricing clears snooze and starts a fresh 14-Pacific-calendar-day review period.
+  Home counts and shared Activity/Dashboard/Insights review reminders respect snooze
+  and the 14-day threshold. Duplicate/stale snoozes and sold/young listings are rejected.
+- The canonical database was backed up and migrated to `0011`; integrity and foreign
+  key checks passed, every preexisting value was preserved, and all snooze values
+  initially remained null. The raw snapshot contract includes the nullable timestamp;
+  the existing loader can append it to BigQuery raw tables during a later authorized
+  sync. No hosted sync was performed as part of this change.
+
+- Dashboard accepts URL-backed Category multi-select (OR) and normalized item-name
+  substring (AND) filters across current/prior periods, all metrics/charts, top items,
+  latest sale, and all-date active inventory. Time-window links retain the filters;
+  clearing them retains the selected period. Choices come from sales and inventory.
+- Daily Realized Profit plots each day's known-profit subtotal, matching the headline
+  and daily table. All plotted days use a uniform solid line and filled points,
+  including days with incomplete costs. Coverage/subtotal details remain in readouts;
+  consecutive partial days remain connected. Only wholly unknown profit creates
+  gaps and a marker below the plot.
+  No-sale days remain zero and real losses remain negative. The August 22 value
+  covers only 5 of 39 sales and must be labeled as a subtotal, not a full daily result.
+
+- Price Review, Sales Activity, Recipes, Recipe Calculator Sale Price Each, and
+  Sales price filters use thousands of kamas (77 = 77,000). Ingredient Per Unit
+  Price in item recipes and Recipe Calculator always uses full kamas (77 = 77),
+  including any craftable intermediate ingredient. Price Priorities Current Price
+  always uses full kamas, including craftable items. Item Search/detail uses thousands
+  for items with recipes and full kamas for other items; visible unit labels and
+  page help state the distinction. Catalog search looks up recipe membership in
+  one bulk query for its displayed items.
+  Prefills and unchanged-value baselines follow the field's unit. Read-only amounts,
+  history, totals, profit filters, storage, and JSON API values remain full kamas.
+- HTML forms explicitly carry `price_unit=thousands` or `price_unit=kamas`; the shared web boundary uses
+  exact Decimal conversion before existing whole-kama validation. Up to three
+  decimal places are accepted; sub-kama values are rejected without rounding.
+  Unmarked legacy forms and hidden Apply suggestion forms retain full-kama semantics.
+  Calculator live projected sales and profit expand the entered price once; canonical
+  API response amounts and stored observations never receive a second multiplier.
+
+- Sales Activity opens Filter Items by default; users can still collapse the panel.
+- Every paginated table has bottom navigation: Item Search, Recipes, Price Review,
+  Currently Selling, and Sold History. Both Sales Activity tables repeat their page
+  number and Previous/Next controls above and below, preserving filters, sorting,
+  and the other table's page.

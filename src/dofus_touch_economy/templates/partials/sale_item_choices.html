@@ -1,0 +1,16 @@
+      <label for="sale-item">Item</label>
+      <select id="sale-item" name="item_uuid" required>
+        <option value="">Choose an item</option>
+        {% for item in item_choices %}
+          <option
+            value="{{ item.uuid }}"
+            data-category="{{ item.category_key }}"
+            data-name="{{ item.display_name }}"
+            data-suggested-price="{{ '{:,}'.format(item.suggested_price) if item.suggested_price is not none else '' }}"
+            data-sold-count="{{ item.sold_count }}"
+            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
+          >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
+        {% endfor %}
+      </select>
+      <p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>
+      <p class="filter-help" role="status">{% if item_choices %}Showing {{ item_choices | length }} matches. Search to narrow the choices.{% else %}No matching items. Try another name or category.{% endif %}</p>

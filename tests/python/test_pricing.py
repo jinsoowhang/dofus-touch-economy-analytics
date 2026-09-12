@@ -167,3 +167,24 @@ def test_cannot_invalidate_twice(session, item) -> None:
 
     with pytest.raises(ObservationConflict):
         service.invalidate(observation.uuid, "Again")
+
+
+def test_scoped_latest_prices_exclude_other_items_markets_and_invalidations(session, item):
+    other = Item(display_name="Other", normalized_name="other", identity_category="")
+    session.add(other)
+    session.flush()
+    valid = make_observation(session, item, total_price=120)
+    invalid = make_observation(session, item, total_price=999, observed_at=dt(2026, 8, 21))
+    invalid.invalidated_at = dt(2026, 8, 22)
+    invalid.invalidation_reason = "Synthetic correction"
+    other_market = make_observation(session, item, total_price=888, observed_at=dt(2026, 8, 22))
+    other_market.market_context = "Other market"
+    make_observation(session, other, total_price=777)
+    session.flush()
+
+    repository = PriceRepository(session)
+    assert [row.uuid for row in repository.latest_valid_for_market("Dodge", {item.id})] == [
+        valid.uuid
+    ]
+    assert repository.latest_valid_for_market("Dodge", set()) == []
+    assert set(PriceService(session, "Dodge").current_for_items([item.id])) == {item.id}

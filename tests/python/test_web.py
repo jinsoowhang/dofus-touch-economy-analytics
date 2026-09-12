@@ -4,11 +4,13 @@ from decimal import Decimal
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+import pytest
 from sqlalchemy import select
 
 from dofus_touch_economy.bigquery_sync import BigQuerySyncManager
 from dofus_touch_economy.importers.service import ImportService
 from dofus_touch_economy.models import Item, PriceObservation, Recipe, SaleListing
+from dofus_touch_economy.routers import web
 from dofus_touch_economy.schemas import PriceObservationCreate, SaleListingCreate
 from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
@@ -17,15 +19,17 @@ from dofus_touch_economy.services.sales import SalesService
 DEFAULT_SALES_QUERY = "active_sort=started&active_direction=desc&sold_sort=sold&sold_direction=desc"
 
 
-def test_root_redirects_to_items(client) -> None:
+def test_root_renders_home(client) -> None:
     response = client.get("/", follow_redirects=False)
 
-    assert response.status_code == 307
-    assert response.headers["location"] == "/items"
+    assert response.status_code == 200
+    assert "Your daily routine" in response.text
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_main_pages_include_one_line_descriptions(client) -> None:
     expected_descriptions = {
+        "/": "Record sales, replenish stock, and decide what to craft next.",
         "/items": "Search the catalog, edit current prices, compare weights",
         "/price-priorities": "Add the missing prices that unlock the most complete recipe",
         "/recipes": "Filter craftable items, compare recipe economics",
@@ -35,6 +39,7 @@ def test_main_pages_include_one_line_descriptions(client) -> None:
         "/best-sellers": "Compare every item with completed Sales history",
         "/out-of-stock-items": "Items appear here after at least one completed sale",
         "/insights": "A stakeholder view of sales momentum, demand, inventory",
+        "/dashboard": "Track realized profit, sales momentum",
         "/bigquery-sync": "Manually publish one immutable snapshot",
     }
 
@@ -79,7 +84,7 @@ def test_item_search_has_active_item_navigation(client) -> None:
     assert 'href="/recipes"' in response.text
 
 
-def test_sales_page_has_active_tab_and_alphabetical_item_choices(
+def test_sales_page_has_active_tab_without_add_listing_form(
     client, session_factory, catalog_item
 ) -> None:
     with session_factory() as session:
@@ -106,11 +111,11 @@ def test_sales_page_has_active_tab_and_alphabetical_item_choices(
     assert ">Out of Stock Items</a>" in response.text
     assert "Currently Selling" in response.text
     assert "Sold History" in response.text
-    assert "Alpha Item — Hat" in response.text
-    assert response.text.index("Alpha Item") < response.text.index(catalog_item.display_name)
+    assert "Add an Item to Sell" not in response.text
+    assert 'class="sales-form"' not in response.text
 
 
-def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
+def test_insights_page_synthesizes_sales_and_sits_in_data_menu(
     client,
     session_factory,
     catalog_item,
@@ -133,10 +138,14 @@ def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
     assert response.status_code == 200
     assert "<title>Insights · Dofus Touch Economy</title>" in response.text
     assert "<h1>Insights</h1>" in response.text
-    assert re.search(r'href="/insights"\s+class="site-tab is-active"', response.text)
+    assert re.search(r'href="/insights"\s+class="site-submenu-link is-active"', response.text)
     assert 'aria-current="page"' in response.text
-    assert response.text.index("<span>Sales</span>") < response.text.index(">Insights</a>")
-    assert response.text.index(">Insights</a>") < response.text.index(">BigQuery Sync</a>")
+    assert response.text.index("<span>Sales</span>") < response.text.index("<span>Data</span>")
+    assert (
+        response.text.index(">BigQuery Sync</a>")
+        < response.text.index(">Dashboard</a>")
+        < response.text.index(">Insights</a>")
+    )
     assert 'class="page-shell page-shell--wide"' in response.text
     assert "Executive Overview" in response.text
     assert "Analyst Readout" in response.text
@@ -153,7 +162,7 @@ def test_insights_page_synthesizes_sales_and_sits_right_of_sales(
     assert '<table class="insights-category-table" data-sortable-table>' in response.text
 
 
-def test_sales_category_filter_marks_item_options_and_loads_local_script(
+def test_sales_category_filter_and_local_script(
     client,
     session_factory,
 ) -> None:
@@ -180,17 +189,11 @@ def test_sales_category_filter_marks_item_options_and_loads_local_script(
     script = client.get("/static/sales.js")
 
     assert response.status_code == 200
-    assert '<label for="sale-category">Category (Optional)</label>' in response.text
+    assert '<select name="category">' in response.text
     assert 'value="ring"' in response.text
-    assert 'data-category="ring"' in response.text
-    assert 'data-category="hat"' in response.text
-    assert '<script src="/static/sales.js" defer></script>' in response.text
+    assert 'value="hat"' in response.text
+    assert '<script src="/static/sales.js?v=20260906-activity" defer></script>' in response.text
     assert script.status_code == 200
-    assert 'categorySelect.addEventListener("change", filterItems)' in script.text
-    assert "moveItemToTop(matchingItem)" in script.text
-    assert "updateSalePriceSuggestion(true)" in script.text
-    assert "salePriceInput.value = suggestedPrice" in script.text
-    assert "No completed sales for this item yet." in script.text
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert 'activeSalesSelectAll.addEventListener("change"' in script.text
     assert "window.sessionStorage.setItem(salesScrollStorageKey" in script.text
@@ -232,7 +235,7 @@ def test_sales_item_choice_suggests_median_completed_sale_price(
         )
         session.commit()
 
-    response = client.get("/sales")
+    response = client.get("/sales/item-choices")
 
     assert response.status_code == 200
     assert f'value="{catalog_item.uuid}"' in response.text
@@ -243,7 +246,7 @@ def test_sales_item_choice_suggests_median_completed_sale_price(
     ) in response.text
 
 
-def test_currently_selling_surfaces_and_applies_week_old_price_review(
+def test_currently_selling_surfaces_and_applies_fortnight_old_price_review(
     client,
     session_factory,
     catalog_item,
@@ -254,7 +257,7 @@ def test_currently_selling_surfaces_and_applies_week_old_price_review(
             item_id=catalog_item.id,
             lot_quantity=1,
             asking_price=1_000,
-            selling_started_at=now - timedelta(days=8),
+            selling_started_at=now - timedelta(days=15),
         )
         session.add_all(
             [
@@ -282,8 +285,8 @@ def test_currently_selling_surfaces_and_applies_week_old_price_review(
 
     assert response.status_code == 200
     assert "1 due for price review" in response.text
-    assert "gone at least 7 days since listing or their latest relist" in response.text
-    assert "8 days listed · Suggested 750" in response.text
+    assert "gone at least 14 days since listing or their latest relist" in response.text
+    assert "15 days listed · Suggested 750" in response.text
     assert "Relisted Date" in response.text
     assert "Median of 2 completed sales" in response.text
     escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
@@ -330,7 +333,7 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     active_page = client.get(created.headers["location"])
     assert "Sale listing has been added." in active_page.text
     assert catalog_item.display_name in active_page.text
-    assert 'value="50,000"' in active_page.text
+    assert 'value="50"' in active_page.text
     assert "1 active · Total Price: 50,000" in active_page.text
     assert f'aria-label="Duplicate sale row for {catalog_item.display_name}"' in active_page.text
     assert f'aria-label="Mark {catalog_item.display_name} as sold"' in active_page.text
@@ -339,15 +342,15 @@ def test_sales_page_adds_and_completes_a_listing(client, session_factory, catalo
     assert ">Duplicate</button>" not in active_page.text
     assert ">Mark sold</button>" not in active_page.text
     assert active_page.text.count('class="collapsible-section" open') == 4
-    assert active_page.text.index("Add an Item to Sell") < active_page.text.index("Filter Items")
+    assert "Add an Item to Sell" not in active_page.text
     assert active_page.text.index("Filter Items") < active_page.text.index("Currently Selling")
     assert "Filter Sales" not in active_page.text
     filter_summary = active_page.text.split("<h2>Filter Items</h2>", maxsplit=1)[0]
     assert filter_summary.rsplit("<details", maxsplit=1)[1].startswith(
-        ' class="collapsible-section">'
+        ' class="collapsible-section" open>'
     )
     assert '<button type="submit">Update</button>' not in active_page.text
-    assert 'data-initial-value="50,000"' in active_page.text
+    assert 'data-initial-value="50"' in active_page.text
     assert "Press Enter or leave the field to save." in active_page.text
     assert "Lot quantity" not in active_page.text
     assert 'name="lot_quantity"' not in active_page.text
@@ -411,9 +414,7 @@ def test_sales_page_requires_an_asking_price(client, catalog_item) -> None:
 
     assert response.status_code == 422
     assert "Input should be a valid integer" in response.text
-    assert '<label for="sale-asking-price">Sale Price</label>' in response.text
-    assert 'name="asking_price"' in response.text
-    assert "required" in response.text
+    assert 'id="sale-asking-price"' not in response.text
 
 
 def test_recorded_item_price_does_not_appear_as_an_active_sale(client, catalog_item) -> None:
@@ -475,8 +476,8 @@ def test_sales_page_duplicates_and_reprices_a_listing(
     )
     page = client.get(repriced.headers["location"])
     assert "Sale price has been updated." in page.text
-    assert 'value="50,000"' in page.text
-    assert 'value="45,000"' in page.text
+    assert 'value="50"' in page.text
+    assert 'value="45"' in page.text
     assert "2 active" in page.text
 
 
@@ -548,7 +549,7 @@ def test_sales_page_bulk_marks_sold_and_deletes_selected_rows(
     escaped_query = DEFAULT_SALES_QUERY.replace("&", "&amp;")
     assert f'action="/sales/bulk?{escaped_query}"' in page.text
     assert page.text.count('class="active-sale-checkbox"') == 3
-    assert 'aria-label="Select all currently selling rows"' in page.text
+    assert 'aria-label="Select all currently selling rows on this page"' in page.text
     assert "Mark selected sold" in page.text
     assert "Delete selected" in page.text
     assert page.text.count("data-preserve-scroll") == 13
@@ -770,7 +771,7 @@ def test_sales_filters_render_matching_status_and_persist_in_links(
     assert 'name="item_query" value="alpha"' in response.text
     assert '<option value="hat" selected>Hat</option>' in response.text
     assert '<option value="active" selected>Currently Selling</option>' in response.text
-    assert 'name="min_price" inputmode="numeric" value="100"' in response.text
+    assert 'name="min_price" inputmode="decimal" value="0.1"' in response.text
     assert 'name="date_from" type="date" value="2026-08-21"' in response.text
     assert '<details id="sold-history"' not in response.text
     active_section = response.text.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
@@ -872,16 +873,77 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
         "Daily listed value, all sales, all cost, and all profit by activity date" in response.text
     )
     assert "Date (Pacific Time)" in response.text
-    assert "<span>Listed</span><strong>300</strong>" in response.text
-    assert "<span>All Sales</span><strong>300</strong>" in response.text
-    assert "<span>All Cost</span><strong>—</strong>" in response.text
-    assert "<span>All Profit</span><strong>—</strong>" in response.text
+    assert "<span>Total Listed</span><strong>300</strong>" in response.text
+    assert "<span>Total Sales</span><strong>300</strong>" in response.text
+    assert "<span>Total Cost</span><strong>—</strong>" in response.text
+    assert "<span>Total Profit</span><strong>—</strong>" in response.text
+    assert "<span>Listed Today</span><strong>0</strong>" in response.text
 
     filtered = client.get("/sales", params={"status": "active"})
 
     assert filtered.status_code == 200
     assert "All Sales on 2026-08-21: 100 across 1 item" in filtered.text
     assert "All Sales on 2026-08-23: 200 across 1 item" in filtered.text
+
+
+@pytest.mark.parametrize(
+    ("now", "current_date", "expected"),
+    [
+        (datetime(2026, 9, 6, 2, tzinfo=UTC), "2026-09-05", ("100", "200", "250", "-50")),
+        (datetime(2026, 9, 6, 8, tzinfo=UTC), "2026-09-06", ("100", "0", "0", "0")),
+        (datetime(2026, 9, 7, 9, tzinfo=UTC), "2026-09-07", ("100", "300", "—", "—")),
+    ],
+)
+def test_sales_current_summary_uses_active_inventory_and_todays_pacific_sales(
+    client, session_factory, catalog_item, monkeypatch, now, current_date, expected
+) -> None:
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz)
+
+    monkeypatch.setattr(web, "datetime", FixedDatetime)
+    with session_factory() as session:
+        for price, started_at, sold_at, cost in [
+            (100, datetime(2026, 9, 5, 2, tzinfo=UTC), datetime(2026, 9, 5, 3, tzinfo=UTC), 50),
+            (200, datetime(2026, 9, 6, 0, tzinfo=UTC), datetime(2026, 9, 6, 1, tzinfo=UTC), 250),
+            (40, datetime(2026, 9, 6, 1, tzinfo=UTC), None, None),
+            (60, datetime(2026, 9, 1, 1, tzinfo=UTC), None, None),
+            (300, datetime(2026, 9, 7, 8, tzinfo=UTC), datetime(2026, 9, 7, 9, tzinfo=UTC), None),
+        ]:
+            session.add(
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=price,
+                    selling_started_at=started_at,
+                    date_sold=sold_at,
+                    recipe_cost_at_sale=None if cost is None else Decimal(cost),
+                )
+            )
+        session.commit()
+
+    for params in (
+        {},
+        {"status": "active", "date_to": "2026-09-04"},
+        {"status": "sold", "min_price": "200"},
+    ):
+        response = client.get("/sales", params=params)
+        assert response.status_code == 200
+        assert "Listed Today totals all active asking prices." in response.text
+        assert f"show today, {current_date} (Pacific Time)." in response.text
+        assert response.text.index('aria-label="Total sales summary"') < response.text.index(
+            'aria-label="Current sales summary"'
+        )
+        for label, current_label, total, current in zip(
+            ("Listed", "Sales", "Cost", "Profit"),
+            ("Listed Today", "Sold Today", "Cost Today", "Profit Today"),
+            ("700", "600", "300", "0"),
+            expected,
+            strict=True,
+        ):
+            assert f"<span>Total {label}</span><strong>{total}</strong>" in response.text
+            assert f"<span>{current_label}</span><strong>{current}</strong>" in response.text
 
 
 def test_sales_show_recipe_cost_profit_and_four_chart_series(
@@ -944,7 +1006,7 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
     assert 'name="profit"' not in response.text
     active_section, sold_section = response.text.split("<h2>Sold History</h2>")
     active_section = active_section.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
-    assert active_section.index('value="5,000"') < active_section.index('value="4,000"')
+    assert active_section.index('value="5"') < active_section.index('value="4"')
     assert active_section.count(">3,500</td>") == 2
     assert ">1,500</td>" in active_section
     assert ">500</td>" in active_section
@@ -961,10 +1023,10 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
     assert "All Cost on 2026-08-23: 3,500 across 1 item" in response.text
     assert "All Profit on 2026-08-23: 1,000 across 1 item" in response.text
     assert "All Profit on 2026-08-24: -500 across 1 item" in response.text
-    assert "<span>Listed</span><strong>16,500</strong>" in response.text
-    assert "<span>All Sales</span><strong>7,500</strong>" in response.text
-    assert "<span>All Cost</span><strong>7,000</strong>" in response.text
-    assert "<span>All Profit</span><strong>500</strong>" in response.text
+    assert "<span>Total Listed</span><strong>16,500</strong>" in response.text
+    assert "<span>Total Sales</span><strong>7,500</strong>" in response.text
+    assert "<span>Total Cost</span><strong>7,000</strong>" in response.text
+    assert "<span>Total Profit</span><strong>500</strong>" in response.text
     chart_section = response.text.split("<h2>Sales Over Time</h2>", maxsplit=1)[1]
     assert "Cost-Covered Sales" not in chart_section
     assert "Covered Cost" not in chart_section
@@ -977,8 +1039,8 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
         params={"status": "active", "min_profit": "1000"},
     )
     active_section = filtered.text.split("<h2>Currently Selling</h2>", maxsplit=1)[1]
-    assert 'value="5,000"' in active_section
-    assert 'value="4,000"' not in active_section
+    assert 'value="5"' in active_section
+    assert 'value="4"' not in active_section
 
 
 def test_recipes_page_filters_sorts_and_links_to_item_detail(
@@ -1461,7 +1523,7 @@ def test_recipe_current_price_edit_preserves_view_and_recalculates_economics(
     )
     updated_page = client.get(response.headers["location"])
     assert "Synthetic Widget price has been updated." in updated_page.text
-    assert 'value="4,000"' in updated_page.text
+    assert 'value="4"' in updated_page.text
     assert ">3,500</a>" in updated_page.text
     assert ">500</a>" in updated_page.text
 
@@ -1575,7 +1637,7 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Calculate Selected" in page.text
     assert "Cost Per Item" in page.text
     assert "Add Checked to Sales" not in page.text
-    assert "Sale Price Each" not in page.text
+    assert '<th class="numeric" data-sort-type="number">Sale Price Each</th>' not in page.text
     assert str(items["alpha sword"].uuid) in page.text
     assert "Alpha Sword" in page.text
     assert '"recipe_cost": "20"' in page.text
@@ -1684,7 +1746,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Total Crafts" not in response.text
     assert "Unit Weight" not in response.text
     assert re.search(
-        r'<th data-sort-type="text" aria-sort="ascending">Craftable Item</th>\s*'
+        r'<th data-sort-type="text" data-sort-tie-order="initial" '
+        r'aria-sort="ascending">Craftable Item</th>\s*'
         r'<th data-sort-type="text">Ingredient</th>',
         response.text,
     )
@@ -1944,7 +2007,10 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     )
 
     assert invalid_sales.status_code == 422
-    assert "Enter a positive whole-number sale price for Beta Ring." in invalid_sales.text
+    assert (
+        "Enter a positive sale price in thousands (77 = 77,000 kamas) for Beta Ring."
+        in invalid_sales.text
+    )
     assert invalid_sales.text.count('class="calculator-sale-checkbox"') == 2
     assert invalid_sales.text.count("checked") >= 4
     assert re.search(
@@ -2985,6 +3051,66 @@ def test_price_history_is_a_table_with_confirmed_audit_safe_deletion(
     )
 
 
+def test_price_history_delete_removes_all_hidden_duplicates_only_in_its_group(
+    client, session_factory, catalog_item
+) -> None:
+    day = datetime(2026, 8, 22, tzinfo=UTC)
+    with session_factory() as session:
+        duplicates = [
+            PriceObservation(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                total_price=29000000,
+                observed_at=day + timedelta(minutes=offset),
+                market_context="Dodge",
+            )
+            for offset in range(30)
+        ]
+        untouched = [
+            PriceObservation(
+                item_id=catalog_item.id,
+                lot_quantity=1,
+                total_price=price,
+                observed_at=observed_at,
+                market_context=market,
+            )
+            for price, observed_at, market in [
+                (29000000, day - timedelta(microseconds=1), "Dodge"),
+                (29000000, day + timedelta(days=1), "Dodge"),
+                (29000, day, "Dodge"),
+                (29000000, day, "Other market"),
+            ]
+        ]
+        duplicates[0].invalidated_at = day + timedelta(hours=1)
+        duplicates[0].invalidation_reason = "Earlier correction"
+        session.add_all(duplicates + untouched)
+        session.commit()
+        target_uuid = duplicates[-1].uuid
+        duplicate_ids = {row.uuid for row in duplicates}
+
+    response = client.post(f"/price-observations/{target_uuid}/delete")
+    assert response.status_code == 200
+    assert "Price history row has been deleted." in response.text
+    history = response.text.split('class="price-history-table"', maxsplit=1)[1]
+    assert not re.search(r"2026-08-22</td>\s*<td[^>]*>29,000,000</td>", history)
+    with session_factory() as session:
+        observations = list(session.scalars(select(PriceObservation)))
+        assert len(observations) == 34
+        for observation in observations:
+            if observation.uuid in duplicate_ids:
+                assert observation.invalidated_at is not None
+                assert observation.total_price == 29000000
+                assert observation.invalidation_reason == (
+                    "Earlier correction"
+                    if observation.uuid == duplicates[0].uuid
+                    else "Deleted from item price history"
+                )
+            else:
+                assert observation.invalidated_at is None
+    repeated = client.post(f"/price-observations/{target_uuid}/delete")
+    assert "Price history row was already deleted." in repeated.text
+
+
 def test_non_htmx_price_create_redirects_to_search_with_notification(client, catalog_item) -> None:
     response = client.post(
         f"/items/{catalog_item.uuid}/price-observations",
@@ -3002,7 +3128,7 @@ def test_non_htmx_price_create_redirects_to_search_with_notification(client, cat
     search = client.get(response.headers["location"])
     assert search.status_code == 200
     assert f"{catalog_item.display_name} price has been updated." in search.text
-    assert "245,000" in search.text
+    assert 'value="245,000"' in search.text
     assert 'class="notification" role="status"' in search.text
 
 
@@ -3018,3 +3144,71 @@ def test_htmx_invalidation_restores_previous_price(client, priced_item) -> None:
     assert 'value="100"' in response.text
     assert "Invalidate" not in response.text
     assert 'hx-swap-oob="true"' in response.text
+
+
+def test_dashboard_renders_metrics_periods_and_data_navigation(client):
+    for days in (7, 30, 90):
+        response = client.get("/dashboard", params={"days": days})
+        assert response.status_code == 200
+        assert "<h1>Dashboard</h1>" in response.text
+        assert "<span>Data</span>" in response.text
+        assert 'aria-label="Data navigation"' in response.text
+        assert re.search(
+            r'href="/dashboard" class="site-submenu-link is-active" aria-current="page"',
+            response.text,
+        )
+        assert f'href="/dashboard?days={days}" aria-current="page"' in response.text
+        assert "Known Realized Profit" in response.text
+        assert "Cost coverage" in response.text
+        assert "No completed sales in this period." in response.text
+        assert response.text.count("data-dashboard-chart") == 3
+        assert response.text.count('<td class="numeric">0</td>') == days
+        assert "Inventory to Convert" in response.text
+        assert 'src="/static/dashboard.js"' in response.text
+        assert 'class="page-shell page-shell--wide"' in response.text
+    for days in (0, 91, "invalid"):
+        assert client.get("/dashboard", params={"days": days}).status_code == 422
+
+
+def test_dashboard_filters_persist_and_incomplete_costs_are_explicit(
+    client, session_factory, catalog_item
+):
+    now = datetime.now(UTC)
+    with session_factory() as session:
+        for cost in (200, None):
+            session.add(
+                SaleListing(
+                    item_id=catalog_item.id,
+                    lot_quantity=1,
+                    asking_price=100,
+                    recipe_cost_at_sale=cost,
+                    selling_started_at=now - timedelta(days=2),
+                    date_sold=now,
+                )
+            )
+        session.commit()
+    response = client.get(
+        "/dashboard",
+        params=[("days", "7"), ("category", "Ore"), ("category", "Hat"), ("q", "Synthetic")],
+    )
+    assert response.status_code == 200
+    assert 'name="category" value="Ore" checked' in response.text
+    assert 'name="q" maxlength="200" value="Synthetic"' in response.text
+    assert (
+        'href="/dashboard?days=30&amp;category=Ore&amp;category=Hat&amp;q=Synthetic"'
+        in response.text
+    )
+    assert 'href="/dashboard?days=7">Clear filters</a>' in response.text
+    assert "Incomplete costs · 1 of 2 sales with known costs" in response.text
+    assert "Known profit subtotal: -100 kamas" in response.text
+    assert "Daily Realized Profit: -100" not in response.text
+    assert "Incomplete costs · 1 of 2 sales</td>" in response.text
+    assert 'class="dashboard-line dashboard-line--profit"' in response.text
+    assert 'class="dashboard-point dashboard-point--profit"' in response.text
+    assert "dashboard-line--partial" not in response.text
+    assert "dashboard-point--incomplete" not in response.text
+    assert "Hollow points and dashed lines" not in response.text
+    assert "Known Profit Subtotal" in response.text
+    empty = client.get("/dashboard?days=7&category=Hat&q=Synthetic")
+    assert "No sales match the current filters." in empty.text
+    assert client.get("/dashboard", params={"q": "x" * 201}).status_code == 422

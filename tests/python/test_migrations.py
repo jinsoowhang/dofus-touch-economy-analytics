@@ -85,6 +85,7 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
     assert "touch_catalog_exclusion_reason" in item_columns
     assert "asking_price" in sale_columns
     assert "recipe_cost_at_sale" in sale_columns
+    assert "price_review_snoozed_until" in sale_columns
     assert "listing_source" in sale_columns
     assert "listing_capture_uuid" in sale_columns
     assert "sale_source" in sale_columns
@@ -122,6 +123,9 @@ def test_migrations_preserve_populated_database_and_downgrade(tmp_path: Path) ->
         assert connection.scalar(text("SELECT count(*) FROM sale_listings")) == 1
         assert connection.scalar(text("SELECT asking_price FROM sale_listings")) == 100
         assert connection.scalar(text("SELECT recipe_cost_at_sale FROM sale_listings")) is None
+        assert (
+            connection.scalar(text("SELECT price_review_snoozed_until FROM sale_listings")) is None
+        )
         lineage = connection.execute(
             text(
                 "SELECT listing_source, listing_capture_uuid, sale_source, sale_capture_uuid "

@@ -71,6 +71,9 @@ class CatalogService:
         self._market_context = market_context
         self._as_of = as_of or datetime.now(UTC)
 
+    def craftable_item_uuids(self, item_uuids: Collection[UUID]) -> set[UUID]:
+        return self._catalog.craftable_item_uuids(item_uuids)
+
     def search(
         self,
         query: str,

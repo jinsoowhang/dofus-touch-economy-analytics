@@ -4,16 +4,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Dofus Touch Economy{% endblock %}</title>
-    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="/static/app.css?v=20260906-uniform-profit-line">
     <script src="/static/htmx.min.js" defer></script>
-    <script src="/static/table-sort.js" defer></script>
+    <script src="/static/table-sort.js?v=20260909-recipe-order" defer></script>
     <script src="/static/site-navigation.js" defer></script>
   </head>
   <body>
     <header class="site-header">
       <div class="site-header-inner">
-        <a href="/items" class="site-brand">Dofus Touch Economy</a>
+        <a href="/" class="site-brand">Dofus Touch Economy</a>
         <nav class="site-tabs" aria-label="Primary navigation">
+          <a href="/" class="site-tab{% if active_tab == 'home' %} is-active{% endif %}"{% if active_tab == 'home' %} aria-current="page"{% endif %}>Home</a>
           <details class="site-menu">
             <summary
               class="site-tab{% if active_tab in ['items', 'price_priorities', 'recipes', 'recipe_calculator'] %} is-active{% endif %}"
@@ -46,7 +47,7 @@
           </details>
           <details class="site-menu">
             <summary
-              class="site-tab{% if active_tab in ['sales', 'profit_opportunities', 'best_sellers', 'out_of_stock'] %} is-active{% endif %}"
+              class="site-tab{% if active_tab in ['sales', 'price_review', 'profit_opportunities', 'best_sellers', 'out_of_stock'] %} is-active{% endif %}"
             >
               <span>Sales</span>
               <span class="site-menu-caret" aria-hidden="true">&#9662;</span>
@@ -68,26 +69,32 @@
                 {% if active_tab == "out_of_stock" %}aria-current="page"{% endif %}
               >Out of Stock Items</a>
               <a
+                href="/sales/price-review"
+                class="site-submenu-link{% if active_tab == 'price_review' %} is-active{% endif %}"
+                {% if active_tab == "price_review" %}aria-current="page"{% endif %}
+              >Price Review</a>
+              <a
                 href="/profit-opportunities"
                 class="site-submenu-link{% if active_tab == 'profit_opportunities' %} is-active{% endif %}"
                 {% if active_tab == "profit_opportunities" %}aria-current="page"{% endif %}
               >Profit Opportunities</a>
             </div>
           </details>
-          <a
-            href="/insights"
-            class="site-tab{% if active_tab == 'insights' %} is-active{% endif %}"
-            {% if active_tab == "insights" %}aria-current="page"{% endif %}
-          >Insights</a>
-          <a
-            href="/bigquery-sync"
-            class="site-tab{% if active_tab == 'bigquery_sync' %} is-active{% endif %}"
-            {% if active_tab == "bigquery_sync" %}aria-current="page"{% endif %}
-          >BigQuery Sync</a>
+          <details class="site-menu">
+            <summary class="site-tab{% if active_tab in ['bigquery_sync', 'dashboard', 'insights'] %} is-active{% endif %}">
+              <span>Data</span>
+              <span class="site-menu-caret" aria-hidden="true">&#9662;</span>
+            </summary>
+            <div class="site-submenu" role="group" aria-label="Data navigation">
+              <a href="/bigquery-sync" class="site-submenu-link{% if active_tab == 'bigquery_sync' %} is-active{% endif %}"{% if active_tab == 'bigquery_sync' %} aria-current="page"{% endif %}>BigQuery Sync</a>
+              <a href="/dashboard" class="site-submenu-link{% if active_tab == 'dashboard' %} is-active{% endif %}"{% if active_tab == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+              <a href="/insights" class="site-submenu-link{% if active_tab == 'insights' %} is-active{% endif %}"{% if active_tab == 'insights' %} aria-current="page"{% endif %}>Insights</a>
+            </div>
+          </details>
         </nav>
       </div>
     </header>
-    <main class="page-shell{% if active_tab in ['price_priorities', 'recipes', 'recipe_calculator', 'profit_opportunities', 'best_sellers', 'out_of_stock', 'insights'] %} page-shell--wide{% endif %}">
+    <main class="page-shell{% if active_tab in ['price_priorities', 'price_review', 'recipes', 'recipe_calculator', 'profit_opportunities', 'best_sellers', 'out_of_stock', 'insights', 'dashboard'] %} page-shell--wide{% endif %}">
       {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

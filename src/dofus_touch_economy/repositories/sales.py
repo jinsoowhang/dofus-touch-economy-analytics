@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from dofus_touch_economy.models import SaleListing
@@ -42,6 +42,12 @@ class SalesRepository:
         )
         return list(self._session.scalars(statement))
 
+    def active_total_price(self) -> int:
+        statement = select(func.sum(SaleListing.asking_price)).where(
+            SaleListing.date_sold.is_(None)
+        )
+        return self._session.scalar(statement) or 0
+
     def sold(self) -> list[SaleListing]:
         statement = (
             select(SaleListing)
@@ -61,7 +67,9 @@ class SalesRepository:
         ).order_by(SaleListing.selling_started_at, SaleListing.id)
         return list(self._session.execute(statement).tuples())
 
-    def sold_prices(self) -> list[tuple[int, int]]:
+    def sold_prices(self, item_ids: set[int] | None = None) -> list[tuple[int, int]]:
+        if item_ids == set():
+            return []
         statement = (
             select(SaleListing.item_id, SaleListing.asking_price)
             .where(
@@ -70,6 +78,8 @@ class SalesRepository:
             )
             .order_by(SaleListing.item_id, SaleListing.asking_price)
         )
+        if item_ids is not None:
+            statement = statement.where(SaleListing.item_id.in_(item_ids))
         return [
             (item_id, asking_price)
             for item_id, asking_price in self._session.execute(statement)
@@ -124,7 +134,32 @@ class SalesRepository:
             .values(
                 asking_price=asking_price,
                 price_observation_id=price_observation_id,
+                price_review_snoozed_until=None,
             )
+        )
+        return result.rowcount == 1
+
+    def snooze_price_review(
+        self,
+        listing_uuid: UUID,
+        *,
+        until: datetime,
+        as_of: datetime,
+        expected_price_observation_id: int | None,
+    ) -> bool:
+        result = self._session.execute(
+            update(SaleListing)
+            .where(
+                SaleListing.uuid == listing_uuid,
+                SaleListing.date_sold.is_(None),
+                SaleListing.price_observation_id == expected_price_observation_id,
+                or_(
+                    SaleListing.price_review_snoozed_until.is_(None),
+                    SaleListing.price_review_snoozed_until <= as_of,
+                ),
+            )
+            .values(price_review_snoozed_until=until)
+            .execution_options(synchronize_session="fetch")
         )
         return result.rowcount == 1
 

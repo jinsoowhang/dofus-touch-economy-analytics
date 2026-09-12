@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from dofus_touch_economy.models import PriceObservation
@@ -27,7 +28,11 @@ class PriceRepository:
         )
         return self._session.scalar(statement)
 
-    def latest_valid_for_market(self, market_context: str) -> list[PriceObservation]:
+    def latest_valid_for_market(
+        self, market_context: str, item_ids: set[int] | None = None
+    ) -> list[PriceObservation]:
+        if item_ids == set():
+            return []
         ranked = (
             select(
                 PriceObservation.id.label("observation_id"),
@@ -45,6 +50,7 @@ class PriceRepository:
             .where(
                 PriceObservation.market_context == market_context,
                 PriceObservation.invalidated_at.is_(None),
+                *([] if item_ids is None else [PriceObservation.item_id.in_(item_ids)]),
             )
             .subquery()
         )
@@ -115,3 +121,27 @@ class PriceRepository:
                 PriceObservation.market_context == market_context,
             )
         )
+
+    def invalidate_daily_price_group(
+        self,
+        observation: PriceObservation,
+        *,
+        day_start: datetime,
+        day_end: datetime,
+        invalidated_at: datetime,
+        reason: str,
+    ) -> int:
+        result = self._session.execute(
+            update(PriceObservation)
+            .where(
+                PriceObservation.item_id == observation.item_id,
+                PriceObservation.market_context == observation.market_context,
+                PriceObservation.total_price == observation.total_price,
+                PriceObservation.observed_at >= day_start,
+                PriceObservation.observed_at < day_end,
+                PriceObservation.invalidated_at.is_(None),
+            )
+            .values(invalidated_at=invalidated_at, invalidation_reason=reason)
+            .execution_options(synchronize_session="fetch")
+        )
+        return result.rowcount

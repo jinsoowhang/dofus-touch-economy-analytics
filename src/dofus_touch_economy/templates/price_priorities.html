@@ -2,6 +2,7 @@
 {% block title %}Price Priorities · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Price Priorities</h1>
+  <p class="price-entry-help">Current Price uses <strong>full kamas</strong>: <strong>77 = 77 kamas</strong>.</p>
   <p class="page-description">
     Add the missing prices that unlock the most complete recipe profit calculations. Items
     that immediately complete the most recipes come first; completed sales and total recipe
@@ -102,10 +103,11 @@
                     action="/price-priorities/{{ item.item_uuid }}/price"
                     class="price-edit-form catalog-current-price-form"
                   >
+                    <input type="hidden" name="price_unit" value="kamas">
                     <label class="visually-hidden" for="priority-current-price-{{ item.item_uuid }}">
                       Current price for {{ item.display_name }}
                     </label>
-                    <input
+                    <span class="price-entry"><input aria-description="In full kamas: 77 means 77 kamas."
                       id="priority-current-price-{{ item.item_uuid }}"
                       name="current_price"
                       value="{{ current_price_value }}"
@@ -115,7 +117,7 @@
                       aria-label="Current price for {{ item.display_name }}"
                       title="Enter the price, then press Enter or leave the field to save"
                       required
-                    >
+                    ><small>kamas</small></span>
                   </form>
                   {% if is_edited_price and price_errors %}
                     <small class="field-error" role="alert">

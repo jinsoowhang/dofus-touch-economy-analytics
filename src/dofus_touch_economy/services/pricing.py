@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -146,6 +146,30 @@ class PriceService:
             raise ObservationNotFound(str(observation_uuid))
         return _observation_response(observation)
 
+    def invalidate_history_row(self, observation_uuid: UUID, reason: str) -> int:
+        """Invalidate the full UTC-day/price group represented by one visible row."""
+        stripped_reason = reason.strip()
+        if not stripped_reason:
+            raise ValueError("invalidation reason must not be blank")
+        observation = self._repository.get_by_uuid(observation_uuid, self._market_context)
+        if observation is None:
+            raise ObservationNotFound(str(observation_uuid))
+        day_start = _as_utc(observation.observed_at).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        count = self._repository.invalidate_daily_price_group(
+            observation,
+            day_start=day_start,
+            day_end=day_start + timedelta(days=1),
+            invalidated_at=datetime.now(UTC),
+            reason=stripped_reason,
+        )
+        if not count:
+            self._session.rollback()
+            raise ObservationConflict(str(observation_uuid))
+        self._session.commit()
+        return count
+
     def current_for_item(self, item_id: int) -> CurrentPriceResponse | None:
         observation = self._repository.latest_valid(item_id, self._market_context)
         return None if observation is None else _current_price_response(observation)
@@ -156,8 +180,9 @@ class PriceService:
         requested_ids = set(item_ids)
         return {
             observation.item_id: _current_price_response(observation)
-            for observation in self._repository.latest_valid_for_market(self._market_context)
-            if observation.item_id in requested_ids
+            for observation in self._repository.latest_valid_for_market(
+                self._market_context, requested_ids
+            )
         }
 
     def current_and_previous_for_items(

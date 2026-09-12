@@ -13,6 +13,18 @@ class CatalogRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def craftable_item_uuids(self, item_uuids: Collection[UUID]) -> set[UUID]:
+        if not item_uuids:
+            return set()
+        return set(
+            self._session.scalars(
+                select(Item.uuid)
+                .join(Recipe, Recipe.crafted_item_id == Item.id)
+                .where(Item.uuid.in_(item_uuids), active_catalog_item_clause(Item))
+                .distinct()
+            )
+        )
+
     def search(
         self,
         query: str,
@@ -51,6 +63,13 @@ class CatalogRepository:
             .order_by(func.lower(Item.category), Item.category)
         )
         return list(self._session.scalars(statement))
+
+    def name_for_uuid(self, item_uuid: UUID) -> str | None:
+        return self._session.scalar(
+            select(Item.display_name).where(
+                Item.uuid == item_uuid, active_catalog_item_clause(Item)
+            )
+        )
 
     def find_by_identity(self, normalized_name: str, identity_category: str) -> Item | None:
         return self._session.scalar(

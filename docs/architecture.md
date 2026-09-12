@@ -60,6 +60,12 @@ SQLite owns transactional application state:
 
 FastAPI reads and writes SQLite through repositories and services. Routers translate HTML or JSON only, and DuckDB receives no request-time writes. Alembic exclusively manages the operational schema. The default ignored database is `data/app/dofus_touch.sqlite3`.
 
+Item Price History groups observations by UTC observed day and total price within
+the item and market. Its delete action atomically audit-invalidates all valid
+observations in that displayed group, including duplicates outside the history
+page's limit. Other observation invalidation endpoints remain single-observation
+actions, and existing invalidation timestamps and reasons are preserved.
+
 The optional Slack Bolt Socket Mode worker is a separate local process with its own
 secret-bearing configuration. It persists allowlisted top-level message intake before
 acknowledgement, downloads private image bytes into ignored evidence storage, and asks
@@ -77,10 +83,12 @@ remains disabled until its private layout gate is met.
 
 The local browser interface uses server-rendered Jinja templates and a reviewed, vendored HTMX release. The JSON API under `/api/v1` calls the same services. Trusted hosts, same-origin browser mutations, and a loopback-only launch command define the current single-user security boundary.
 
-The shared page layout exposes Item, Sales, Insights, and BigQuery Sync as top-level navigation.
-Item opens an accessible hover, click, and keyboard-focus submenu for Item Search,
+The shared page layout exposes Home, Item, Sales, and Data as top-level navigation.
+Data contains BigQuery Sync, Dashboard, and Insights. Menus open by click or keyboard and close
+when another menu opens, focus leaves, or Escape is pressed.
+Item opens an accessible submenu for Item Search,
 Recipes, and Recipe Calculator; Sales uses the same pattern for Sales Activity, Best
-Sellers, Out of Stock Items, and Profit Opportunities. Item Search renders 100-row pages of alphabetical
+Sellers, Out of Stock Items, Price Review, and Profit Opportunities. Item Search renders 100-row pages of alphabetical
 catalog summaries and uses one bulk latest-price query for the active market context.
 Filtering replaces only the table fragment. Item rows link to detail; price changes remain append-only
 observations rather than direct edits. Recipes selects the latest recipe per crafted
@@ -97,6 +105,56 @@ All data-bearing tables expose sortable data headers. Paginated Item Search, Rec
 and Sales tables sort on the server while detail, calculator, out-of-stock, and daily
 summary tables use one local typed sorter. Selection and action-only columns remain
 controls rather than misleading sort targets.
+
+Home (`/`) is the default landing page. Five aggregate SQLite reads provide live
+sales/inventory context without loading recipe economics or the full Dashboard.
+The daily checklist follows Sales Activity, Out of Stock Items, Profit Opportunities,
+and the 7-day Dashboard, with Price Priorities added on Mondays and relisting on
+Fridays. Checkmarks are manual browser-local state for the current Pacific date;
+navigation does not imply task completion. Midnight and stale-page checks refresh
+the routine, and cross-tab storage events synchronize completion. No UI telemetry
+or operational write is introduced by the checklist.
+
+Craftable-item price entry uses thousands of kamas with explicit labels and examples.
+Ingredient Per Unit Price always uses full kamas, including craftable intermediates.
+Price Priorities Current Price also always uses full kamas. Mixed Item Search/detail
+views choose units by recipe membership; search uses one bulk lookup for its displayed items. Templates
+format prefills and unchanged-value baselines in the field's unit. Explicitly marked
+thousands forms convert back to whole kamas with exact Decimal arithmetic at the web
+boundary; full-kama forms pass through unchanged. Calculator Sale Price Each and its
+live revenue estimates retain the thousands scale. Read-only amounts, storage, API
+commands, and unmarked suggestions remain canonical kamas. Sales price-filter
+submissions convert once and navigation links retain canonical query amounts.
+
+Sales Activity focuses on managing existing listings; the Add an Item to Sell form
+and its picker queries/client handlers are removed. Recipe Calculator listing creation
+and existing write endpoints remain available. Active and sold tables paginate
+independently at 50 rows.
+Currently Selling and Sold History repeat their page number and Previous/Next
+navigation below the table, so every paginated table has bottom navigation.
+Full matching counts, asking-price totals, and cost/profit sorting are computed
+before pagination; the daily chart always uses unfiltered history. Bulk selection
+is explicitly limited to the current page. A request materializes sold history
+once and shares it with daily totals. Current recipe costs load only the latest
+recipe versions and requested ingredient prices; historical reconstruction keeps
+its existing timestamp rules. Page payloads are bounded, while server calculations
+and filtering still scale with full listing history.
+
+Price Review (`/sales/price-review`) projects active listings whose latest relist,
+or original listing date, is at least fourteen Pacific calendar days old. Each row
+retains listing identity; missing-price rows remain eligible. Server sorting and
+50-row pagination accompany full due counts and listed value. Price changes reuse
+the Sales service and append a linked price observation, preserving the original
+listing start while recording the relisted date. The updated listing leaves the
+queue until fourteen more days pass. Item-level observations do not reset this clock.
+Current recipe cost, estimated profit, suggestion profit, and observed item-price
+context support manual decisions; unknown cost remains explicit. Sales Price is
+read-only on this page; a separate blank Relist Price field accepts a new price.
+The Action column can snooze a due listing for exactly seven days. Alembic `0011`
+persists this deadline separately from listing and relist dates; snooze changes no
+price observations. Repricing clears it, and all review reminders and Home's count
+exclude unexpired snoozes. The raw snapshot contract carries the nullable snooze
+timestamp. No game-client action is involved.
 
 The Recipe Calculator is an operational projection over the latest recipe per
 crafted item and the latest valid ingredient prices. Resolved shopping-list prices
@@ -123,6 +181,20 @@ Out of Stock Items is a grouped Sales projection: an item qualifies when it has 
 least one completed listing and zero active listings. It uses the most recent sold
 listing plus bulk current-price and recipe-cost calculations, and exposes craftable
 items through the shared browser-local Recipe Calculator cart without adding listings.
+
+Dashboard is a read-only Sales projection with known realized profit as its North
+Star. Its 7-, 30-, and 90-day controls end on today's Pacific calendar date and
+compare against the preceding equal-length period; today is explicitly partial.
+Category multi-select and item-name substring filters apply to both comparison
+periods, every chart/KPI, top items, and the current inventory snapshot; categories
+combine with OR and name matching with AND. Time links preserve these URL filters.
+Daily profit plots known subtotals consistently with the headline and daily table.
+All plotted days use the same solid line and filled points regardless of cost coverage;
+coverage/subtotal details remain in readouts. Wholly unknown profit has a gap and a marker below the
+plot; no-sale days remain zero and losses remain negative. Revenue and volume
+include all matching sales. Margin uses only revenue from sales with known costs, and
+cost coverage accompanies profit. Current inventory is a separate all-date
+snapshot. These views use the operational SQLite services without hosted queries.
 
 Insights is a read-only operational synthesis over the existing Sales and recipe
 services. It compares the seven calendar days ending on the latest recorded Pacific

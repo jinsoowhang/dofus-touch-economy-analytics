@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Price Review · Dofus Touch Economy{% endblock %}
+{% block content %}
+  <h1>Price Review</h1>
+  <p class="price-entry-help">Enter prices in <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>; 0.5 = 500 kamas. Totals and history show full kamas.</p>
+  <p class="page-description">Review active listings that have gone at least {{ review_days }} Pacific calendar days since listing or their latest relist, and compare prices and estimated profit before repricing.</p>
+  <p class="section-help">Each row is one listing. Enter a new Relist Price and press Enter or leave the field to save. Saving records the relisted date and removes that listing for {{ review_days }} days. Snooze hides a listing for {{ snooze_days }} days without changing its price or relisted date.</p>
+  {% if updated %}
+    <p class="notification" role="status">Sales price updated and relisted date recorded. The listing will return when it is due for review again.</p>
+  {% endif %}
+  {% if snoozed %}
+    <p class="notification" role="status">Listing snoozed for {{ snooze_days }} days. Its price and relisted date are unchanged.</p>
+  {% endif %}
+  {% if errors %}
+    <div class="validation-errors" role="alert">
+      {% for error in errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+  {% endif %}
+  <section class="sales-metrics" aria-label="Price review summary">
+    <div><span>Listings Due</span><strong>{{ "{:,}".format(count) }}</strong></div>
+    <div><span>Listed Value Due</span><strong>{{ "{:,}".format(total_price) }}</strong>{% if unpriced_count %}<small>{{ unpriced_count }} without a sales price</small>{% endif %}</div>
+    <div><span>Review After</span><strong>{{ review_days }} days</strong></div>
+  </section>
+  <details class="collapsible-section" open>
+    <summary><span class="section-summary"><h2>Listings Due for Review</h2><span>{{ count }} listings</span></span></summary>
+    <p class="section-help">Suggestions use the lower of a {{ markdown_percent }}% markdown or the item's completed-sale median, rounded to the nearest thousand while staying below the current sales price. Suggestions below 1,000 stay unchanged. Recipe cost and profit are estimates using current ingredient prices; missing costs stay unknown. More shows the latest observed item price and suggestion basis.</p>
+    {% if rows %}
+      {% include "partials/sales_pagination.html" %}
+      <div class="item-table-wrap">
+        <table class="item-table price-review-table">
+          <thead>
+            <tr>
+              {% for column in columns %}
+                <th{% if column.numeric %} class="numeric"{% endif %} aria-sort="{{ column.aria_sort }}"><a class="sort-header" href="{{ column.url }}"><span>{{ column.label }}</span><span class="sort-arrow" aria-hidden="true">{{ column.arrow }}</span></a></th>
+                {% if loop.index == 3 %}<th>Relist Price</th>{% endif %}
+              {% endfor %}
+              <th>Details</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              {% set sale = row.listing %}
+              {% set suggestion = row.suggestion %}
+              {% set selling_since = sale.selling_started_at | pacific_time %}
+              {% set relisted = sale.relisted_at | pacific_time if sale.relisted_at else none %}
+              <tr data-listing-uuid="{{ sale.uuid }}">
+                <td><a href="/items/{{ sale.item_uuid }}" class="item-label">{% if sale.icon_url %}<img class="item-icon" src="{{ sale.icon_url }}" alt="" loading="lazy">{% endif %}<span>{{ sale.display_name }}</span></a></td>
+                <td class="numeric">{{ row.age_days }}</td>
+                <td class="numeric">{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '—' }}</td>
+                <td>
+                  <form method="post" action="/sales/price-review/{{ sale.uuid }}/price?{{ review_query }}" class="price-edit-form" data-preserve-scroll>
+                    <input type="hidden" name="price_unit" value="thousands">
+                    <label class="visually-hidden" for="review-price-{{ sale.uuid }}">Relist Price for {{ sale.display_name }}</label>
+                    <span class="price-entry"><input data-price-thousands aria-description="In thousands of kamas: 77 means 77,000 kamas; 0.5 means 500." id="review-price-{{ sale.uuid }}" name="asking_price" inputmode="decimal" value="{{ price_value if edited_uuid == sale.uuid else '' }}" data-initial-value="" title="Enter a relist price. Press Enter or leave the field to save." required{% if edited_uuid == sale.uuid and errors %} aria-invalid="true"{% endif %}><small>×1,000 kamas</small></span>
+                    <noscript><button type="submit">Save price</button></noscript>
+                  </form>
+                </td>
+                <td class="numeric">{{ '{:,}'.format(sale.recipe_cost) if sale.recipe_cost is not none else '—' }}</td>
+                <td class="numeric">{{ '{:,}'.format(sale.profit) if sale.profit is not none else '—' }}</td>
+                <td>
+                  {% if suggestion %}
+                    <div class="price-review-suggestion">
+                      <strong>{{ '{:,}'.format(suggestion.suggested_price) }}</strong>
+                      <small>Profit at suggestion: {{ '{:,}'.format(row.suggested_profit) if row.suggested_profit is not none else 'Unknown' }}</small>
+                      <form method="post" action="/sales/price-review/{{ sale.uuid }}/price?{{ review_query }}" class="inline-form price-review-form" data-preserve-scroll>
+                        <input type="hidden" name="asking_price" value="{{ suggestion.suggested_price }}">
+                        <button type="submit" class="secondary-button" aria-label="Apply suggested price {{ '{:,}'.format(suggestion.suggested_price) }} to {{ sale.display_name }}">Apply suggestion</button>
+                      </form>
+                    </div>
+                  {% else %}<span>No lower-price suggestion</span>{% endif %}
+                </td>
+                <td><time datetime="{{ selling_since.isoformat() }}">{{ selling_since.strftime('%Y-%m-%d') }}</time></td>
+                <td>{% if relisted %}<time datetime="{{ relisted.isoformat() }}">{{ relisted.strftime('%Y-%m-%d') }}</time>{% else %}—{% endif %}</td>
+                <td>
+                  <details class="row-details">
+                    <summary>More<span class="visually-hidden"> about {{ sale.display_name }}</span></summary>
+                    <dl>
+                      <div><dt>Category</dt><dd>{{ sale.category or 'Uncategorized' }}</dd></div>
+                      <div><dt>Latest Observed Price</dt><dd>{{ '{:,}'.format(row.current_price.unit_price) if row.current_price else 'Unknown' }}</dd></div>
+                      <div><dt>Price Observed On</dt><dd>{% if row.current_price %}{{ (row.current_price.observed_at | pacific_time).strftime('%Y-%m-%d') }}{% else %}Unknown{% endif %}</dd></div>
+                      {% if suggestion %}
+                        <div><dt>Completed Sales</dt><dd>{{ suggestion.completed_sale_count }}</dd></div>
+                        <div><dt>Suggestion Basis</dt><dd>{{ 'Completed-sale median' if suggestion.suggestion_basis == 'completed_sales_median' else (markdown_percent | string) + '% markdown' }}</dd></div>
+                      {% endif %}
+                    </dl>
+                  </details>
+                </td>
+                <td>
+                  <form method="post" action="/sales/price-review/{{ sale.uuid }}/snooze?{{ review_query }}" class="inline-form" data-preserve-scroll>
+                    <button type="submit" class="secondary-button" aria-label="Snooze {{ sale.display_name }} for {{ snooze_days }} days">Snooze {{ snooze_days }} days</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% include "partials/sales_pagination.html" %}
+    {% else %}
+      <p>No active listings are due for price review.</p>
+    {% endif %}
+  </details>
+{% endblock %}
+{% block scripts %}<script src="/static/sales.js?v=20260905-activity" defer></script>{% endblock %}

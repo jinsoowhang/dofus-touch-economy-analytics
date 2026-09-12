@@ -1,12 +1,12 @@
 from bisect import bisect_right
 from collections import defaultdict
-from dataclasses import dataclass
-from datetime import UTC, date, datetime, tzinfo
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from dofus_touch_economy.catalog_scope import active_catalog_item_clause
@@ -15,6 +15,7 @@ from dofus_touch_economy.normalization import normalize_item_name
 from dofus_touch_economy.repositories.catalog import CatalogRepository
 from dofus_touch_economy.repositories.sales import SalesRepository
 from dofus_touch_economy.schemas import (
+    CurrentPriceResponse,
     SaleItemChoiceResponse,
     SaleListingCreate,
     SaleListingResponse,
@@ -38,8 +39,12 @@ SaleSortField = Literal[
     "sold",
 ]
 SaleSortDirection = Literal["asc", "desc"]
-ACTIVE_PRICE_REVIEW_DAYS = 7
+ACTIVE_PRICE_REVIEW_DAYS = 14
+PRICE_REVIEW_SNOOZE_DAYS = 7
 ACTIVE_PRICE_MARKDOWN_PERCENT = 5
+PriceReviewSortField = Literal[
+    "name", "age", "price", "cost", "profit", "suggested", "started", "relisted"
+]
 
 
 class SaleItemNotFound(LookupError):
@@ -142,6 +147,20 @@ class ActivePriceReview:
     completed_sale_count: int
 
 
+@dataclass(frozen=True)
+class PriceReviewListing:
+    listing: SaleListingResponse
+    age_days: int
+    current_price: CurrentPriceResponse | None
+    suggestion: ActivePriceReview | None
+
+    @property
+    def suggested_profit(self) -> Decimal | None:
+        if self.suggestion is None or self.listing.recipe_cost is None:
+            return None
+        return self.suggestion.suggested_price - self.listing.recipe_cost
+
+
 @dataclass
 class _DailySalesAccumulator:
     total_listed_price: int = 0
@@ -174,9 +193,21 @@ class SalesService:
         self._catalog = CatalogRepository(session)
         self._sales = SalesRepository(session)
 
-    def item_choices(self) -> list[SaleItemChoiceResponse]:
+    def item_choices(
+        self,
+        query: str = "",
+        *,
+        category: str = "",
+        limit: int | None = None,
+        selected_uuid: UUID | None = None,
+    ) -> list[SaleItemChoiceResponse]:
+        items = self._catalog.search(query, limit=limit, category=category)
+        if selected_uuid is not None and all(item.uuid != selected_uuid for item in items):
+            selected = self._catalog.get_by_uuid(selected_uuid)
+            if selected is not None:
+                items = [selected, *items]
         sold_prices: dict[int, list[int]] = defaultdict(list)
-        for item_id, asking_price in self._sales.sold_prices():
+        for item_id, asking_price in self._sales.sold_prices({item.id for item in items}):
             sold_prices[item_id].append(asking_price)
         return [
             SaleItemChoiceResponse(
@@ -188,8 +219,14 @@ class SalesService:
                 suggested_price=_median_price(sold_prices[item.id]),
                 sold_count=len(sold_prices[item.id]),
             )
-            for item in self._catalog.search("", limit=None)
+            for item in items
         ]
+
+    def item_categories(self) -> list[str]:
+        return self._catalog.categories()
+
+    def item_name(self, item_uuid: UUID) -> str | None:
+        return self._catalog.name_for_uuid(item_uuid)
 
     def active(
         self,
@@ -200,6 +237,109 @@ class SalesService:
         listings = self._responses(self._sales.active())
         listings = _filter_listings(listings, filters, use_sold_date=False)
         return _sort_listings(listings, sort_field, sort_direction)
+
+    def active_total_price(self) -> int:
+        return self._sales.active_total_price()
+
+    def price_review_listings(
+        self,
+        *,
+        as_of: datetime,
+        display_timezone: tzinfo,
+        sort_field: PriceReviewSortField = "name",
+        sort_direction: SaleSortDirection = "asc",
+    ) -> list[PriceReviewListing]:
+        review_date = _as_utc(as_of).astimezone(display_timezone).date()
+        due: list[tuple[SaleListingResponse, int]] = []
+        for listing in self.active(sort_field="started", sort_direction="asc"):
+            started = listing.relisted_at or listing.selling_started_at
+            age_days = (review_date - started.astimezone(display_timezone).date()).days
+            if age_days >= ACTIVE_PRICE_REVIEW_DAYS and (
+                listing.price_review_snoozed_until is None
+                or listing.price_review_snoozed_until <= _as_utc(as_of)
+            ):
+                due.append((listing, age_days))
+        if not due:
+            return []
+        item_ids = dict(
+            self._session.execute(
+                select(Item.uuid, Item.id).where(
+                    Item.uuid.in_({listing.item_uuid for listing, _ in due}),
+                    active_catalog_item_clause(Item),
+                )
+            )
+            .tuples()
+            .all()
+        )
+        due = [(listing, age) for listing, age in due if listing.item_uuid in item_ids]
+        suggestions = self.active_price_reviews(
+            [listing for listing, _ in due],
+            as_of=as_of,
+            display_timezone=display_timezone,
+        )
+        for listing, _ in due:
+            suggestion = suggestions.get(listing.uuid)
+            if suggestion is not None and suggestion.suggested_price >= 1_000:
+                rounded_price = (suggestion.suggested_price + 500) // 1_000 * 1_000
+                maximum_price = (listing.asking_price - 1) // 1_000 * 1_000
+                suggestions[listing.uuid] = replace(
+                    suggestion, suggested_price=min(rounded_price, maximum_price)
+                )
+        prices = PriceService(self._session, self._market_context).current_for_items(
+            set(item_ids.values())
+        )
+        rows = [
+            PriceReviewListing(
+                listing=listing,
+                age_days=age_days,
+                current_price=prices.get(item_ids[listing.item_uuid]),
+                suggestion=suggestions.get(listing.uuid),
+            )
+            for listing, age_days in due
+        ]
+
+        def sort_value(row: PriceReviewListing):
+            return {
+                "name": row.listing.display_name.casefold(),
+                "age": row.age_days,
+                "price": row.listing.asking_price,
+                "cost": row.listing.recipe_cost,
+                "profit": row.listing.profit,
+                "suggested": None if row.suggestion is None else row.suggestion.suggested_price,
+                "started": row.listing.selling_started_at,
+                "relisted": row.listing.relisted_at,
+            }[sort_field]
+
+        # Keep missing prices, costs, and dates last in either direction.
+        present = [row for row in rows if sort_value(row) is not None]
+        missing = [row for row in rows if sort_value(row) is None]
+        return sorted(present, key=sort_value, reverse=sort_direction == "desc") + missing
+
+    def snooze_price_review(
+        self, listing_uuid: UUID, *, as_of: datetime, display_timezone: tzinfo
+    ) -> datetime:
+        listing = self._sales.get_by_uuid(listing_uuid)
+        if listing is None or self._catalog.get_by_uuid(listing.item.uuid) is None:
+            raise SaleListingNotFound(str(listing_uuid))
+        response = _response(listing, None)
+        now = _as_utc(as_of)
+        started = response.relisted_at or response.selling_started_at
+        age = (
+            now.astimezone(display_timezone).date() - started.astimezone(display_timezone).date()
+        ).days
+        if response.date_sold is not None or age < ACTIVE_PRICE_REVIEW_DAYS:
+            raise SaleListingConflict("Only listings due for price review can be snoozed.")
+        until = now + timedelta(days=PRICE_REVIEW_SNOOZE_DAYS)
+        if not self._sales.snooze_price_review(
+            listing_uuid,
+            until=until,
+            as_of=now,
+            expected_price_observation_id=listing.price_observation_id,
+        ):
+            self._session.rollback()
+            raise SaleListingConflict("The listing was changed or is already snoozed.")
+        self._session.commit()
+        return until
 
     def active_price_reviews(
         self,
@@ -227,6 +367,11 @@ class SalesService:
         review_date = _as_utc(as_of).astimezone(display_timezone).date()
         reviews: dict[UUID, ActivePriceReview] = {}
         for listing in listings:
+            if (
+                listing.price_review_snoozed_until is not None
+                and listing.price_review_snoozed_until > _as_utc(as_of)
+            ):
+                continue
             if listing.asking_price is None or listing.asking_price <= 1:
                 continue
             review_started_at = listing.relisted_at or listing.selling_started_at
@@ -261,8 +406,11 @@ class SalesService:
         sort_field: SaleSortField = "sold",
         sort_direction: SaleSortDirection = "desc",
         filters: SaleListingFilters | None = None,
+        *,
+        listings: list[SaleListingResponse] | None = None,
     ) -> list[SaleListingResponse]:
-        listings = self._responses(self._sales.sold())
+        if listings is None:
+            listings = self._responses(self._sales.sold())
         listings = _filter_listings(listings, filters, use_sold_date=True)
         return _sort_listings(listings, sort_field, sort_direction)
 
@@ -833,7 +981,13 @@ class SalesService:
             return {}
         recipes = self._session.scalars(
             select(Recipe)
-            .where(Recipe.crafted_item_id.in_(crafted_item_ids))
+            .where(
+                Recipe.id.in_(
+                    select(func.max(Recipe.id))
+                    .where(Recipe.crafted_item_id.in_(crafted_item_ids))
+                    .group_by(Recipe.crafted_item_id)
+                )
+            )
             .options(selectinload(Recipe.ingredients))
             .order_by(Recipe.crafted_item_id, Recipe.id.desc())
         )
@@ -1001,6 +1155,11 @@ def _response(listing: SaleListing, recipe_cost: Decimal | None) -> SaleListingR
         selling_started_at=selling_started_at,
         relisted_at=relisted_at,
         date_sold=None if listing.date_sold is None else _as_utc(listing.date_sold),
+        price_review_snoozed_until=(
+            None
+            if listing.price_review_snoozed_until is None
+            else _as_utc(listing.price_review_snoozed_until)
+        ),
     )
 
 

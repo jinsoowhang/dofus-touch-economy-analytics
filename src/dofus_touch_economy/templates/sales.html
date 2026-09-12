@@ -2,6 +2,7 @@
 {% block title %}Sales Activity · Dofus Touch Economy{% endblock %}
 {% block content %}
   <h1>Sales Activity</h1>
+  <p class="price-entry-help">Enter prices in <strong>thousands of kamas</strong>: <strong>77 = 77,000 kamas</strong>; 0.5 = 500 kamas. Totals and history show full kamas.</p>
   <p class="page-description">Track active listings, record completed sales, and review sales performance over time.</p>
   {% if notification %}
     <p class="notification" role="status">{{ notification }}</p>
@@ -13,46 +14,6 @@
   {% endif %}
 
   <details class="collapsible-section" open>
-    <summary><h2>Add an Item to Sell</h2></summary>
-    <form method="post" action="/sales?{{ sales_sort_query }}" class="sales-form">
-      <label for="sale-category">Category (Optional)</label>
-      <select id="sale-category" name="category">
-        <option value="">All categories</option>
-        {% for category in category_choices %}
-          <option
-            value="{{ category.key }}"
-            {% if form_values.get('category') == category.key %}selected{% endif %}
-          >{{ category.label }}</option>
-        {% endfor %}
-      </select>
-      <label for="sale-item">Item</label>
-      <select id="sale-item" name="item_uuid" required>
-        <option value="">Choose an item</option>
-        {% for item in item_choices %}
-          <option
-            value="{{ item.uuid }}"
-            data-category="{{ item.category_key }}"
-            data-name="{{ item.display_name }}"
-            data-suggested-price="{{ '{:,}'.format(item.suggested_price) if item.suggested_price is not none else '' }}"
-            data-sold-count="{{ item.sold_count }}"
-            {% if form_values.get('item_uuid') == item.uuid|string %}selected{% endif %}
-          >{{ item.display_name }} — {{ (item.category or "Uncategorized") | title }}</option>
-        {% endfor %}
-      </select>
-      <p id="sale-price-suggestion" class="sale-price-suggestion" aria-live="polite" hidden></p>
-      <label for="sale-asking-price">Sale Price</label>
-      <input
-        id="sale-asking-price"
-        name="asking_price"
-        inputmode="numeric"
-        value="{{ form_values.get('asking_price', '') }}"
-        required
-      >
-      <button type="submit">Add listing</button>
-    </form>
-  </details>
-
-  <details class="collapsible-section">
     <summary>
       <span class="section-summary">
         <h2>Filter Items</h2>
@@ -60,6 +21,7 @@
       </span>
     </summary>
     <form method="get" action="/sales" class="sales-filter-form">
+      <input type="hidden" name="price_unit" value="thousands">
       <input type="hidden" name="active_sort" value="{{ sort_state.active_sort }}">
       <input type="hidden" name="active_direction" value="{{ sort_state.active_direction }}">
       <input type="hidden" name="sold_sort" value="{{ sort_state.sold_sort }}">
@@ -86,19 +48,19 @@
         </select>
       </label>
       <label>
-        Minimum price
-        <input name="min_price" inputmode="numeric" value="{{ filter_state.min_price if filter_state.min_price is not none else '' }}">
+        Minimum price (×1,000 kamas)
+        <input name="min_price" inputmode="decimal" value="{{ filter_state.min_price | price_thousands }}">
       </label>
       <label>
-        Maximum price
-        <input name="max_price" inputmode="numeric" value="{{ filter_state.max_price if filter_state.max_price is not none else '' }}">
+        Maximum price (×1,000 kamas)
+        <input name="max_price" inputmode="decimal" value="{{ filter_state.max_price | price_thousands }}">
       </label>
       <label>
-        Minimum profit
+        Minimum profit (kamas)
         <input name="min_profit" inputmode="decimal" value="{{ filter_state.min_profit if filter_state.min_profit is not none else '' }}">
       </label>
       <label>
-        Maximum profit
+        Maximum profit (kamas)
         <input name="max_profit" inputmode="decimal" value="{{ filter_state.max_profit if filter_state.max_profit is not none else '' }}">
       </label>
       <label>
@@ -125,12 +87,14 @@
       <span class="section-summary">
         <h2>Currently Selling</h2>
         <span>
-          {{ active_sales | length }} active · Total Price: {{ "{:,}".format(active_total_price) }}
+          {{ active_count }} active · Total Price: {{ "{:,}".format(active_total_price) }}
           {% if active_price_reviews %}· {{ active_price_reviews | length }} due for price review{% endif %}
         </span>
       </span>
     </summary>
     {% if active_sales %}
+      {% with pagination = active_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
+      <p class="filter-help">Bulk selection applies to this page only.</p>
       {% if active_price_reviews %}
         <p class="price-review-summary">
           Listings shown below have gone at least {{ active_price_review_days }} days since listing or their latest relist. Suggestions use the lower of a {{ active_price_markdown_percent }}% markdown or the item's completed-sale median.
@@ -161,7 +125,7 @@
                 <input
                   id="select-all-active-sales"
                   type="checkbox"
-                  aria-label="Select all currently selling rows"
+                  aria-label="Select all currently selling rows on this page"
                 >
               </th>
               {% for column in active_sort_columns %}
@@ -216,18 +180,19 @@
                     class="price-edit-form"
                     data-preserve-scroll
                   >
+                    <input type="hidden" name="price_unit" value="thousands">
                     <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
                       Sale Price for {{ sale.display_name }}
                     </label>
-                    <input
+                    <span class="price-entry"><input data-price-thousands aria-description="In thousands of kamas: 77 means 77,000 kamas; 0.5 means 500."
                       id="sale-price-{{ sale.uuid }}"
                       name="asking_price"
-                      inputmode="numeric"
-                      value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
-                      data-initial-value="{{ '{:,}'.format(sale.asking_price) if sale.asking_price is not none else '' }}"
+                      inputmode="decimal"
+                      value="{{ (sale.asking_price | price_thousands) if sale.asking_price is not none else '' }}"
+                      data-initial-value="{{ (sale.asking_price | price_thousands) if sale.asking_price is not none else '' }}"
                       title="Click to edit. Press Enter or leave the field to save."
                       required
-                    >
+                    ><small>×1,000 kamas</small></span>
                   </form>
                   {% if price_review %}
                     <div class="price-review-suggestion">
@@ -320,6 +285,7 @@
           </tbody>
         </table>
       </div>
+      {% with pagination = active_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
     {% else %}
       <p>No items are currently being sold.</p>
     {% endif %}
@@ -331,10 +297,11 @@
     <summary>
       <span class="section-summary">
         <h2>Sold History</h2>
-        <span>{{ sold_sales | length }} sold</span>
+        <span>{{ sold_count }} sold</span>
       </span>
     </summary>
     {% if sold_sales %}
+      {% with pagination = sold_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
       <div class="sales-table-wrap">
         <table class="sales-table">
           <thead>
@@ -415,6 +382,7 @@
           </tbody>
         </table>
       </div>
+      {% with pagination = sold_pagination %}{% include "partials/sales_pagination.html" %}{% endwith %}
     {% else %}
       <p>No completed sales yet.</p>
     {% endif %}
@@ -429,11 +397,21 @@
       </span>
     </summary>
     {% if sales_chart %}
-      <div class="sales-metrics" aria-label="Sales summary">
-        <div><span>Listed</span><strong>{{ sales_chart.total_listed_price_label }}</strong></div>
-        <div><span>All Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
-        <div><span>All Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
-        <div><span>All Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
+      <div class="sales-metrics sales-metrics--four" aria-label="Total sales summary">
+        <div><span>Total Listed</span><strong>{{ sales_chart.total_listed_price_label }}</strong></div>
+        <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
+        <div><span>Total Cost</span><strong>{{ sales_chart.total_cost_label }}</strong></div>
+        <div><span>Total Profit</span><strong>{{ sales_chart.total_profit_label }}</strong></div>
+      </div>
+      <p class="chart-note">
+        Listed Today totals all active asking prices. Sold Today, Cost Today, and Profit Today
+        show today, {{ sales_chart.current_date }} (Pacific Time).
+      </p>
+      <div class="sales-metrics sales-metrics--four" aria-label="Current sales summary">
+        <div><span>Listed Today</span><strong>{{ sales_chart.current_listed_price_label }}</strong></div>
+        <div><span>Sold Today</span><strong>{{ sales_chart.current_price_label }}</strong></div>
+        <div><span>Cost Today</span><strong>{{ sales_chart.current_cost_label }}</strong></div>
+        <div><span>Profit Today</span><strong>{{ sales_chart.current_profit_label }}</strong></div>
       </div>
       <div class="chart-legend" aria-label="Chart series">
         {% for series in sales_chart.series %}
@@ -543,4 +521,4 @@
     {% endif %}
   </details>
 {% endblock %}
-{% block scripts %}<script src="/static/sales.js" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/sales.js?v=20260906-activity" defer></script>{% endblock %}

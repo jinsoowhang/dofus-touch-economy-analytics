@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil, floor, log10
@@ -35,6 +35,8 @@ from dofus_touch_economy.services.catalog import (
     ItemSortField,
     SortDirection,
 )
+from dofus_touch_economy.services.dashboard import DashboardPeriod, DashboardService
+from dofus_touch_economy.services.home import HomeService
 from dofus_touch_economy.services.insights import InsightsService
 from dofus_touch_economy.services.pricing import (
     ItemNotFound,
@@ -56,7 +58,9 @@ from dofus_touch_economy.services.recipes import (
 from dofus_touch_economy.services.sales import (
     ACTIVE_PRICE_MARKDOWN_PERCENT,
     ACTIVE_PRICE_REVIEW_DAYS,
+    PRICE_REVIEW_SNOOZE_DAYS,
     DailySalesTotal,
+    PriceReviewSortField,
     SaleItemNotFound,
     SaleListingConflict,
     SaleListingFilters,
@@ -65,10 +69,13 @@ from dofus_touch_economy.services.sales import (
     SaleSortField,
     SalesService,
 )
+from dofus_touch_economy.web_prices import price_command_values, price_thousands
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
 PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
+SALES_PAGE_SIZE = 50
+SALE_ITEM_CHOICE_LIMIT = 25
 ITEM_PAGE_SIZE = 100
 RECIPE_PAGE_SIZE = 100
 PRICE_PRIORITY_LIMIT = 100
@@ -81,6 +88,7 @@ def _pacific_time(value: datetime) -> datetime:
 
 
 templates.env.filters["pacific_time"] = _pacific_time
+templates.env.filters["price_thousands"] = price_thousands
 templates.env.filters["default_recipe_calculator_quantity"] = default_recipe_calculator_quantity
 
 
@@ -90,14 +98,21 @@ class SalesSortState:
     active_direction: SaleSortDirection = "desc"
     sold_sort: SaleSortField = "sold"
     sold_direction: SaleSortDirection = "desc"
+    active_page: int = 1
+    sold_page: int = 1
 
     def parameters(self) -> dict[str, str]:
-        return {
+        parameters = {
             "active_sort": self.active_sort,
             "active_direction": self.active_direction,
             "sold_sort": self.sold_sort,
             "sold_direction": self.sold_direction,
         }
+        if self.active_page > 1:
+            parameters["active_page"] = str(self.active_page)
+        if self.sold_page > 1:
+            parameters["sold_page"] = str(self.sold_page)
+        return parameters
 
 
 DEFAULT_SALES_SORT_STATE = SalesSortState()
@@ -236,8 +251,12 @@ def _sales_sort_state(
     active_direction: Annotated[SaleSortDirection, Query()] = "desc",
     sold_sort: Annotated[SaleSortField, Query()] = "sold",
     sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
+    active_page: Annotated[int, Query(ge=1)] = 1,
+    sold_page: Annotated[int, Query(ge=1)] = 1,
 ) -> SalesSortState:
-    return SalesSortState(active_sort, active_direction, sold_sort, sold_direction)
+    return SalesSortState(
+        active_sort, active_direction, sold_sort, sold_direction, active_page, sold_page
+    )
 
 
 def _sales_filter_state(
@@ -247,19 +266,23 @@ def _sales_filter_state(
     status: Annotated[SalesStatusFilter, Query()] = "all",
     min_price: Annotated[str, Query(max_length=50)] = "",
     max_price: Annotated[str, Query(max_length=50)] = "",
+    price_unit: Annotated[Literal["kamas", "thousands"], Query()] = "kamas",
     min_profit: Annotated[str, Query(max_length=50)] = "",
     max_profit: Annotated[str, Query(max_length=50)] = "",
     date_from: Annotated[str, Query(max_length=10)] = "",
     date_to: Annotated[str, Query(max_length=10)] = "",
 ) -> SalesFilterState:
     errors: list[str] = []
+    prices = price_command_values(
+        {"price_unit": price_unit}, {"min_price": min_price, "max_price": max_price}
+    )
     return SalesFilterState(
         item_uuid=item_uuid,
         item_query=item_query.strip(),
         category=category.strip(),
         status=status,
-        min_price=_optional_integer_filter(min_price, "Minimum price", errors),
-        max_price=_optional_integer_filter(max_price, "Maximum price", errors),
+        min_price=_optional_integer_filter(prices["min_price"], "Minimum price", errors),
+        max_price=_optional_integer_filter(prices["max_price"], "Maximum price", errors),
         min_profit=_optional_decimal_filter(min_profit, "Minimum profit", errors),
         max_profit=_optional_decimal_filter(max_profit, "Maximum profit", errors),
         date_from=_optional_date_filter(date_from, "From date", errors),
@@ -448,6 +471,7 @@ def _search_context(
         "category_filters": category_filters,
         "category_choices": category_choices,
         "items": items,
+        "craftable_item_uuids": catalog.craftable_item_uuids([item.uuid for item in items]),
         "item_filtered_count": len(matching_items),
         "item_page": resolved_page,
         "item_page_count": page_count,
@@ -487,12 +511,13 @@ def _price_priorities_context(
     price_item_uuid: UUID | None = None,
     price_form_value: str = "",
 ) -> dict[str, object]:
+    report = RecipeCatalogService(session, market_context).price_priorities(
+        limit=PRICE_PRIORITY_LIMIT
+    )
     return {
         "active_tab": "price_priorities",
         "market_context": market_context,
-        "report": RecipeCatalogService(session, market_context).price_priorities(
-            limit=PRICE_PRIORITY_LIMIT
-        ),
+        "report": report,
         "notification": notification,
         "price_errors": price_errors or [],
         "price_item_uuid": price_item_uuid,
@@ -555,7 +580,6 @@ def _sales_context(
     errors: list[str] | None = None,
     form_values: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    item_choices = service.item_choices()
     listing_filters = filter_state.listing_filters()
     show_active = filter_state.status in ("all", "active")
     show_sold = filter_state.status in ("all", "sold")
@@ -568,11 +592,13 @@ def _sales_context(
         if show_active
         else []
     )
+    all_sold = service.sold()
     sold_sales = (
         service.sold(
             sort_state.sold_sort,
             sort_state.sold_direction,
             listing_filters,
+            listings=all_sold,
         )
         if show_sold
         else []
@@ -582,24 +608,27 @@ def _sales_context(
         as_of=datetime.now(UTC),
         display_timezone=PACIFIC_TIME,
     )
-    category_labels: dict[str, str] = {}
-    for item in item_choices:
-        if item.category_key:
-            category_labels.setdefault(item.category_key, (item.category or "").title())
-    daily_totals = service.daily_totals(PACIFIC_TIME)
+    category_labels = {
+        normalize_item_name(category): category.title() for category in service.item_categories()
+    }
+    daily_totals = service.daily_totals(PACIFIC_TIME, all_sold)
+    active_count, sold_count = len(active_sales), len(sold_sales)
+    sort_state = replace(
+        sort_state,
+        active_page=min(sort_state.active_page, max(1, ceil(active_count / SALES_PAGE_SIZE))),
+        sold_page=min(sort_state.sold_page, max(1, ceil(sold_count / SALES_PAGE_SIZE))),
+    )
     filter_parameters = filter_state.parameters()
     sales_parameters = {**sort_state.parameters(), **filter_parameters}
+    sort_link_parameters = {
+        **filter_parameters,
+        **{key: value for key, value in sort_state.parameters().items() if key.endswith("_page")},
+    }
     filter_item_value = filter_state.item_query
     if filter_state.item_uuid is not None:
-        matching_item = next(
-            (item for item in item_choices if item.uuid == filter_state.item_uuid),
-            None,
-        )
-        if matching_item is not None:
-            filter_item_value = matching_item.display_name
+        filter_item_value = service.item_name(filter_state.item_uuid) or filter_item_value
     return {
         "active_tab": "sales",
-        "item_choices": item_choices,
         "category_choices": [
             {"key": key, "label": label}
             for key, label in sorted(
@@ -607,19 +636,30 @@ def _sales_context(
                 key=lambda entry: entry[1].casefold(),
             )
         ],
-        "active_sales": active_sales,
+        "active_sales": active_sales[
+            (sort_state.active_page - 1) * SALES_PAGE_SIZE : sort_state.active_page
+            * SALES_PAGE_SIZE
+        ],
+        "active_count": active_count,
+        "sold_count": sold_count,
+        "active_pagination": _sales_pagination(
+            "active", active_count, sort_state, sales_parameters
+        ),
+        "sold_pagination": _sales_pagination("sold", sold_count, sort_state, sales_parameters),
         "active_price_reviews": active_price_reviews,
         "active_price_markdown_percent": ACTIVE_PRICE_MARKDOWN_PERCENT,
         "active_price_review_days": ACTIVE_PRICE_REVIEW_DAYS,
         "active_total_price": sum(sale.asking_price or 0 for sale in active_sales),
-        "sold_sales": sold_sales,
+        "sold_sales": sold_sales[
+            (sort_state.sold_page - 1) * SALES_PAGE_SIZE : sort_state.sold_page * SALES_PAGE_SIZE
+        ],
         "active_sort_columns": _sales_sort_columns(
             "active",
             sort_state.active_sort,
             sort_state.active_direction,
             sort_state.sold_sort,
             sort_state.sold_direction,
-            filter_parameters,
+            sort_link_parameters,
         ),
         "sold_sort_columns": _sales_sort_columns(
             "sold",
@@ -627,7 +667,7 @@ def _sales_context(
             sort_state.sold_direction,
             sort_state.active_sort,
             sort_state.active_direction,
-            filter_parameters,
+            sort_link_parameters,
         ),
         "sales_sort_query": urlencode(sales_parameters),
         "sort_state": sort_state,
@@ -636,10 +676,37 @@ def _sales_context(
         "has_sales_filters": bool(filter_parameters),
         "show_active": show_active,
         "show_sold": show_sold,
-        "sales_chart": _sales_chart(daily_totals),
+        "sales_chart": _sales_chart(
+            daily_totals, current_listed_price=service.active_total_price()
+        ),
         "notification": notification,
         "errors": [*filter_state.errors(), *(errors or [])],
         "form_values": form_values or {},
+    }
+
+
+def _sales_pagination(
+    table: Literal["active", "sold"],
+    count: int,
+    sort_state: SalesSortState,
+    parameters: dict[str, str],
+) -> dict[str, object]:
+    page = sort_state.active_page if table == "active" else sort_state.sold_page
+    pages = max(1, ceil(count / SALES_PAGE_SIZE))
+    anchor = "currently-selling" if table == "active" else "sold-history"
+
+    def page_url(target: int) -> str:
+        return f"/sales?{urlencode({**parameters, f'{table}_page': str(target)})}#{anchor}"
+
+    return {
+        "label": "Currently Selling" if table == "active" else "Sold History",
+        "page": page,
+        "pages": pages,
+        "count": count,
+        "start": (page - 1) * SALES_PAGE_SIZE + 1 if count else 0,
+        "end": min(page * SALES_PAGE_SIZE, count),
+        "previous": page_url(page - 1) if page > 1 else None,
+        "next": page_url(page + 1) if page < pages else None,
     }
 
 
@@ -662,7 +729,9 @@ def _sales_redirect_url(
     return f"/sales?{urlencode(parameters)}{fragment}"
 
 
-def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | None:
+def _sales_chart(
+    daily_totals: list[DailySalesTotal], *, current_listed_price: int
+) -> dict[str, object] | None:
     if not daily_totals:
         return None
     width = 900
@@ -766,6 +835,8 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
     listed_priced_count = sum(point.listed_priced_count for point in daily_totals)
     costed_count = sum(point.costed_count for point in daily_totals)
     profit_count = sum(point.profit_count for point in daily_totals)
+    current_date = datetime.now(PACIFIC_TIME).date()
+    current = next((point for point in daily_totals if point.activity_on == current_date), None)
     return {
         "width": width,
         "height": height,
@@ -790,6 +861,23 @@ def _sales_chart(daily_totals: list[DailySalesTotal]) -> dict[str, object] | Non
         "total_price_label": f"{total_price:,}",
         "total_cost_label": "—" if not costed_count else f"{total_cost:,}",
         "total_profit_label": "—" if not profit_count else f"{total_profit:,}",
+        "current_date": current_date.isoformat(),
+        "current_listed_price_label": f"{current_listed_price:,}",
+        "current_price_label": "0" if current is None else f"{current.total_price:,}",
+        "current_cost_label": (
+            "0"
+            if current is None or not current.sold_count
+            else "—"
+            if current.total_cost is None
+            else f"{current.total_cost:,}"
+        ),
+        "current_profit_label": (
+            "0"
+            if current is None or not current.sold_count
+            else "—"
+            if current.total_profit is None
+            else f"{current.total_profit:,}"
+        ),
         "daily_totals": daily_totals,
     }
 
@@ -857,6 +945,7 @@ def _sales_sort_columns(
                 "sold_direction": next_direction,
             }
         parameters.update(filter_parameters)
+        parameters.pop(f"{table}_page", None)
         result.append(
             {
                 "field": field,
@@ -1167,13 +1256,19 @@ def _parse_recipe_calculator_sales(
             continue
         try:
             command = SaleListingCreate.model_validate(
-                {
-                    "item_uuid": item_uuid,
-                    "asking_price": sale_prices.get(item_uuid, ""),
-                }
+                price_command_values(
+                    form,
+                    {
+                        "item_uuid": item_uuid,
+                        "asking_price": sale_prices.get(item_uuid, ""),
+                    },
+                )
             )
         except ValidationError:
-            errors.append(f"Enter a positive whole-number sale price for {choice.display_name}.")
+            errors.append(
+                "Enter a positive sale price in thousands (77 = 77,000 kamas) "
+                f"for {choice.display_name}."
+            )
             continue
         commands.extend(command for _ in range(quantity))
     return commands, selected_item_uuids, sale_prices, errors
@@ -1213,9 +1308,20 @@ def _mutation_response(
     )
 
 
-@router.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    return RedirectResponse(url="/items", status_code=307)
+@router.get("/", response_class=HTMLResponse, include_in_schema=False)
+def home_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        context={
+            "active_tab": "home",
+            "report": HomeService(session, display_timezone=PACIFIC_TIME).report(),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/recipes", response_class=HTMLResponse)
@@ -1426,7 +1532,7 @@ async def update_recipe_calculator_ingredient_price(
     form = await request.form()
     values = _form_values(form, ("unit_price",))
     try:
-        command = RecipeIngredientPriceUpdate.model_validate(values)
+        command = RecipeIngredientPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return JSONResponse(
             {"errors": _validation_messages(error)},
@@ -1510,7 +1616,7 @@ async def update_recipe_item_current_price(
     form = await request.form()
     values = _form_values(form, ("current_price",))
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -1556,6 +1662,26 @@ async def update_recipe_item_current_price(
     )
 
 
+@router.get("/sales/item-choices", response_class=HTMLResponse)
+def sales_item_choices(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    q: Annotated[str, Query(max_length=200)] = "",
+    category: Annotated[str, Query(max_length=200)] = "",
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "partials/sale_item_choices.html",
+        context={
+            "item_choices": SalesService(session, settings.market_context).item_choices(
+                q, category=category, limit=SALE_ITEM_CHOICE_LIMIT
+            ),
+            "form_values": {},
+        },
+    )
+
+
 @router.get("/sales", response_class=HTMLResponse)
 def sales_page(
     request: Request,
@@ -1597,6 +1723,209 @@ def sales_page(
         notification=notifications.get(notice),
     )
     return templates.TemplateResponse(request, "sales.html", context=context)
+
+
+def _price_review_context(
+    service: SalesService,
+    *,
+    sort: PriceReviewSortField,
+    direction: SaleSortDirection,
+    page: int,
+    errors: list[str] | None = None,
+    edited_uuid: UUID | None = None,
+    price_value: str = "",
+    updated: bool = False,
+    snoozed: bool = False,
+) -> dict[str, object]:
+    rows = service.price_review_listings(
+        as_of=datetime.now(UTC),
+        display_timezone=PACIFIC_TIME,
+        sort_field=sort,
+        sort_direction=direction,
+    )
+    pages = max(1, ceil(len(rows) / SALES_PAGE_SIZE))
+    page = min(page, pages)
+    offset = (page - 1) * SALES_PAGE_SIZE
+    query = urlencode({"sort": sort, "direction": direction, "page": page})
+    columns = []
+    for field, label, numeric in (
+        ("name", "Item", False),
+        ("age", "Days Since List / Relist", True),
+        ("price", "Sales Price", True),
+        ("cost", "Recipe Cost", True),
+        ("profit", "Estimated Profit", True),
+        ("suggested", "Suggested Price", True),
+        ("started", "Selling Since", False),
+        ("relisted", "Relisted Date", False),
+    ):
+        active = field == sort
+        next_direction = "asc" if active and direction == "desc" else "desc"
+        columns.append(
+            {
+                "label": label,
+                "numeric": numeric,
+                "aria_sort": ("ascending" if direction == "asc" else "descending")
+                if active
+                else "none",
+                "arrow": ("▲" if direction == "asc" else "▼") if active else "",
+                "url": "/sales/price-review?"
+                + urlencode({"sort": field, "direction": next_direction}),
+            }
+        )
+    return {
+        "active_tab": "price_review",
+        "rows": rows[offset : offset + SALES_PAGE_SIZE],
+        "count": len(rows),
+        "total_price": sum(row.listing.asking_price or 0 for row in rows),
+        "unpriced_count": sum(row.listing.asking_price is None for row in rows),
+        "review_days": ACTIVE_PRICE_REVIEW_DAYS,
+        "markdown_percent": ACTIVE_PRICE_MARKDOWN_PERCENT,
+        "columns": columns,
+        "review_query": query,
+        "errors": errors or [],
+        "edited_uuid": edited_uuid,
+        "price_value": price_value,
+        "updated": updated,
+        "snoozed": snoozed,
+        "snooze_days": PRICE_REVIEW_SNOOZE_DAYS,
+        "pagination": {
+            "label": "Price Review",
+            "start": offset + 1 if rows else 0,
+            "end": min(offset + SALES_PAGE_SIZE, len(rows)),
+            "count": len(rows),
+            "page": page,
+            "pages": pages,
+            "previous": "/sales/price-review?"
+            + urlencode({"sort": sort, "direction": direction, "page": page - 1})
+            if page > 1
+            else None,
+            "next": "/sales/price-review?"
+            + urlencode({"sort": sort, "direction": direction, "page": page + 1})
+            if page < pages
+            else None,
+        },
+    }
+
+
+@router.get("/sales/price-review", response_class=HTMLResponse)
+def price_review_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort: PriceReviewSortField = "name",
+    direction: SaleSortDirection = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+    updated: bool = False,
+    snoozed: bool = False,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "price_review.html",
+        context=_price_review_context(
+            SalesService(session, settings.market_context),
+            sort=sort,
+            direction=direction,
+            page=page,
+            updated=updated,
+            snoozed=snoozed,
+        ),
+    )
+
+
+@router.post(
+    "/sales/price-review/{listing_uuid}/price", response_class=HTMLResponse, response_model=None
+)
+async def update_price_review_listing(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort: PriceReviewSortField = "name",
+    direction: SaleSortDirection = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    values = _form_values(form, ("asking_price",))
+    service = SalesService(session, settings.market_context)
+    try:
+        command = SalePriceUpdate.model_validate(price_command_values(form, values))
+        service.update_price(listing_uuid, command)
+    except ValidationError as error:
+        errors, status = _validation_messages(error), 422
+    except SaleListingNotFound:
+        errors, status = ["Sale listing not found."], 404
+    except SaleListingConflict:
+        errors, status = ["A sold listing cannot be repriced."], 409
+    else:
+        return RedirectResponse(
+            url="/sales/price-review?"
+            + urlencode({"sort": sort, "direction": direction, "page": page, "updated": "true"}),
+            status_code=303,
+        )
+    return templates.TemplateResponse(
+        request,
+        "price_review.html",
+        context=_price_review_context(
+            service,
+            sort=sort,
+            direction=direction,
+            page=page,
+            errors=errors,
+            edited_uuid=listing_uuid,
+            price_value=values["asking_price"],
+        ),
+        status_code=status,
+    )
+
+
+@router.post(
+    "/sales/price-review/{listing_uuid}/snooze", response_class=HTMLResponse, response_model=None
+)
+def snooze_price_review_listing(
+    request: Request,
+    listing_uuid: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    sort: PriceReviewSortField = "name",
+    direction: SaleSortDirection = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> HTMLResponse | RedirectResponse:
+    service = SalesService(session, settings.market_context)
+    try:
+        service.snooze_price_review(
+            listing_uuid,
+            as_of=datetime.now(UTC),
+            display_timezone=PACIFIC_TIME,
+        )
+    except SaleListingNotFound:
+        errors, status = ["Sale listing not found."], 404
+    except SaleListingConflict as error:
+        errors, status = [str(error)], 409
+    else:
+        return RedirectResponse(
+            url="/sales/price-review?"
+            + urlencode(
+                {
+                    "sort": sort,
+                    "direction": direction,
+                    "page": page,
+                    "snoozed": "true",
+                }
+            ),
+            status_code=303,
+        )
+    return templates.TemplateResponse(
+        request,
+        "price_review.html",
+        context=_price_review_context(
+            service,
+            sort=sort,
+            direction=direction,
+            page=page,
+            errors=errors,
+        ),
+        status_code=status,
+    )
 
 
 @router.get("/out-of-stock-items", response_class=HTMLResponse)
@@ -1654,6 +1983,97 @@ def insights_page(
     )
 
 
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard_page(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    days: Annotated[int, Query(ge=7, le=90)] = 30,
+    category: Annotated[list[str] | None, Query()] = None,
+    q: Annotated[str, Query(max_length=200)] = "",
+) -> HTMLResponse:
+    selected_categories = _normalized_filter_values(category)
+    report = DashboardService(
+        session, settings.market_context, display_timezone=PACIFIC_TIME
+    ).report(days, categories=selected_categories, item_query=q)
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        context={
+            "active_tab": "dashboard",
+            "report": report,
+            "selected_categories": selected_categories,
+            "category_choices": sorted(set(report.categories) | set(selected_categories)),
+            "item_query": q,
+            "has_filters": bool(selected_categories or q.strip()),
+            "period_links": {
+                period: "/dashboard?"
+                + urlencode(
+                    {"days": period, "category": selected_categories, **({"q": q} if q else {})},
+                    doseq=True,
+                )
+                for period in (7, 30, 90)
+            },
+            "charts": {
+                key: _dashboard_chart(report.daily, key)
+                for key in ("profit", "revenue", "sold_count")
+            },
+            "profit_scale": max((abs(item.profit) for item in report.profit_items), default=1) or 1,
+        },
+    )
+
+
+def _dashboard_chart(daily: tuple[DashboardPeriod, ...], attribute: str) -> dict[str, object]:
+    values = [getattr(day, attribute) for day in daily]
+    known = [Decimal(value) for value in values if value is not None]
+    minimum = min([Decimal(0), *known])
+    maximum = max([Decimal(0), *known])
+    step = _nice_tick_step(max(1, ceil(maximum - minimum)))
+    lower = floor(minimum / step) * step
+    upper = ceil(maximum / step) * step
+    if lower == upper:
+        upper = lower + step * 4
+
+    def y(value: Decimal | int) -> float:
+        return round(18 + 172 * float((upper - value) / (upper - lower)), 2)
+
+    points = []
+    for index, (day, value) in enumerate(zip(daily, values, strict=True)):
+        x = round(68 + index * 630 / (len(daily) - 1), 2)
+        point = {
+            "x": x,
+            "date": day.ended_on.isoformat(),
+            "label": "Unknown" if value is None else f"{value:,.0f}",
+            "y": None if value is None else y(value),
+            "coverage_label": (
+                f"Incomplete costs · {day.covered_count} of {day.sold_count} sales with known costs"
+                + (
+                    f" · Known profit subtotal: {day.profit:,.0f} kamas"
+                    if day.profit is not None
+                    else " · Profit unknown"
+                )
+                if attribute == "profit" and day.covered_count < day.sold_count
+                else ""
+            ),
+        }
+        points.append(point)
+    segments = []
+    for previous, point in zip(points[:-1], points[1:], strict=True):
+        if previous["y"] is None or point["y"] is None:
+            continue
+        segments.append(f"{previous['x']},{previous['y']} {point['x']},{point['y']}")
+    return {
+        "points": points,
+        "segments": segments,
+        "ticks": [
+            {"y": y(value), "label": f"{value:,}"} for value in range(lower, upper + 1, step)
+        ],
+        "labels": [points[index] for index in (0, len(points) // 2, len(points) - 1)],
+        "zero_y": y(0),
+        "bar_width": round(min(24, 450 / len(daily)), 2),
+    }
+
+
 @router.get("/profit-opportunities", response_class=HTMLResponse)
 def profit_opportunities_page(
     request: Request,
@@ -1708,10 +2128,10 @@ async def start_sale(
     filter_state: Annotated[SalesFilterState, Depends(_sales_filter_state)],
 ) -> HTMLResponse | RedirectResponse:
     form = await request.form()
-    values = _form_values(form, ("category", "item_uuid", "asking_price"))
+    values = _form_values(form, ("q", "category", "item_uuid", "asking_price"))
     service = SalesService(session, settings.market_context)
     try:
-        command = SaleListingCreate.model_validate(values)
+        command = SaleListingCreate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -1917,7 +2337,7 @@ async def update_sale_price(
     values = _form_values(form, ("asking_price",))
     service = SalesService(session, settings.market_context)
     try:
-        command = SalePriceUpdate.model_validate(values)
+        command = SalePriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2124,7 +2544,7 @@ async def update_item_search_current_price(
     values = _form_values(form, ("current_price",))
     catalog = CatalogService(session, settings.market_context)
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2226,7 +2646,7 @@ async def update_price_priority_item(
     form = await request.form()
     values = _form_values(form, ("current_price",))
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2382,7 +2802,7 @@ def delete_price_history_row(
         return _error_response(request, "Price history row not found", 404)
     notice = "price-history-deleted"
     try:
-        service.invalidate(observation_uuid, "Deleted from item price history")
+        service.invalidate_history_row(observation_uuid, "Deleted from item price history")
     except ObservationConflict:
         notice = "price-history-already-deleted"
     redirect_url = f"/items/{item_uuid}?notice={notice}#price-panel"
@@ -2411,7 +2831,7 @@ async def update_item_current_price(
     form = await request.form()
     values = _form_values(form, ("current_price",))
     try:
-        command = ItemCurrentPriceUpdate.model_validate(values)
+        command = ItemCurrentPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2475,7 +2895,7 @@ async def update_recipe_ingredient_price(
     form = await request.form()
     values = _form_values(form, ("unit_price",))
     try:
-        command = RecipeIngredientPriceUpdate.model_validate(values)
+        command = RecipeIngredientPriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return templates.TemplateResponse(
             request,
@@ -2526,7 +2946,7 @@ async def record_price(
     except ItemNotFound:
         return _error_response(request, "Item not found", 404)
     try:
-        command = PriceObservationCreate.model_validate(values)
+        command = PriceObservationCreate.model_validate(price_command_values(form, values))
     except ValidationError as error:
         return _mutation_response(
             request,
