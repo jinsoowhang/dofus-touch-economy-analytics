@@ -121,3 +121,15 @@
   templater failure on the incoming empty analysis; the focused correction and its
   verification are recorded below. Public-file policy and working/index whitespace
   passed. Operational data, screenshots, private reports, and backups remain ignored.
+
+## Incoming empty analysis lint correction
+
+- The upstream `analyses/test.sql` was empty. dbt parse accepted it, but SQLFluff's
+  dbt templater failed silently when linting that file. Added one placeholder SQL
+  comment to retain the file without introducing any query or transformation.
+- `DO_NOT_TRACK=1 uv run sqlfluff lint analyses` passed after the comment. Public-file
+  policy and working/index whitespace checks passed. This comment-only change
+  does not affect application behavior or model results; the earlier 428 Python
+  tests and 126 successful dbt build nodes remain the relevant full verification.
+- Kept the incoming-file correction in its own commit, separate from the sales
+  notes, repricing feature, and dashboard freshness decision.
