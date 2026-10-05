@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-10-04
 
 ## Dofus Touch Economy Analytics
 
@@ -180,6 +180,22 @@
   price. Back up SQLite before mutation and write the confirmed batch atomically with
   recipe-cost snapshots calculated at the assigned sale timestamps. Never fabricate
   missing listings or guessed item identity.
+- The October 4 sales catch-up committed 124 matched equipment notifications
+  from September 10 through October 4, totaling 8,293,900 kamas. The private audit is
+  `data/reports/manual-screenshot-sales-2026-10-04.json`, with a readable review at
+  `data/reports/sales-catch-up-2026-10-04.md`. Do not replay these screenshots.
+  The user approved treating each dated batch as all sales since the preceding
+  dated login, allocating from the following day through the labeled date.
+  The weekday baseline uses mean daily sale counts for August 22 through
+  September 12, correcting for unequal weekday exposure and excluding the partial
+  first operational day. Fifty-one multi-day assignments retain screenshot dates
+  in the private audit and use `manual_estimated_date` sale lineage; 73 single-day
+  assignments use `manual`. Existing charts display assigned dates without estimate
+  badges. Do not train later weekday estimates on imputed dates. Five screenshot
+  price corrections appended observations; ten historical costs remain unknown.
+  An integrity-checked online backup preceded the atomic update. Table-level checks
+  confirmed exactly the planned changes; live SQLite has 707 sold and 205 active
+  listings, with all existing price observations and unrelated tables preserved.
 - The 2026-09-09 Downloads reconciliation recorded 51 exact-price active listings:
   23 for September 8 and 28 for September 9. Filename dates override file save
   dates; prior-day sales use 23:59:59 Pacific and same-day sales use screenshot
