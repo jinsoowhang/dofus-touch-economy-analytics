@@ -99,3 +99,25 @@
   whitespace checks passed. Existing sales-reconciliation memory and session
   records were preserved. Restart `uv run dofus-web` and refresh Sales Activity
   to load the new server behavior and versioned assets.
+
+## Dashboard freshness decision and GitHub publication
+
+- Reviewed whether the website could consume dbt-produced reporting metrics. The
+  user declined the change because dashboard metrics must update immediately with
+  operational edits. Retained SQLite services for website reports and the separate
+  dbt analytical pipeline; no reporting cache or warehouse-backed UI was added.
+- The user requested committing and publishing the session changes to GitHub.
+  Split sales-reconciliation documentation from the Sales Activity repricing
+  feature, keeping each change independently revertible and including its notes.
+- Fetched `origin/main` from `jinsoowhang/dofus-touch-economy-analytics`. The old local
+  tip was `64c4253`; the fetched upstream tip was `1a9b420`. Three upstream commits
+  introduced only the empty `analyses/test.sql` file. Preserved that change.
+- Created local rollback branch `backup/pre-github-sync-2026-10-04` at `6f0f643`,
+  then rebased the two unpublished session commits onto `origin/main` without
+  conflicts. The resulting commits are `f58ad7e` for the sales catch-up notes and
+  `6450836` for the repeated-item price feature. The backup branch remains local.
+- Reused the prior successful full checks because application code and tests did
+  not change during integration. dbt parsing passed, but SQL lint exposed a dbt
+  templater failure on the incoming empty analysis; the focused correction and its
+  verification are recorded below. Public-file policy and working/index whitespace
+  passed. Operational data, screenshots, private reports, and backups remain ignored.

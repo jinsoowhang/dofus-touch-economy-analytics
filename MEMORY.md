@@ -8,6 +8,9 @@
 - The public README presents the current system as a local-first economy tracker and
   hosted analytics project. It states explicitly that FastAPI writes to SQLite and
   that BigQuery snapshots plus dbt builds are manual, separate publication steps.
+- On October 4, the user considered making dbt outputs power the website reports
+  but declined because immediate metric freshness is required. Keep Dashboard and
+  operational reports on SQLite services; dbt remains the separate analytics path.
 - Local stack: Python 3.12, uv, FastAPI, Jinja, vendored HTMX, SQLAlchemy, Alembic, SQLite, dbt Core, dbt-duckdb, and DuckDB.
 - Implemented application: a loopback-only FastAPI/Jinja/vendored-HTMX website with versioned JSON endpoints. SQLite owns operational state while DuckDB and dbt remain the downstream analytical layer.
 - Application prices are append-only observations with audit-preserving invalidation. Item Search records total price with implicit quantity one; each new `item_cost.csv` checksum now seeds idempotent, lot-one current-price observations, using the last file occurrence for duplicate identities without creating Sales listings.
