@@ -85,6 +85,14 @@
   exclude listings for other catalog items, and link to the matching item/status
   filter on the Sales page.
 - For small application iterations, avoid broad README/design-document edits unless a public contract changes or the user asks; still maintain the required `MEMORY.md` and dated session note at session end.
+- Sales Activity inline price edits offer an explicit Yes/No dialog when other
+  active listings share the exact item UUID. The prompt names the item and counts
+  all other active listings, including those hidden by filters or pagination. Yes
+  reprices every active listing for that item in one transaction; No or Escape
+  saves only the edited listing. Each updated listing receives a new quantity-one
+  observation at the shared relist timestamp; prior observations, listing start
+  dates, sold history, and same-name items with different identities are preserved.
+  Sort/filter state and scroll restoration continue through the existing redirect.
 - Activity performance phase one was authorized and implemented on 2026-09-05:
   bounded HTMX item search, independent 50-row table pages, one materialization of
   completed Sales per request, current ingredient-price queries restricted to the

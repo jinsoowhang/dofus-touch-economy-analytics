@@ -70,3 +70,32 @@
   Public-file policy and working-tree whitespace checks were repeated. Operational
   data, reports, scripts, and backups remain ignored; only memory and session notes
   are working-tree changes.
+
+## Sales Activity price edits for repeated items
+
+- Added a Yes/No dialog on Enter or blur when a Sales Activity price edit has other
+  active listings for the same exact item UUID. The concise prompt includes the
+  item name and number of other active listings. Counts cover all active listings,
+  including those outside the current filters or page. A single active listing
+  continues to save immediately. No and Escape save only the edited row.
+- Yes sends one request to the existing price endpoint and reprices all active
+  listings for that item in one transaction. Each updated listing gets a linked
+  append-only quantity-one observation with a shared timestamp. Sold listings,
+  same-name items with different UUIDs, previous observations, and original listing
+  start dates remain intact. A conflict rolls back all repricing and observations.
+- Preserved sort/filter redirects and scroll restoration. Added a bulk-update
+  success message, accessible native dialog styling, and new asset versions.
+  No schema or dependency changes; browser verification used a transient Playwright
+  environment and synthetic SQLite records, with no live operational writes.
+- Focused Sales and web tests passed (112 tests), including atomic rollback,
+  exact identity, sold-history exclusion, prior price preservation, and both price
+  choices. A real Chromium interaction check passed Enter, blur, Yes, No, Escape,
+  hidden duplicates, single-listing edits, and filter preservation without JavaScript
+  errors. The initial browser launch needed existing cached runtime libraries;
+  supplying their path resolved it without system or repository dependency changes.
+- The complete `./scripts/check.sh` passed: Python lint/formatting, 428 Python
+  tests, package compilation, dbt debug/parse/seed/build (126 successful build
+  nodes), SQL lint, and public-file policy. JavaScript syntax and working-tree
+  whitespace checks passed. Existing sales-reconciliation memory and session
+  records were preserved. Restart `uv run dofus-web` and refresh Sales Activity
+  to load the new server behavior and versioned assets.

@@ -782,28 +782,42 @@ class SalesService:
         self,
         listing_uuid: UUID,
         command: SalePriceUpdate,
+        *,
+        apply_to_same_item: bool = False,
     ) -> SaleListingResponse:
         existing = self._sales.get_by_uuid(listing_uuid)
         if existing is None:
             raise SaleListingNotFound(str(listing_uuid))
-        observation = self._new_price_observation(
-            existing.item_id,
-            command.asking_price,
-            datetime.now(UTC),
-        )
-        if not self._sales.update_price(
-            listing_uuid,
-            command.asking_price,
-            observation.id,
-        ):
-            self._session.rollback()
+        if existing.date_sold is not None:
             raise SaleListingConflict(str(listing_uuid))
-        existing.price_observation = observation
+        listings = (
+            self._sales.active_for_item_ids({existing.item_id})
+            if apply_to_same_item
+            else [existing]
+        )
+        observed_at = datetime.now(UTC)
+        for selected in listings:
+            observation = self._new_price_observation(
+                selected.item_id,
+                command.asking_price,
+                observed_at,
+            )
+            if not self._sales.update_price(
+                selected.uuid,
+                command.asking_price,
+                observation.id,
+            ):
+                self._session.rollback()
+                raise SaleListingConflict(str(selected.uuid))
+            selected.price_observation = observation
         self._session.commit()
         listing = self._sales.get_by_uuid(listing_uuid)
         if listing is None:  # pragma: no cover - protected by successful update
             raise SaleListingNotFound(str(listing_uuid))
         return self._responses([listing])[0]
+
+    def active_counts_by_item(self) -> dict[UUID, int]:
+        return self._sales.active_counts_by_item()
 
     def _new_price_observation(
         self,

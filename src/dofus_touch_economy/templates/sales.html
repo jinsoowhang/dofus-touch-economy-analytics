@@ -179,8 +179,11 @@
                     action="/sales/{{ sale.uuid }}/price?{{ sales_sort_query }}"
                     class="price-edit-form"
                     data-preserve-scroll
+                    data-other-active-count="{{ active_counts_by_item.get(sale.item_uuid, 1) - 1 }}"
+                    data-item-name="{{ sale.display_name }}"
                   >
                     <input type="hidden" name="price_unit" value="thousands">
+                    <input type="hidden" name="apply_to_same_item" value="false">
                     <label class="visually-hidden" for="sale-price-{{ sale.uuid }}">
                       Sale Price for {{ sale.display_name }}
                     </label>
@@ -520,5 +523,12 @@
       <p>Add a listing or mark an item as sold to start the daily sales chart.</p>
     {% endif %}
   </details>
+  <dialog id="same-item-price-dialog" class="price-confirm-dialog" aria-labelledby="same-item-price-prompt">
+    <p id="same-item-price-prompt"></p>
+    <form method="dialog" class="bulk-actions">
+      <button value="yes">Yes</button>
+      <button value="no" class="secondary-button" autofocus>No</button>
+    </form>
+  </dialog>
 {% endblock %}
-{% block scripts %}<script src="/static/sales.js?v=20260906-activity" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/sales.js?v=20261004-same-item-price" defer></script>{% endblock %}

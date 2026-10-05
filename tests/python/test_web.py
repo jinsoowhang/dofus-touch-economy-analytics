@@ -192,7 +192,9 @@ def test_sales_category_filter_and_local_script(
     assert '<select name="category">' in response.text
     assert 'value="ring"' in response.text
     assert 'value="hat"' in response.text
-    assert '<script src="/static/sales.js?v=20260906-activity" defer></script>' in response.text
+    assert (
+        '<script src="/static/sales.js?v=20261004-same-item-price" defer></script>' in response.text
+    )
     assert script.status_code == 200
     assert 'input.addEventListener("blur", savePrice)' in script.text
     assert 'activeSalesSelectAll.addEventListener("change"' in script.text
@@ -479,6 +481,55 @@ def test_sales_page_duplicates_and_reprices_a_listing(
     assert 'value="50"' in page.text
     assert 'value="45"' in page.text
     assert "2 active" in page.text
+
+
+@pytest.mark.parametrize("apply_to_same_item", ["true", "false"])
+def test_sales_price_choice_includes_filtered_and_paginated_duplicates(
+    client, session_factory, catalog_item, monkeypatch, apply_to_same_item
+) -> None:
+    monkeypatch.setattr(web, "SALES_PAGE_SIZE", 1)
+    with session_factory() as session:
+        service = SalesService(session, "Dodge")
+        listings = [
+            service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=price))
+            for price in (1_000, 2_000, 3_000, 4_000)
+        ]
+        service.mark_sold(listings[-1].uuid)
+    query = "status=active&max_price=1000&active_sort=name&active_direction=asc"
+    paginated_page = client.get("/sales?status=active")
+    assert paginated_page.status_code == 200
+    assert paginated_page.text.count('data-other-active-count="2"') == 1
+    assert "1–1 of 3" in paginated_page.text
+    page = client.get(f"/sales?{query}")
+    assert page.status_code == 200
+    assert 'data-other-active-count="2"' in page.text
+    assert 'id="same-item-price-dialog"' in page.text
+    assert '<button value="yes">Yes</button>' in page.text
+    assert '<button value="no" class="secondary-button" autofocus>No</button>' in page.text
+
+    response = client.post(
+        f"/sales/{listings[0].uuid}/price?{query}",
+        data={
+            "asking_price": "0.9",
+            "price_unit": "thousands",
+            "apply_to_same_item": apply_to_same_item,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "status=active" in response.headers["location"]
+    assert "max_price=1000" in response.headers["location"]
+    with session_factory() as session:
+        prices = list(session.scalars(select(SaleListing.asking_price).order_by(SaleListing.id)))
+    assert prices == (
+        [900, 900, 900, 4_000] if apply_to_same_item == "true" else [900, 2_000, 3_000, 4_000]
+    )
+    if apply_to_same_item == "true":
+        assert (
+            "Price updated for all active listings of this item."
+            in client.get(response.headers["location"]).text
+        )
 
 
 def test_sales_page_validates_repriced_value(client, session_factory, catalog_item) -> None:

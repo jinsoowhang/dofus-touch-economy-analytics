@@ -171,6 +171,24 @@ window.addEventListener("pageshow", () => {
   }
 });
 
+const sameItemPriceDialog = document.querySelector("#same-item-price-dialog");
+const sameItemPricePrompt = document.querySelector("#same-item-price-prompt");
+let pendingSameItemPriceForm = null;
+
+if (sameItemPriceDialog) {
+  sameItemPriceDialog.addEventListener("close", () => {
+    const form = pendingSameItemPriceForm;
+    pendingSameItemPriceForm = null;
+    if (!form) {
+      return;
+    }
+    form.querySelector('input[name="apply_to_same_item"]').value =
+      sameItemPriceDialog.returnValue === "yes" ? "true" : "false";
+    form.dataset.priceConfirmed = "true";
+    form.requestSubmit();
+  });
+}
+
 for (const form of document.querySelectorAll(".price-edit-form")) {
   const input = form.querySelector(
     'input[name="asking_price"], input[name="unit_price"], input[name="current_price"]',
@@ -180,7 +198,7 @@ for (const form of document.querySelectorAll(".price-edit-form")) {
   }
 
   const savePrice = () => {
-    if (form.dataset.submitting === "true") {
+    if (form.dataset.submitting === "true" || pendingSameItemPriceForm) {
       return;
     }
     if (input.value.trim() === input.dataset.initialValue) {
@@ -192,7 +210,21 @@ for (const form of document.querySelectorAll(".price-edit-form")) {
     form.requestSubmit();
   };
 
-  form.addEventListener("submit", () => {
+  form.addEventListener("submit", (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    const otherCount = Number(form.dataset.otherActiveCount || 0);
+    if (otherCount > 0 && form.dataset.priceConfirmed !== "true" && sameItemPriceDialog) {
+      event.preventDefault();
+      pendingSameItemPriceForm = form;
+      sameItemPricePrompt.textContent =
+        `Apply this price to the other ${otherCount} active ` +
+        `${otherCount === 1 ? "listing" : "listings"} for ${form.dataset.itemName}?`;
+      sameItemPriceDialog.returnValue = "no";
+      sameItemPriceDialog.showModal();
+      return;
+    }
     form.dataset.submitting = "true";
   });
   input.addEventListener("keydown", (event) => {

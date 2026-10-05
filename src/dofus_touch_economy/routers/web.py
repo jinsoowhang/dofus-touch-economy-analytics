@@ -641,6 +641,7 @@ def _sales_context(
             * SALES_PAGE_SIZE
         ],
         "active_count": active_count,
+        "active_counts_by_item": service.active_counts_by_item() if show_active else {},
         "sold_count": sold_count,
         "active_pagination": _sales_pagination(
             "active", active_count, sort_state, sales_parameters
@@ -1702,6 +1703,7 @@ def sales_page(
         ),
         "listing-duplicated": "Sale listing has been duplicated.",
         "listing-price-updated": "Sale price has been updated.",
+        "item-listing-prices-updated": "Price updated for all active listings of this item.",
         "listing-sold": "Item has been marked as sold.",
         "listing-reopened": "Item has been returned to Currently Selling.",
         "listing-deleted": "Sale listing has been deleted.",
@@ -2336,6 +2338,7 @@ async def update_sale_price(
     form = await request.form()
     values = _form_values(form, ("asking_price",))
     service = SalesService(session, settings.market_context)
+    apply_to_same_item = form.get("apply_to_same_item") == "true"
     try:
         command = SalePriceUpdate.model_validate(price_command_values(form, values))
     except ValidationError as error:
@@ -2351,7 +2354,7 @@ async def update_sale_price(
             status_code=422,
         )
     try:
-        service.update_price(listing_uuid, command)
+        service.update_price(listing_uuid, command, apply_to_same_item=apply_to_same_item)
     except SaleListingNotFound:
         return templates.TemplateResponse(
             request,
@@ -2379,7 +2382,7 @@ async def update_sale_price(
     return RedirectResponse(
         url=_sales_redirect_url(
             sort_state,
-            "listing-price-updated",
+            "item-listing-prices-updated" if apply_to_same_item else "listing-price-updated",
             filter_state=filter_state,
             anchor="currently-selling",
         ),

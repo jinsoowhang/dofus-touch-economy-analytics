@@ -641,13 +641,89 @@ def test_sale_can_be_duplicated_and_repriced_independently(session, catalog_item
     assert [observation.total_price for observation in history] == [45_000, 50_000]
 
 
-def test_sold_sale_price_cannot_be_changed(session, catalog_item) -> None:
+def test_reprice_same_item_updates_only_active_exact_identity(session, catalog_item) -> None:
+    service = SalesService(session, "Dodge")
+    listings = [
+        service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=price))
+        for price in (100, 200, 300, 400)
+    ]
+    sold = service.mark_sold(listings[-1].uuid)
+    other_item = Item(
+        display_name=catalog_item.display_name,
+        normalized_name=catalog_item.normalized_name,
+        category="Other",
+        identity_category="other",
+    )
+    session.add(other_item)
+    session.commit()
+    other = service.start(SaleListingCreate(item_uuid=other_item.uuid, asking_price=500))
+    before = list(session.scalars(select(PriceObservation).order_by(PriceObservation.id)))
+    original_prices = {observation.id: observation.total_price for observation in before}
+
+    updated = service.update_price(
+        listings[0].uuid, SalePriceUpdate(asking_price=900), apply_to_same_item=True
+    )
+
+    assert updated.asking_price == 900
+    active = {listing.uuid: listing for listing in service.active()}
+    assert [active[listing.uuid].asking_price for listing in listings[:-1]] == [900] * 3
+    assert active[other.uuid].asking_price == 500
+    unchanged_sold = service.sold()[0]
+    assert unchanged_sold.asking_price == 400
+    assert unchanged_sold.date_sold == sold.date_sold
+    assert unchanged_sold.recipe_cost == sold.recipe_cost
+    observations = list(session.scalars(select(PriceObservation).order_by(PriceObservation.id)))
+    assert {row.id: row.total_price for row in observations[: len(before)]} == original_prices
+    assert len(observations) == len(before) + 3
+    assert {row.total_price for row in observations[len(before) :]} == {900}
+    assert len({row.observed_at for row in observations[len(before) :]}) == 1
+    assert len({active[row.uuid].relisted_at for row in listings[:-1]}) == 1
+    assert all(
+        active[row.uuid].selling_started_at == row.selling_started_at for row in listings[:-1]
+    )
+
+
+def test_reprice_same_item_rolls_back_all_changes_on_conflict(
+    session, catalog_item, monkeypatch
+) -> None:
+    service = SalesService(session, "Dodge")
+    listings = [
+        service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=price))
+        for price in (100, 200, 300)
+    ]
+    before_count = len(list(session.scalars(select(PriceObservation))))
+    update_price = service._sales.update_price
+    calls = 0
+
+    def conflicting_update(*args):
+        nonlocal calls
+        calls += 1
+        return False if calls == 2 else update_price(*args)
+
+    monkeypatch.setattr(service._sales, "update_price", conflicting_update)
+    with pytest.raises(SaleListingConflict):
+        service.update_price(
+            listings[0].uuid, SalePriceUpdate(asking_price=900), apply_to_same_item=True
+        )
+
+    assert {row.uuid: row.asking_price for row in service.active()} == {
+        row.uuid: row.asking_price for row in listings
+    }
+    assert len(list(session.scalars(select(PriceObservation)))) == before_count
+
+
+@pytest.mark.parametrize("apply_to_same_item", [False, True])
+def test_sold_sale_price_cannot_be_changed(session, catalog_item, apply_to_same_item) -> None:
     service = SalesService(session, "Dodge")
     listing = service.start(SaleListingCreate(item_uuid=catalog_item.uuid, asking_price=100))
     service.mark_sold(listing.uuid)
 
     with pytest.raises(SaleListingConflict):
-        service.update_price(listing.uuid, SalePriceUpdate(asking_price=1_000))
+        service.update_price(
+            listing.uuid,
+            SalePriceUpdate(asking_price=1_000),
+            apply_to_same_item=apply_to_same_item,
+        )
 
 
 def test_unknown_sale_cannot_be_duplicated_or_repriced(session) -> None:

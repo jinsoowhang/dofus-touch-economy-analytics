@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
-from dofus_touch_economy.models import SaleListing
+from dofus_touch_economy.models import Item, SaleListing
 
 
 class SalesRepository:
@@ -47,6 +47,15 @@ class SalesRepository:
             SaleListing.date_sold.is_(None)
         )
         return self._session.scalar(statement) or 0
+
+    def active_counts_by_item(self) -> dict[UUID, int]:
+        statement = (
+            select(Item.uuid, func.count(SaleListing.id))
+            .join(SaleListing, SaleListing.item_id == Item.id)
+            .where(SaleListing.date_sold.is_(None))
+            .group_by(Item.uuid)
+        )
+        return dict(self._session.execute(statement).tuples().all())
 
     def sold(self) -> list[SaleListing]:
         statement = (
