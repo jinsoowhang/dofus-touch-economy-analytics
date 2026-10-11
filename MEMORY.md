@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-10
 
 ## Dofus Touch Economy Analytics
 
@@ -204,6 +204,32 @@
   price. Back up SQLite before mutation and write the confirmed batch atomically with
   recipe-cost snapshots calculated at the assigned sale timestamps. Never fabricate
   missing listings or guessed item identity.
+- The reusable repository skill is
+  `.agents/skills/dofus-sales-catch-up/SKILL.md`, callable as
+  `$dofus-sales-catch-up`. It reconciles local screenshot batches and allocates
+  missed reporting days by observed weekday sale-count means. Its deterministic
+  helper plans whole-sale allocations with largest remainders, preserves actual
+  prices/revenue, and rejects invalid listing/evidence time bounds. It never writes
+  SQLite; the existing capture planner and Sales service own matching and writes.
+  The user skill directory also links to this repository skill for discovery.
+  Use documented reporting checkpoints rather than `MAX(date_sold)` to establish
+  screenshot coverage. Keep imputed dates out of future training and preserve
+  the established complete August 22–September 12 baseline unless independently
+  verified daily observations justify extending it. Zero-sale exposure requires
+  a documented complete check; missing reports are not zero-sale days.
+- On October 10, Downloads screenshots `IMG_9539.png` and `IMG_9540.png` committed
+  44 existing equipment listings totaling 2,031,000 kamas. Following the user's
+  request and established interval convention, allocated October 6–10 as
+  8, 9, 10, 7, and 10 sales respectively. All dates use `manual_estimated_date`;
+  actual screenshot prices are preserved, and all historical cost snapshots are
+  known, though date-dependent costs/profits also depend on the estimated dates.
+  No price corrections or confirmed screenshot overlap; three unidentified
+  expirations and an unreadable clipped top fragment caused no changes. The ignored
+  audit is `data/reports/manual-screenshot-sales-2026-10-10.json`. Do not replay it.
+  An integrity-checked backup and isolated rehearsal preceded the atomic update.
+  Saved-state checks confirm only those 44 listings changed, no observations were
+  appended, original starts and unrelated tables were preserved, and counts are
+  776 sold/186 active. Existing manual changes since the October 5 note were retained.
 - The October 4 sales catch-up committed 124 matched equipment notifications
   from September 10 through October 4, totaling 8,293,900 kamas. The private audit is
   `data/reports/manual-screenshot-sales-2026-10-04.json`, with a readable review at
