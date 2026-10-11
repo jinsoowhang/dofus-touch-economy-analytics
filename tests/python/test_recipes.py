@@ -13,6 +13,7 @@ from dofus_touch_economy.models import (
     SourceRecord,
 )
 from dofus_touch_economy.schemas import PriceObservationCreate
+from dofus_touch_economy.services.catalog import CatalogService
 from dofus_touch_economy.services.pricing import PriceService
 from dofus_touch_economy.services.recipes import (
     RecipeCalculatorSelectionError,
@@ -625,31 +626,35 @@ def test_recipe_calculator_splits_shared_ingredients_by_craft_and_aggregates_slo
     assert result.total_crafts == 5
     assert len(result.ingredients) == 2
     assert [ingredient.crafted_item_display_name for ingredient in result.ingredients] == [
-        "Alpha Sword",
         "Beta Ring",
+        "Alpha Sword",
+    ]
+    assert [ingredient.profession for ingredient in result.ingredients] == [
+        "Jeweller",
+        "Sword Smith",
     ]
     assert [ingredient.crafted_item_uuid for ingredient in result.ingredients] == [
-        items["alpha"].uuid,
         items["beta"].uuid,
+        items["alpha"].uuid,
     ]
     assert [ingredient.crafted_item_icon_url for ingredient in result.ingredients] == [
-        f"/item-icons/{items['alpha'].uuid}.png",
         f"/item-icons/{items['beta'].uuid}.png",
+        f"/item-icons/{items['alpha'].uuid}.png",
     ]
     assert [ingredient.display_name for ingredient in result.ingredients] == [
         "Synthetic Wood",
         "Synthetic Wood",
     ]
     assert [ingredient.category for ingredient in result.ingredients] == ["Wood", "Wood"]
-    assert [ingredient.total_quantity for ingredient in result.ingredients] == [16, 120]
+    assert [ingredient.total_quantity for ingredient in result.ingredients] == [120, 16]
     assert [ingredient.all_crafts_total_quantity for ingredient in result.ingredients] == [
         136,
         136,
     ]
     assert [ingredient.unit_weight for ingredient in result.ingredients] == [2, 2]
-    assert [ingredient.total_weight for ingredient in result.ingredients] == [32, 240]
+    assert [ingredient.total_weight for ingredient in result.ingredients] == [240, 32]
     assert [ingredient.unit_price for ingredient in result.ingredients] == [10, 10]
-    assert [ingredient.total_cost for ingredient in result.ingredients] == [160, 1200]
+    assert [ingredient.total_cost for ingredient in result.ingredients] == [1200, 160]
     assert [ingredient.price_age_days for ingredient in result.ingredients] == [0, 0]
     assert [ingredient.price_status for ingredient in result.ingredients] == [
         "Current price",
@@ -699,7 +704,7 @@ def test_recipe_calculator_orders_selected_crafts_by_profession_category_and_nam
     ]
 
 
-def test_recipe_calculator_keeps_ingredients_in_source_order_within_each_craft(
+def test_recipe_calculator_orders_by_profession_craft_and_item_page_ingredient_order(
     session_factory,
 ) -> None:
     items = seed_recipe_catalog(session_factory)
@@ -708,6 +713,7 @@ def test_recipe_calculator_keeps_ingredients_in_source_order_within_each_craft(
             select(Recipe).join(Recipe.crafted_item).where(Item.uuid == items["alpha"].uuid)
         )
         assert recipe is not None
+        recipe.profession = "Tailor"
         ore = Item(
             display_name="Aardvark Ore",
             normalized_name="aardvark ore",
@@ -725,6 +731,21 @@ def test_recipe_calculator_keeps_ingredients_in_source_order_within_each_craft(
                 quantity=1,
             )
         )
+        gamma = session.scalar(
+            select(Recipe).join(Recipe.crafted_item).where(Item.uuid == items["gamma"].uuid)
+        )
+        assert gamma is not None
+        wood = session.scalar(select(Item).where(Item.uuid == items["ingredient"].uuid))
+        gamma.ingredients.extend(
+            RecipeIngredient(
+                position=position,
+                item=item,
+                raw_name=item.display_name,
+                normalized_name=item.normalized_name,
+                quantity=1,
+            )
+            for position, item in enumerate((ore, wood), 1)
+        )
         session.commit()
         PriceService(session, "Dodge").record(
             ore.uuid,
@@ -735,11 +756,28 @@ def test_recipe_calculator_keeps_ingredients_in_source_order_within_each_craft(
             ),
         )
 
-        result = RecipeCalculatorService(session, "Dodge").calculate({items["alpha"].uuid: 1})
+        result = RecipeCalculatorService(session, "Dodge").calculate(
+            {items[key].uuid: 1 for key in ("gamma", "alpha", "beta")}
+        )
+        catalog = CatalogService(session, "Dodge")
+        for key in ("alpha", "beta", "gamma"):
+            detail = catalog.detail(items[key].uuid)
+            expected = list(dict.fromkeys(row.display_name for row in detail.recipe.ingredients))
+            assert [
+                row.display_name
+                for row in result.ingredients
+                if row.crafted_item_uuid == items[key].uuid
+            ] == expected
 
-    assert [ingredient.display_name for ingredient in result.ingredients] == [
-        "Synthetic Wood",
-        "Aardvark Ore",
+    assert [
+        (row.profession, row.crafted_item_display_name, row.display_name)
+        for row in result.ingredients
+    ] == [
+        ("Jeweller", "Beta Ring", "Synthetic Wood"),
+        ("Tailor", "Alpha Sword", "Synthetic Wood"),
+        ("Tailor", "Alpha Sword", "Aardvark Ore"),
+        ("Tailor", "Gamma Hat", "Aardvark Ore"),
+        ("Tailor", "Gamma Hat", "Synthetic Wood"),
     ]
 
 

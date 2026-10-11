@@ -210,6 +210,7 @@ class RecipeCalculatorSelectedItem:
 
 @dataclass(frozen=True)
 class RecipeCalculatorIngredient:
+    profession: str
     crafted_item_uuid: UUID
     crafted_item_display_name: str
     crafted_item_icon_url: str | None
@@ -247,6 +248,7 @@ class RecipeCalculatorSelectionError(ValueError):
 
 @dataclass
 class _IngredientAccumulator:
+    profession: str
     crafted_item_uuid: UUID
     crafted_item_display_name: str
     crafted_item_icon_url: str | None
@@ -981,6 +983,7 @@ class RecipeCalculatorService:
                 existing = accumulated_ingredients.get(key)
                 if existing is None:
                     accumulated_ingredients[key] = _IngredientAccumulator(
+                        profession=recipe.profession,
                         crafted_item_uuid=recipe.crafted_item.uuid,
                         crafted_item_display_name=recipe.crafted_item.display_name,
                         crafted_item_icon_url=crafted_item_icon_url,
@@ -1001,6 +1004,7 @@ class RecipeCalculatorService:
 
         ingredients = tuple(
             RecipeCalculatorIngredient(
+                profession=ingredient.profession,
                 crafted_item_uuid=ingredient.crafted_item_uuid,
                 crafted_item_display_name=ingredient.crafted_item_display_name,
                 crafted_item_icon_url=ingredient.crafted_item_icon_url,
@@ -1028,6 +1032,7 @@ class RecipeCalculatorService:
             for ingredient in sorted(
                 accumulated_ingredients.values(),
                 key=lambda ingredient: (
+                    ingredient.profession.casefold(),
                     ingredient.crafted_item_display_name.casefold(),
                     ingredient.recipe_position,
                     ingredient.display_name.casefold(),

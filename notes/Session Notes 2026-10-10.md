@@ -82,3 +82,25 @@
   publication was performed.
 - Explained opening the Web UI: run `uv run dofus-web` from the project directory,
   keep the terminal open, and browse `http://127.0.0.1:8000`.
+
+## Ingredients to Buy ordering
+
+- The user requested Ingredients to Buy ordered by Profession, Craftable Item,
+  then each item's ingredient order from the item page.
+- Added profession to calculator ingredient rows and their accumulators, then
+  sorted by profession/name/source position. Added the sortable Profession column
+  before Craftable Item and Ingredient, with the primary ascending state exposed.
+  Existing source position, first-slot consolidation, shared ingredient quantities,
+  costs, weights, price updates, and selected-craft breakdown ordering are preserved.
+- Advanced transient shopping-list sort storage to v3 and versioned the calculator
+  script so old column indices do not restore an incorrect sort. Profession and
+  Craftable Item retain original-row tie-breaking after another column sort.
+- Regression coverage checks cross-profession ordering, name ordering within a
+  profession, and ingredient sequence against item detail, including consolidated
+  repeated slots. Recipe/static checks and real Chromium verification passed,
+  including stale v2 sort-state rejection and descending profession sort retention
+  after an ingredient-price update. Quantities, costs, weights, and price-update
+  behavior remain intact. No schema or dependency change was needed.
+- Before publication, exported the ingredient-only staged tree and verified it
+  independently: all 135 recipe/static/web tests passed against that tree's source,
+  without the later chart changes. The temporary export was removed.

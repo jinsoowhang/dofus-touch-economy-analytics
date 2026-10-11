@@ -142,7 +142,8 @@
           <table class="calculator-results-table calculator-shopping-list-table" data-sortable-table>
             <thead>
               <tr>
-                <th data-sort-type="text" data-sort-tie-order="initial" aria-sort="ascending">Craftable Item</th>
+                <th data-sort-type="text" data-sort-tie-order="initial" aria-sort="ascending">Profession</th>
+                <th data-sort-type="text" data-sort-tie-order="initial">Craftable Item</th>
                 <th data-sort-type="text">Ingredient</th>
                 <th data-sort-type="text">Category</th>
                 <th class="numeric" data-sort-type="number">Craft Total Quantity</th>
@@ -157,6 +158,7 @@
             <tbody>
               {% for ingredient in result.ingredients %}
                 <tr{% if ingredient.price_age_days is not none and ingredient.price_age_days >= 10 %} class="price-review-due"{% endif %}>
+                  <td>{{ ingredient.profession }}</td>
                   <td>
                     <a class="item-label" href="/items/{{ ingredient.crafted_item_uuid }}">
                       {% if ingredient.crafted_item_icon_url %}<img class="item-icon" src="{{ ingredient.crafted_item_icon_url }}" alt="" loading="lazy">{% endif %}
@@ -371,4 +373,4 @@
     </section>
   {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/recipe-calculator.js?v=20260906-thousands" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/recipe-calculator.js?v=20261010-profession-order" defer></script>{% endblock %}

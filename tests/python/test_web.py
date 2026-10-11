@@ -1798,7 +1798,8 @@ def test_recipe_calculator_selects_multiple_items_and_renders_shopping_list(
     assert "Unit Weight" not in response.text
     assert re.search(
         r'<th data-sort-type="text" data-sort-tie-order="initial" '
-        r'aria-sort="ascending">Craftable Item</th>\s*'
+        r'aria-sort="ascending">Profession</th>\s*'
+        r'<th data-sort-type="text" data-sort-tie-order="initial">Craftable Item</th>\s*'
         r'<th data-sort-type="text">Ingredient</th>',
         response.text,
     )
