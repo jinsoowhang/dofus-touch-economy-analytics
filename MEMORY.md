@@ -1,6 +1,6 @@
 # Memory
 
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 ## Dofus Touch Economy Analytics
 
@@ -56,6 +56,19 @@
   descending; it never inherits ingredient order from the previous column sort.
   Split rows for the same market ingredient use unique input identifiers while
   retaining the shared append-only price update.
+- In-game recipe display is authoritative for Combined Shopping List ingredient
+  order. The current Touch client's `RecipeBox.setupRecipe` appends slots in the
+  source `ingredientIds` order; it applies no separate ingredient sort. Those
+  arrays can change order even when ingredients, quantities, and professions do
+  not change. The October 5 refresh appended 3,292 order-only recipe versions from
+  user-cached production data; all 4,109 source-backed latest recipes now match the
+  game's order. Ancestral Ring starts Scratchy Wool, Purple Warko Hairs, Podgy Tofu
+  Leg, Tourmaline, Dragomilk, then Ancestral Treechnid Essence. The 68 legacy
+  recipes without a current source remain intact. No application sort change or
+  item-specific exception was needed. Original recipes/provenance, prices, and
+  Sales rows are unchanged. The ignored audit is
+  `data/reports/touch-recipe-order-refresh-2026-10-05.json`; it records the verified
+  backup, evidence hashes, appended version IDs, and saved-state checks.
 - Once at least two items are present in the Recipe Calculator craft cart, Suggested Similar Crafts recommends up to ten current recipes that are not already in the cart and share at least one exact ingredient. Matching uses canonical item identity for resolved ingredients and normalized source names for unresolved ingredients. Results rank by the percentage of the candidate recipe covered by the cart's combined ingredient set, then shared ingredient count and the number of cart recipes overlapped. Each compact row shows item, profession and level, shared-ingredient measures, current-listing count, completed-sale count, and Add. Recommendations refresh after cart additions, removals, and browser-local cart restoration, regardless of the rows' calculation-checkbox state.
 - The Selected craft breakdown sales form opts out of the shared two-column form grid so its instructions, full-width table, and Add Checked to Sales action remain vertically stacked. Its rows default to Profession ascending, then Category ascending, then craft name ascending, and the Profession header exposes that primary active sort state. Its Sell header checkbox selects or clears every craft listing checkbox and reflects partial row selection with an indeterminate state. Its table retains horizontal overflow only when the viewport is narrower than the table's content requirement.
 - Every Selected craft breakdown row shows the crafted item's catalog Category directly after Profession, with missing categories labeled Uncategorized, an editable 1-through-1,000 Quantity, and sortable Total Estimated Profit as Sale Price Each multiplied by Quantity minus Total Recipe Cost. Quantity edits synchronize the browser-local calculator cart and the primary selection input; row cost/profit plus the breakdown KPI strip update immediately. Recalculate Shopping List submits the synchronized primary calculator form so ingredient quantities, weights, and costs refresh consistently, while Enter in a valid Quantity triggers the same action. The KPI strip combines every displayed craft into Total Craft Quantity, Total Recipe Cost, Projected Sales, and Total Estimated Profit; Sale Price Each edits update projected sales and profit immediately, and any missing or invalid input needed for a total makes that KPI explicitly Incomplete. The initial row profit uses the whole current-price default, and a missing or invalid sale price or incomplete recipe cost remains an explicit em dash.
@@ -207,6 +220,16 @@
   An integrity-checked online backup preceded the atomic update. Table-level checks
   confirmed exactly the planned changes; live SQLite has 707 sold and 205 active
   listings, with all existing price observations and unrelated tables preserved.
+- On October 5, `IMG_9529.png` from Downloads committed 11 exact active equipment
+  sales totaling 734,000 kamas at its 19:23:44 Pacific save time. Royal Indigo
+  Amublop was corrected from 69,000 to 68,000 through one append-only observation;
+  all 11 historical recipe costs were captured. Five unidentified expiration
+  notices left active listings unchanged. The ignored audit is
+  `data/reports/manual-screenshot-sales-2026-10-05.json`; consult its evidence hash
+  before replay. An integrity-checked online backup preceded the atomic update.
+  Saved-state verification confirmed only the planned listing changes and appended
+  observation, with existing observations and unrelated tables unchanged. Live
+  counts after this batch are 728 sold and 211 active listings.
 - The 2026-09-09 Downloads reconciliation recorded 51 exact-price active listings:
   23 for September 8 and 28 for September 9. Filename dates override file save
   dates; prior-day sales use 23:59:59 Pacific and same-day sales use screenshot
