@@ -11,6 +11,11 @@
 - On October 4, the user considered making dbt outputs power the website reports
   but declined because immediate metric freshness is required. Keep Dashboard and
   operational reports on SQLite services; dbt remains the separate analytics path.
+- The October 10 GitHub publication groups the prior session record, catch-up
+  skill, ingredient ordering, and Sales chart updates into four atomic commits.
+  The final full check passes 450 Python tests and all 126 dbt build/test nodes.
+  Publication targets `origin/main`; operational files stay ignored. The local
+  confirmation report is `data/reports/github-publication-2026-10-10/push-result.json`.
 - Local stack: Python 3.12, uv, FastAPI, Jinja, vendored HTMX, SQLAlchemy, Alembic, SQLite, dbt Core, dbt-duckdb, and DuckDB.
 - Implemented application: a loopback-only FastAPI/Jinja/vendored-HTMX website with versioned JSON endpoints. SQLite owns operational state while DuckDB and dbt remain the downstream analytical layer.
 - Application prices are append-only observations with audit-preserving invalidation. Item Search records total price with implicit quantity one; each new `item_cost.csv` checksum now seeds idempotent, lot-one current-price observations, using the last file occurrence for duplicate identities without creating Sales listings.
@@ -179,6 +184,18 @@
   controls, four-line chart, and daily table expose the same measures. Listed, All
   Sales, All Cost, and All Profit begin visible; each control hides its matching line
   and points immediately, while the final visible series cannot be unchecked.
+- Sales Over Time defaults to the last seven Pacific calendar days including
+  today. Its URL-backed `chart_range` choices are 7, 14, 30, 60, 90, and historical.
+  The selected period filters the chart, Total summary, and Daily Totals; finite
+  windows include every calendar date in the range and exclude future dates.
+  Historical retains the full recorded activity history. Range links preserve
+  table filters/sorting/pages, and filtering, clearing filters, sorting, pagination,
+  and sale mutations retain the chosen range. Empty periods keep the range choices
+  visible. Today cards retain their existing current-day/inventory definitions.
+- The Listed chart line breaks across days without priced listing activity,
+  including historical calendar gaps with no daily record. Consecutive listing
+  days connect; isolated days keep only their point. Totals and the other series'
+  existing connection rules are preserved.
 - Sales Over Time summary cards use exactly two four-column rows: Total Listed,
   Total Sales, Total Cost, and Total Profit above Listed Today, Sold Today, Cost
   Today, and Profit Today. The user explicitly requested the lower Listed metric
@@ -190,6 +207,16 @@
   missing cost/profit indicators. Small screens scroll each four-card row
   horizontally instead of stacking. The scoped grid rule overrides the shared
   mobile metric layout; the stylesheet URL is versioned to refresh cached styles.
+- Sales Over Time points show an immediate tooltip on pointer hover, keyboard
+  focus, or tap, containing series, date, amount in kamas, and included
+  item count. Date, the selected series amount, and Count occupy separate tooltip
+  rows; Cost/Profit also have a known-cost Coverage row. Points expose
+  accessible labels and focus outlines; pointer exit, blur, Escape, and series
+  toggles dismiss the tooltip. Its fixed, theme-aware placement stays within the
+  viewport, including narrow screens. Native SVG titles remain as a fallback.
+- Sales page labels, notes, chart axis, and tooltips omit Pacific Time wording at
+  the user's request. Underlying date grouping and period boundaries continue to
+  use `America/Los_Angeles`.
 - Correct accidental duplicate active listings by backing up the operational
   database and deleting only the duplicate active rows. Do not mark data-entry
   duplicates as sold because that would corrupt sales history and analytics.

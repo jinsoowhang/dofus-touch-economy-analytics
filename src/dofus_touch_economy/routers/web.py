@@ -1,5 +1,5 @@
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from math import ceil, floor, log10
 from pathlib import Path
@@ -92,6 +92,9 @@ templates.env.filters["price_thousands"] = price_thousands
 templates.env.filters["default_recipe_calculator_quantity"] = default_recipe_calculator_quantity
 
 
+SalesChartRange = Literal["7", "14", "30", "60", "90", "historical"]
+
+
 @dataclass(frozen=True)
 class SalesSortState:
     active_sort: SaleSortField = "started"
@@ -100,6 +103,7 @@ class SalesSortState:
     sold_direction: SaleSortDirection = "desc"
     active_page: int = 1
     sold_page: int = 1
+    chart_range: SalesChartRange = "7"
 
     def parameters(self) -> dict[str, str]:
         parameters = {
@@ -112,6 +116,8 @@ class SalesSortState:
             parameters["active_page"] = str(self.active_page)
         if self.sold_page > 1:
             parameters["sold_page"] = str(self.sold_page)
+        if self.chart_range != "7":
+            parameters["chart_range"] = self.chart_range
         return parameters
 
 
@@ -253,9 +259,16 @@ def _sales_sort_state(
     sold_direction: Annotated[SaleSortDirection, Query()] = "desc",
     active_page: Annotated[int, Query(ge=1)] = 1,
     sold_page: Annotated[int, Query(ge=1)] = 1,
+    chart_range: Annotated[SalesChartRange, Query()] = "7",
 ) -> SalesSortState:
     return SalesSortState(
-        active_sort, active_direction, sold_sort, sold_direction, active_page, sold_page
+        active_sort,
+        active_direction,
+        sold_sort,
+        sold_direction,
+        active_page,
+        sold_page,
+        chart_range,
     )
 
 
@@ -622,7 +635,11 @@ def _sales_context(
     sales_parameters = {**sort_state.parameters(), **filter_parameters}
     sort_link_parameters = {
         **filter_parameters,
-        **{key: value for key, value in sort_state.parameters().items() if key.endswith("_page")},
+        **{
+            key: value
+            for key, value in sort_state.parameters().items()
+            if key.endswith("_page") or key == "chart_range"
+        },
     }
     filter_item_value = filter_state.item_query
     if filter_state.item_uuid is not None:
@@ -671,6 +688,22 @@ def _sales_context(
             sort_link_parameters,
         ),
         "sales_sort_query": urlencode(sales_parameters),
+        "sales_clear_filters_url": (
+            "/sales"
+            if sort_state.chart_range == "7"
+            else f"/sales?{urlencode({'chart_range': sort_state.chart_range})}"
+        ),
+        "sales_chart_ranges": [
+            {
+                "label": "Historical" if period == "historical" else f"Last {period} days",
+                "selected": period == sort_state.chart_range,
+                "url": (
+                    f"/sales?{urlencode({**sales_parameters, 'chart_range': period})}"
+                    "#sales-over-time"
+                ),
+            }
+            for period in ("7", "14", "30", "60", "90", "historical")
+        ],
         "sort_state": sort_state,
         "filter_state": filter_state,
         "filter_item_value": filter_item_value,
@@ -678,7 +711,9 @@ def _sales_context(
         "show_active": show_active,
         "show_sold": show_sold,
         "sales_chart": _sales_chart(
-            daily_totals, current_listed_price=service.active_total_price()
+            daily_totals,
+            current_listed_price=service.active_total_price(),
+            days=None if sort_state.chart_range == "historical" else int(sort_state.chart_range),
         ),
         "notification": notification,
         "errors": [*filter_state.errors(), *(errors or [])],
@@ -731,8 +766,37 @@ def _sales_redirect_url(
 
 
 def _sales_chart(
-    daily_totals: list[DailySalesTotal], *, current_listed_price: int
+    daily_totals: list[DailySalesTotal], *, current_listed_price: int, days: int | None = 7
 ) -> dict[str, object] | None:
+    current_date = datetime.now(PACIFIC_TIME).date()
+    if days is not None:
+        start = current_date - timedelta(days=days - 1)
+        totals_by_date = {
+            total.activity_on: total
+            for total in daily_totals
+            if start <= total.activity_on <= current_date
+        }
+        if not totals_by_date:
+            return None
+        daily_totals = [
+            totals_by_date.get(day)
+            or DailySalesTotal(
+                activity_on=day,
+                total_listed_price=0,
+                total_price=0,
+                cost_covered_price=None,
+                total_cost=Decimal(0),
+                total_profit=Decimal(0),
+                listed_count=0,
+                listed_priced_count=0,
+                sold_count=0,
+                priced_count=0,
+                costed_count=0,
+                profit_count=0,
+            )
+            for offset in range(days)
+            for day in (start + timedelta(days=offset),)
+        ]
     if not daily_totals:
         return None
     width = 900
@@ -787,14 +851,22 @@ def _sales_chart(
         points: list[dict[str, object]] = []
         segments: list[str] = []
         current_segment: list[str] = []
+        previous_date: date | None = None
         for base_point in base_points:
             daily_total = base_point["daily_total"]
             value = getattr(daily_total, attribute)
             item_count = getattr(daily_total, count_attribute)
+            listed_gap = key == "listed" and (
+                not item_count
+                or (
+                    previous_date is not None
+                    and daily_total.activity_on > previous_date + timedelta(days=1)
+                )
+            )
+            if current_segment and (value is None or listed_gap):
+                segments.append(" ".join(current_segment))
+                current_segment = []
             if value is None:
-                if current_segment:
-                    segments.append(" ".join(current_segment))
-                    current_segment = []
                 continue
             if not item_count:
                 continue
@@ -811,6 +883,7 @@ def _sales_chart(
             }
             points.append(point)
             current_segment.append(f"{point['x']},{point['y']}")
+            previous_date = daily_total.activity_on
         if current_segment:
             segments.append(" ".join(current_segment))
         series.append(
@@ -836,7 +909,6 @@ def _sales_chart(
     listed_priced_count = sum(point.listed_priced_count for point in daily_totals)
     costed_count = sum(point.costed_count for point in daily_totals)
     profit_count = sum(point.profit_count for point in daily_totals)
-    current_date = datetime.now(PACIFIC_TIME).date()
     current = next((point for point in daily_totals if point.activity_on == current_date), None)
     return {
         "width": width,
@@ -880,6 +952,8 @@ def _sales_chart(
             else f"{current.total_profit:,}"
         ),
         "daily_totals": daily_totals,
+        "start_date": daily_totals[0].activity_on.isoformat(),
+        "end_date": daily_totals[-1].activity_on.isoformat(),
     }
 
 

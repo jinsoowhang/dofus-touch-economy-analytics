@@ -26,6 +26,7 @@
       <input type="hidden" name="active_direction" value="{{ sort_state.active_direction }}">
       <input type="hidden" name="sold_sort" value="{{ sort_state.sold_sort }}">
       <input type="hidden" name="sold_direction" value="{{ sort_state.sold_direction }}">
+      <input type="hidden" name="chart_range" value="{{ sort_state.chart_range }}">
       <label>
         Item name
         <input name="item_query" value="{{ filter_item_value }}" placeholder="Contains…">
@@ -72,11 +73,11 @@
         <input name="date_to" type="date" value="{{ filter_state.date_to.isoformat() if filter_state.date_to else '' }}" aria-describedby="sales-date-filter-help">
       </label>
       <p id="sales-date-filter-help" class="filter-help">
-        Pacific date: Selling Since for active rows and Date Sold for sold rows.
+        Selling Since for active rows and Date Sold for sold rows.
       </p>
       <div class="filter-actions">
         <button type="submit">Apply filters</button>
-        <a href="/sales">Clear filters</a>
+        <a href="{{ sales_clear_filters_url }}">Clear filters</a>
       </div>
     </form>
   </details>
@@ -392,14 +393,19 @@
   </details>
   {% endif %}
 
-  <details class="collapsible-section" open>
+  <details id="sales-over-time" class="collapsible-section" open>
     <summary>
       <span class="section-summary">
         <h2>Sales Over Time</h2>
-        <span>Pacific Time</span>
       </span>
     </summary>
+    <nav class="dashboard-periods" aria-label="Sales Over Time period">
+      {% for period in sales_chart_ranges %}
+        <a href="{{ period.url }}"{% if period.selected %} aria-current="page"{% endif %}>{{ period.label }}</a>
+      {% endfor %}
+    </nav>
     {% if sales_chart %}
+      <p class="chart-note">Showing {{ sales_chart.start_date }} through {{ sales_chart.end_date }}. Totals below cover this period.</p>
       <div class="sales-metrics sales-metrics--four" aria-label="Total sales summary">
         <div><span>Total Listed</span><strong>{{ sales_chart.total_listed_price_label }}</strong></div>
         <div><span>Total Sales</span><strong>{{ sales_chart.total_price_label }}</strong></div>
@@ -408,7 +414,7 @@
       </div>
       <p class="chart-note">
         Listed Today totals all active asking prices. Sold Today, Cost Today, and Profit Today
-        show today, {{ sales_chart.current_date }} (Pacific Time).
+        show today, {{ sales_chart.current_date }}.
       </p>
       <div class="sales-metrics sales-metrics--four" aria-label="Current sales summary">
         <div><span>Listed Today</span><strong>{{ sales_chart.current_listed_price_label }}</strong></div>
@@ -431,7 +437,7 @@
         {% endfor %}
       </div>
       <p class="chart-note">
-        Listed sums recorded Sales Prices by the Pacific date each listing started.
+        Listed sums recorded Sales Prices by the date each listing started.
         The other lines use completed Sales by date sold. All Cost and All Profit
         include completed Sales with a known Cost at Sale; missing costs remain excluded.
       </p>
@@ -439,12 +445,12 @@
         <svg
           class="sales-chart"
           viewBox="0 0 {{ sales_chart.width }} {{ sales_chart.height }}"
-          role="img"
+          role="group"
           aria-labelledby="sales-chart-title sales-chart-description"
         >
           <title id="sales-chart-title">Daily listed value, all sales, all cost, and all profit by activity date</title>
           <desc id="sales-chart-description">
-            A four-line chart of listed prices by date listed plus completed-sale prices, known costs at sale, and known profits by date sold on each Pacific calendar date.
+            A four-line chart of listed prices by date listed plus completed-sale prices, known costs at sale, and known profits by date sold on each calendar date.
           </desc>
           {% for tick in sales_chart.y_ticks %}
             <line
@@ -470,7 +476,19 @@
               <polyline class="chart-series chart-series--{{ series.key }}" points="{{ segment }}"></polyline>
             {% endfor %}
             {% for point in series.points %}
-              <circle class="chart-point chart-point--{{ series.key }}" cx="{{ point.x }}" cy="{{ point.y }}" r="5">
+              {% set description = series.label ~ ' on ' ~ point.date ~ ': ' ~ point.value_label ~ ' kamas across ' ~ point.item_count ~ (' item' if point.item_count == 1 else ' items') ~ (' with known cost at sale' if series.key in ('cost', 'profit') else '') %}
+              <circle
+                class="chart-point chart-point--{{ series.key }}"
+                cx="{{ point.x }}" cy="{{ point.y }}" r="5"
+                tabindex="0" role="img"
+                aria-label="{{ description }}"
+                data-chart-description="{{ description }}"
+                data-chart-date="{{ point.date }}"
+                data-chart-label="{{ series.label }}"
+                data-chart-value="{{ point.value_label }} kamas"
+                data-chart-count="{{ point.item_count }} {{ 'item' if point.item_count == 1 else 'items' }}"
+                data-chart-known-cost="{{ 'true' if series.key in ('cost', 'profit') else 'false' }}"
+              >
                 <title>
                   {{ series.label }} on {{ point.date }}: {{ point.value_label }} across {{ point.item_count }} {{ "item" if point.item_count == 1 else "items" }}
                 </title>
@@ -483,7 +501,7 @@
             </text>
           {% endfor %}
           <text class="chart-axis-title" x="{{ (sales_chart.left + sales_chart.right_x) / 2 }}" y="{{ sales_chart.height - 6 }}" text-anchor="middle">
-            Date (Pacific Time)
+            Date
           </text>
           <text
             class="chart-axis-title"
@@ -493,6 +511,14 @@
             transform="rotate(-90 16 {{ (sales_chart.top + sales_chart.bottom_y) / 2 }})"
           >Amount</text>
         </svg>
+      </div>
+      <div id="sales-chart-tooltip" class="sales-chart-tooltip" role="tooltip" hidden>
+        <dl>
+          <div><dt>Date</dt><dd data-tooltip-date></dd></div>
+          <div><dt data-tooltip-label></dt><dd data-tooltip-value></dd></div>
+          <div><dt>Count</dt><dd data-tooltip-count></dd></div>
+          <div data-tooltip-coverage hidden><dt>Coverage</dt><dd>Known cost at sale</dd></div>
+        </dl>
       </div>
       <details class="sales-data-details">
         <summary>View Daily Totals</summary>
@@ -520,7 +546,7 @@
         </table>
       </details>
     {% else %}
-      <p>Add a listing or mark an item as sold to start the daily sales chart.</p>
+      <p>No listing or sales activity in this period. Choose a longer range or Historical to see earlier activity.</p>
     {% endif %}
   </details>
   <dialog id="same-item-price-dialog" class="price-confirm-dialog" aria-labelledby="same-item-price-prompt">
@@ -531,4 +557,4 @@
     </form>
   </dialog>
 {% endblock %}
-{% block scripts %}<script src="/static/sales.js?v=20261004-same-item-price" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/sales.js?v=20261010-chart-gaps-rows" defer></script>{% endblock %}

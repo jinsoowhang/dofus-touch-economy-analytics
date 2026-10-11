@@ -1281,13 +1281,54 @@ th.numeric .client-sort-header {
 }
 
 .chart-point {
+  cursor: crosshair;
   fill: var(--surface);
   stroke-width: 4;
+}
+
+.chart-point:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.sales-chart-tooltip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  box-shadow: 0 0.4rem 1.2rem rgb(0 0 0 / 18%);
+  color: var(--text);
+  font-size: 0.9rem;
+  max-width: min(24rem, calc(100vw - 16px));
+  padding: 0.6rem 0.8rem;
+  pointer-events: none;
+  position: fixed;
+  width: max-content;
+  z-index: 50;
 }
 
 .chart-series.is-hidden,
 .chart-point.is-hidden {
   display: none;
+}
+
+.sales-chart-tooltip dl {
+  margin: 0;
+}
+
+.sales-chart-tooltip dl > div:not([hidden]) {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: space-between;
+  padding-block: 0.15rem;
+}
+
+.sales-chart-tooltip dt {
+  font-weight: 700;
+}
+
+.sales-chart-tooltip dd {
+  margin: 0;
+  text-align: right;
 }
 
 .chart-series--sales,

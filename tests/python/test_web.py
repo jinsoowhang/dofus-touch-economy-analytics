@@ -193,7 +193,7 @@ def test_sales_category_filter_and_local_script(
     assert 'value="ring"' in response.text
     assert 'value="hat"' in response.text
     assert (
-        '<script src="/static/sales.js?v=20261004-same-item-price" defer></script>' in response.text
+        '<script src="/static/sales.js?v=20261010-chart-gaps-rows" defer></script>' in response.text
     )
     assert script.status_code == 200
     assert 'input.addEventListener("blur", savePrice)' in script.text
@@ -912,7 +912,7 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
         )
         session.commit()
 
-    response = client.get("/sales")
+    response = client.get("/sales", params={"chart_range": "historical"})
 
     assert response.status_code == 200
     assert 'datetime="2026-08-21T19:00:00-07:00"' in response.text
@@ -923,14 +923,14 @@ def test_sales_dates_and_daily_chart_use_pacific_time(
     assert (
         "Daily listed value, all sales, all cost, and all profit by activity date" in response.text
     )
-    assert "Date (Pacific Time)" in response.text
+    assert "Pacific" not in response.text
     assert "<span>Total Listed</span><strong>300</strong>" in response.text
     assert "<span>Total Sales</span><strong>300</strong>" in response.text
     assert "<span>Total Cost</span><strong>—</strong>" in response.text
     assert "<span>Total Profit</span><strong>—</strong>" in response.text
     assert "<span>Listed Today</span><strong>0</strong>" in response.text
 
-    filtered = client.get("/sales", params={"status": "active"})
+    filtered = client.get("/sales", params={"status": "active", "chart_range": "historical"})
 
     assert filtered.status_code == 200
     assert "All Sales on 2026-08-21: 100 across 1 item" in filtered.text
@@ -979,10 +979,10 @@ def test_sales_current_summary_uses_active_inventory_and_todays_pacific_sales(
         {"status": "active", "date_to": "2026-09-04"},
         {"status": "sold", "min_price": "200"},
     ):
-        response = client.get("/sales", params=params)
+        response = client.get("/sales", params={**params, "chart_range": "historical"})
         assert response.status_code == 200
         assert "Listed Today totals all active asking prices." in response.text
-        assert f"show today, {current_date} (Pacific Time)." in response.text
+        assert f"show today, {current_date}." in response.text
         assert response.text.index('aria-label="Total sales summary"') < response.text.index(
             'aria-label="Current sales summary"'
         )
@@ -1045,7 +1045,7 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
 
     response = client.get(
         "/sales",
-        params={"active_sort": "profit", "active_direction": "desc"},
+        params={"active_sort": "profit", "active_direction": "desc", "chart_range": "historical"},
     )
 
     assert response.status_code == 200
@@ -1074,6 +1074,23 @@ def test_sales_show_recipe_cost_profit_and_four_chart_series(
     assert "All Cost on 2026-08-23: 3,500 across 1 item" in response.text
     assert "All Profit on 2026-08-23: 1,000 across 1 item" in response.text
     assert "All Profit on 2026-08-24: -500 across 1 item" in response.text
+    assert (
+        'data-chart-description="All Profit on 2026-08-24: '
+        '-500 kamas across 1 item with known cost at sale"' in response.text
+    )
+    assert (
+        'data-chart-description="All Sales on 2026-08-23: '
+        '4,500 kamas across 1 item"' in response.text
+    )
+    assert 'tabindex="0" role="img"' in response.text
+    assert 'data-chart-label="All Sales"' in response.text
+    assert 'data-chart-value="4,500 kamas"' in response.text
+    assert 'data-chart-count="1 item"' in response.text
+    assert "<div><dt>Count</dt><dd data-tooltip-count></dd></div>" in response.text
+    assert (
+        'id="sales-chart-tooltip" class="sales-chart-tooltip" '
+        'role="tooltip" hidden' in response.text
+    )
     assert "<span>Total Listed</span><strong>16,500</strong>" in response.text
     assert "<span>Total Sales</span><strong>7,500</strong>" in response.text
     assert "<span>Total Cost</span><strong>7,000</strong>" in response.text

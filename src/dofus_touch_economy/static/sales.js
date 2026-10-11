@@ -52,12 +52,69 @@ const removeCompletedRecipeCalculatorSales = () => {
 
 removeCompletedRecipeCalculatorSales();
 
+const salesChartTooltip = document.querySelector("#sales-chart-tooltip");
+let activeSalesChartPoint = null;
+
+const hideSalesChartTooltip = () => {
+  if (salesChartTooltip) {
+    salesChartTooltip.hidden = true;
+  }
+  activeSalesChartPoint?.removeAttribute("aria-describedby");
+  activeSalesChartPoint = null;
+};
+
+if (salesChartTooltip) {
+  const positionTooltip = (x, y) => {
+    const width = salesChartTooltip.offsetWidth;
+    const height = salesChartTooltip.offsetHeight;
+    const left = Math.max(8, Math.min(x + 12, window.innerWidth - width - 8));
+    const top = Math.max(8, y + height + 24 > window.innerHeight ? y - height - 12 : y + 12);
+    salesChartTooltip.style.left = `${left}px`;
+    salesChartTooltip.style.top = `${top}px`;
+  };
+  for (const point of document.querySelectorAll(".sales-chart [data-chart-description]")) {
+    const showTooltip = (event) => {
+      if (point.classList.contains("is-hidden")) {
+        return;
+      }
+      activeSalesChartPoint?.removeAttribute("aria-describedby");
+      activeSalesChartPoint = point;
+      salesChartTooltip.querySelector("[data-tooltip-date]").textContent = point.dataset.chartDate;
+      salesChartTooltip.querySelector("[data-tooltip-label]").textContent = point.dataset.chartLabel;
+      salesChartTooltip.querySelector("[data-tooltip-value]").textContent = point.dataset.chartValue;
+      salesChartTooltip.querySelector("[data-tooltip-count]").textContent = point.dataset.chartCount;
+      salesChartTooltip.querySelector("[data-tooltip-coverage]").hidden =
+        point.dataset.chartKnownCost !== "true";
+      salesChartTooltip.hidden = false;
+      point.setAttribute("aria-describedby", salesChartTooltip.id);
+      const bounds = point.getBoundingClientRect();
+      positionTooltip(event.clientX ?? bounds.right, event.clientY ?? bounds.top);
+    };
+    point.addEventListener("pointerenter", showTooltip);
+    point.addEventListener("pointermove", showTooltip);
+    point.addEventListener("focus", showTooltip);
+    point.addEventListener("click", showTooltip);
+    point.addEventListener("pointerleave", () => {
+      if (document.activeElement !== point) {
+        hideSalesChartTooltip();
+      }
+    });
+    point.addEventListener("blur", hideSalesChartTooltip);
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      hideSalesChartTooltip();
+    }
+  });
+}
+
 const chartSeriesToggles = Array.from(
   document.querySelectorAll(".chart-series-toggle"),
 );
 
 if (chartSeriesToggles.length > 0) {
   const updateChartSeriesVisibility = () => {
+    hideSalesChartTooltip();
     const checkedToggles = chartSeriesToggles.filter((toggle) => toggle.checked);
     for (const toggle of chartSeriesToggles) {
       const seriesKey = toggle.dataset.chartSeries;
